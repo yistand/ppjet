@@ -1,0 +1,343 @@
+//====================================================================================================
+//
+//	2015.09.22	Li Yi
+//	modified from Kolja Kauder's Aj analysis to study underlying event activity dependence on jet
+//	energy in pp 200 GeV
+//
+//====================================================================================================
+
+/** 
+    @author Kolja Kauder
+    @version Revision 0.1
+    @brief Class for A<SUB>J</SUB> analysis
+    @details Uses JetAnalyzer objects to perform A<SUB>J</SUB> analysis.
+    @date Mar 02, 2015
+*/
+
+#ifndef __UNDERLYINGANA_HH
+#define __UNDERLYINGANA_HH
+
+#include "AjParameters.hh"
+#include "JetAnalyzer.hh"
+//#include "ktTrackEff.hh"
+
+#include "TH1.h"
+#include "TH2.h"
+#include "TH3.h"
+#include "TProfile.h"
+#include "TString.h"
+#include "TChain.h"
+#include "TFile.h"
+#include "TTree.h"
+
+
+// Not needed for analysis per se
+#include "TStarJetPicoReader.h"
+#include "TStarJetPicoEvent.h"
+#include "TStarJetPicoEventHeader.h"
+#include "TStarJetPicoEventCuts.h"
+
+#include "TStarJetPicoPrimaryTrack.h"
+#include "TStarJetPicoTrackCuts.h"
+#include "TStarJetPicoTowerCuts.h"
+
+#include "TStarJetVectorContainer.h"
+#include "TStarJetVector.h"
+#include "TStarJetPicoTriggerInfo.h"
+#include "TStarJetPicoUtils.h"
+
+#include <assert.h>
+#include <iostream>
+#include <cmath>
+
+#define MAXARRAYLENGTH  5000
+
+/**
+   The main class
+ */
+class UnderlyingAna {
+private :
+
+  // count nEventProcessed;
+  int nEventProcessed;
+
+  // Match to trigger or not
+  bool mNeedToMatchTrig;
+
+  // Use Dijet angle (1) or Monojet angle (0)
+  int mUseDijetAngle;
+
+  // For output 
+  TFile *fout;
+  TString OutFileName;
+  // Tree and its variables
+  TTree* ResultTree;
+
+  // event header
+  int eventid;
+  int runid;
+  double refmult; 
+
+
+  // Jet-finding from fastjet
+  TLorentzVector j1, j2; 	// leading & subleading
+  float j1pt, j2pt;
+  float j1phi, j2phi;
+  float j1eta, j2eta;
+  float j1area,j2area;
+  float rho, rhoerr;
+
+  // underlying event info
+  float mLeadAreaPt;
+  float mSubAreaPt;
+  float mTranMaxPt;
+  float mTranMinPt;
+  float mTranPt;
+
+  int mLeadAreaNtrk;
+  int mSubAreaNtrk;
+  int mTranMaxNtrk;
+  int mTranMinNtrk;
+  int mTranNtrk;
+
+  float TrkTranMaxdEdx[MAXARRAYLENGTH];		// for track in tranmax
+  float TrkTranMaxTofbeta[MAXARRAYLENGTH];  	// for track in tranmax
+  float TrkTranMaxPt[MAXARRAYLENGTH];		// for track in tranmax
+  float TrkTranMindEdx[MAXARRAYLENGTH];		// for track in tranmin
+  float TrkTranMinTofbeta[MAXARRAYLENGTH];  	// for track in tranmin
+  float TrkTranMinPt[MAXARRAYLENGTH];		// for track in tranmin
+  float TrkLeadAreadEdx[MAXARRAYLENGTH];		// for track in lead 
+  float TrkLeadAreaTofbeta[MAXARRAYLENGTH];  		// for track in lead
+  float TrkLeadAreaPt[MAXARRAYLENGTH];			// for track in lead
+  float TrkSubAreadEdx[MAXARRAYLENGTH];		// for track in sublead
+  float TrkSubAreaTofbeta[MAXARRAYLENGTH];  	// for track in sublead
+  float TrkSubAreaPt[MAXARRAYLENGTH];		// for track in sublead
+ 
+  // Histograms
+  TH1D* LeadJetPt;
+  TH1D* SubJetPt;
+  
+  TProfile* LeadJetNtrkvsLeadJetPt;
+  TProfile* SubJetNtrkvsLeadJetPt;
+  TProfile* TranMaxNtrkvsLeadJetPt;
+  TProfile* TranMinNtrkvsLeadJetPt;
+  TProfile* TranNtrkvsLeadJetPt;
+  
+  TProfile* LeadJetPtvsLeadJetPt;
+  TProfile* SubJetPtvsLeadJetPt;
+  TProfile* TranMaxPtvsLeadJetPt;
+  TProfile* TranMinPtvsLeadJetPt;
+  TProfile* TranPtvsLeadJetPt;
+  
+  TH2D* Spectrum_LeadJetPtvsLeadJetPt;
+  TH2D* Spectrum_SubJetPtvsLeadJetPt;
+  TH2D* Spectrum_TranMaxPtvsLeadJetPt;
+  TH2D* Spectrum_TranMinPtvsLeadJetPt;
+  TH2D* Spectrum_TranPtvsLeadJetPt;
+
+
+  // efficiency  
+  //ktTrackEff* tEff;
+
+
+  // for jet finding
+  double R;              ///< Resolution parameter ("jet radius")
+  double max_rap;        ///< jet rapidity acceptance
+  double ghost_maxrap;   ///< for ghosted area, should be >= max_rap + 2*R
+
+  double max_track_rap;  ///< constituent rapidity cut
+
+  double dPhiCut;        ///< opening angle for dijet requirement. Accept only  |&phi;1 - &phi;2 - &pi;| < &Delta;&phi;.
+
+  fastjet::JetDefinition jet_def;       ///< jet definition
+  fastjet::JetDefinition other_jet_def; ///< jet definition with a different radius
+
+  fastjet::Selector select_track_rap;   ///< constituent rapidity selector
+
+  fastjet::Selector sconst;                ///< compound selector for  constituents
+
+// Relevant jet candidates
+  fastjet::Selector select_jet_rap;        ///< jet rapidity selector
+  fastjet::Selector select_jet_pt_min;     ///< jet p<SUB>T</SUB> selector
+  fastjet::Selector select_jet_pt_max;     ///< jet p<SUB>T</SUB> selector
+  fastjet::Selector sjet;                  ///< compound jet selector
+
+  fastjet::GhostedAreaSpec area_spec;      ///< ghosted area specification
+  fastjet::AreaDefinition area_def;        ///< jet area definition
+
+  JetAnalyzer* pJA;                      ///< JetAnalyzer object
+  
+  std::vector<fastjet::PseudoJet> Jconstituents;     ///< constituents
+
+  std::vector<fastjet::PseudoJet> JAResult;  ///< Unaltered clustering result 
+  
+
+  std::vector<fastjet::PseudoJet> DiJets;    ///< Dijet result 
+  
+public:
+
+  /** Standard constructor. Set up analysis parameters.
+      \param R: jet resolution parameter (radius)
+      \param jet_ptmin: minimum jet p<SUB>T</SUB>
+      \param jet_ptmax: maximum jet p<SUB>T</SUB>
+      \param LeadPtMin: leading jet minimum p<SUB>T</SUB>
+      \param SubLeadPtMin: subleading jet minimum p<SUB>T</SUB>
+      \param max_track_rap: constituent rapidity cut
+      \param PtConsLo: constituent minimum p<SUB>T</SUB>
+      \param PtConsHi: constituent maximum p<SUB>T</SUB>
+      \param dPhiCut: opening angle for dijet requirement. Accept only  |&phi;1 - &phi;2 - &pi;| < dPhiCut.
+   */
+  UnderlyingAna ( double R = 0.4,
+	       //double jet_ptmin = 10.0, double jet_ptmax = 100.0,
+	       //double LeadPtMin = 20.0, double SubLeadPtMin = 10, 
+	       double max_track_rap = 1.0, //double PtConsLo=0.2, double PtConsHi=2.0,
+	       double dPhiCut = 0.4,
+		TString name = "underlyingoutput.root"
+	       );
+
+  ~UnderlyingAna();
+
+  int Init ();
+  
+  /** Main analysis routine.
+      \param particles: Current event
+      \param ToMatch: Optionally enforce matching of at least one of the dijets to a trigger
+      \param EventClassifier: Used to separate between events, e.g. by RefmultBin
+      \param UnmatchedAJ_hi: Dijet imbalance &Delta;p<SUB>T</SUB> / &Sigma;p<SUB>T</SUB> for all jets with high p<SUB>T</SUB> constituents.
+      \param AJ_hi: Dijet imbalance &Delta;p<SUB>T</SUB> / &Sigma;p<SUB>T</SUB> for matched jets with high p<SUB>T</SUB> constituents.
+      \param AJ_lo: Dijet imbalance &Delta;p<SUB>T</SUB> / &Sigma;p<SUB>T</SUB> for matched jets with low p<SUB>T</SUB> constituents.
+      \param UnmatchedhPtHi: p<SUB>T</SUB><SUP>sub</SUP> vs. p<SUB>T</SUB><SUP>lead</SUP> spectrum for all jets with high p<SUB>T</SUB> constituents.
+      \param hPtHi: p<SUB>T</SUB><SUP>sub</SUP> vs. p<SUB>T</SUB><SUP>lead</SUP> spectrum for matched jets with high p<SUB>T</SUB> constituents.
+      \param hPtLo: p<SUB>T</SUB><SUP>sub</SUP> vs. p<SUB>T</SUB><SUP>lead</SUP> spectrum for matched jets with low p<SUB>T</SUB> constituents.
+      \param UnmatchedhdPtHi: &Delta;p<SUB>T</SUB><SUP>sub</SUP> for all jets with high p<SUB>T</SUB> constituents.
+      \param hdPtHi: &Delta;p<SUB>T</SUB><SUP>sub</SUP> for matched jets with high p<SUB>T</SUB> constituents.
+      \param hdPtLo: &Delta;p<SUB>T</SUB><SUP>sub</SUP> for matched jets with low p<SUB>T</SUB> constituents.
+      \param hdphiHi: Dijet angle for matched jets with high p<SUB>T</SUB> constituents.
+      \param hdphiLo: Dijet angle for matched jets with low p<SUB>T</SUB> constituents.
+      \param OtherAJ_lo: Dijet imbalance &Delta;p<SUB>T</SUB> / &Sigma;p<SUB>T</SUB> for matched jets with low p<SUB>T</SUB> constituents and different R
+      \param OtherLeadPtLoss_lo: &Delta;p<SUB>T</SUB> between the two radii in the leading jet
+      \param OtherSubLeadPtLoss_lo: &Delta;p<SUB>T</SUB> between the two radii in the sub-leading jet
+      \param OtherR: Different radius to match to
+
+      \param hdPtLead: Experimental
+      \param hdPtSubLead: Experimental
+      \param SpecialhdPtLead: Experimental
+      \param SpecialhdPtSubLead: Experimental
+
+   * Return value:
+   *   - 0: No hard constituent dijet found, or not matched to ToMatch
+   *   - 1: No soft constituent dijet found
+   *   - 2: Soft constituent dijet found but not matched
+   */
+
+  //int AnalyzeAndFill ( std::vector<fastjet::PseudoJet>& particles, std::vector<fastjet::PseudoJet>& ToMatch,
+  int AnalyzeAndFill (	const std::vector<fastjet::PseudoJet>& particles, 			
+			TStarJetVectorContainer<TStarJetVector>& container,
+			TStarJetPicoReader &reader,
+	 		//Int_t mEffUn,	
+			const std::vector<std::pair<float,float> > &ToMatch
+		      	//Double_t EventClassifier = 0
+
+		       //TH1D* LeadJetPt=0, TH1D* SubJetPt=0, 
+		       //TProfile* LeadJetNtrkvsLeadJetPt=0, TProfile* SubJetNtrkvsLeadJetPt=0, TProfile* TranMaxNtrkvsLeadJetPt=0, TProfile* TranMinNtrkvsLeadJetPt=0, TProfile* TranNtrkvsLeadJetPt=0, 
+		       //TProfile* LeadJetPtvsLeadJetPt=0, TProfile* SubJetPtvsLeadJetPt=0, TProfile* TranMaxPtvsLeadJetPt=0, TProfile* TranMinPtvsLeadJetPt=0, TProfile* TranPtvsLeadJetPt =0,
+		       //TProfile* TranPionNtrkvsLeadJetPt=0, TProfile* TranPionPtvsLeadJetPt=0, TProfile* TranProtonNtrkvsLeadJetPt=0, TProfile* TranProtonPtvsLeadJetPt=0,
+		       //TH2D* Spectrum_LeadJetPtvsLeadJetPt=0, TH2D* Spectrum_SubJetPtvsLeadJetPt=0, TH2D* Spectrum_TranMaxPtvsLeadJetPt=0, TH2D* Spectrum_TranMinPtvsLeadJetPt=0, TH2D* Spectrum_TranPtvsLeadJetPt =0
+	);
+
+	int Finish();
+
+
+  /** This little helper is true if there's at least one 10 GeV jet
+   **/
+  bool Has10Gev;
+  /** This little helper is true if there's dijet
+   **/
+  bool HasDijet;
+
+  // Getters and Setters
+  // -------------------
+  // Whether need to match jet found by fastjet with the location fired the trigger
+  void SetToMatchJetTrigger(bool val) {mNeedToMatchTrig = val; }
+
+  // Use Dijet angle (1) or Monojet angle (0)
+  void SetDiJetAngle(int val) {mUseDijetAngle = val; }
+
+  /// Get jet radius
+  inline double GetR ( )                   { return R; }
+  /// Set jet radius
+  inline void   SetR ( const double newv ) { R=newv;   }
+
+
+  /// Get jet rapidity acceptance
+  inline double GetMax_rap ( )                   { return max_rap; }
+  /// Set jet rapidity acceptance
+  inline void   SetMax_rap ( const double newv ) { max_rap=newv;   }
+
+  /// Get ghosted area rapidity cut, should be >= max_rap + 2*R
+  inline double GetGhost_maxrap ( )                   { return ghost_maxrap; }
+  /// Set ghosted area rapidity cut, should be >= max_rap + 2*R
+  inline void   SetGhost_maxrap ( const double newv ) { ghost_maxrap=newv;   }
+
+   /// Get dijet opening angle
+  inline double GetDPhiCut ( )                   { return dPhiCut; }
+  /// Set dijet opening angle
+  inline void   SetDPhiCut ( const double newv ) { dPhiCut=newv;   }
+  
+
+  // Objects will be handed by _reference_! Obviates need for setter
+  /// Handle to jet definition
+  inline fastjet::JetDefinition& GetJet_def () { return jet_def; }
+  /// Handle to selector for constituents
+  inline fastjet::Selector& GetConsSelector () { return sconst; }
+  
+  /// Handle to selector for jet candidates
+  inline fastjet::Selector& GetJetSelector () { return sjet; }
+
+  /// Handle to ghosted area specification
+  inline fastjet::GhostedAreaSpec& GetArea_spec () { return area_spec; }
+  /// Handle to jet area definition
+  inline fastjet::AreaDefinition& GetArea_def () { return area_def; }
+
+
+  /// Handle to JetAnalyzer
+  inline JetAnalyzer* GetJA() {return pJA; }
+
+  /// Handle to unaltered clustering result with high pT constituents
+  inline std::vector<fastjet::PseudoJet> GetJAResult() {return JAResult; }
+
+  /// Handle to constituents
+  inline std::vector<fastjet::PseudoJet> GetConstituents() {return Jconstituents; }
+
+  /// Handle to transverse Ntrk, pt
+  inline double GetLeadJetPt() { return mLeadAreaPt; } 
+  inline double GetSubJetPt() { return mSubAreaPt; } 
+  inline double GetTranMaxPt() { return mTranMaxPt; } 
+  inline double GetTranMinPt() { return mTranMinPt; } 
+  inline double GetTranPt() { return mTranPt; } 
+
+  inline int GetLeadJetNtrk() { return mLeadAreaNtrk; } 
+  inline int GetSubJetNtrk() { return mSubAreaNtrk; } 
+  inline int GetTranMaxNtrk() { return mTranMaxNtrk; } 
+  inline int GetTranMinNtrk() { return mTranMinNtrk; } 
+  inline int GetTranNtrk() { return mTranNtrk; } 
+  
+  /// Handle to Dijet result 
+  inline std::vector<fastjet::PseudoJet> GetDiJets() {return DiJets; };
+
+};  
+
+/** Helper to perform the TStarJetPicoReader initialization
+ */
+TStarJetPicoReader GetReader ( TString ChainPattern="~putschke/Data/Pico_ppHT/*.root", 
+			       TString TriggerString="ppHT",
+			       TString ChainName="JetTree",
+			       const double RefMultCut=0
+			       );
+
+/** Slightly different, preferred version of GetReader
+ */
+TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const double RefMultCut=0 );
+
+
+#endif // __UNDERLYINGANA_HH
