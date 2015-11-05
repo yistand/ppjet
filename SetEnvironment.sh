@@ -3,7 +3,6 @@
 
 #ly 2015.07.09 modified from KKauder's SetEnvironment.csh
 #ly set environment variables for linking library
-#test
 
 
 # CHANGE the following to suit your environment
