@@ -123,11 +123,11 @@ private :
   TProfile* TranMinNtrkvsLeadJetPt;
   TProfile* TranNtrkvsLeadJetPt;
   
-  TProfile* LeadJetPtvsLeadJetPt;
-  TProfile* SubJetPtvsLeadJetPt;
-  TProfile* TranMaxPtvsLeadJetPt;
-  TProfile* TranMinPtvsLeadJetPt;
-  TProfile* TranPtvsLeadJetPt;
+  TProfile* LeadJetPtSumvsLeadJetPt;
+  TProfile* SubJetPtSumvsLeadJetPt;
+  TProfile* TranMaxPtSumvsLeadJetPt;
+  TProfile* TranMinPtSumvsLeadJetPt;
+  TProfile* TranPtSumvsLeadJetPt;
   
   TH2D* Spectrum_LeadJetPtvsLeadJetPt;
   TH2D* Spectrum_SubJetPtvsLeadJetPt;

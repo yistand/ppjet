@@ -101,11 +101,11 @@ UnderlyingAna::UnderlyingAna ( double R,
 	TranMinNtrkvsLeadJetPt = NULL;
 	TranNtrkvsLeadJetPt = NULL;
 	
-	LeadJetPtvsLeadJetPt = NULL;
-	SubJetPtvsLeadJetPt = NULL;
-	TranMaxPtvsLeadJetPt = NULL;
-	TranMinPtvsLeadJetPt = NULL;
-	TranPtvsLeadJetPt = NULL;
+	LeadJetPtSumvsLeadJetPt = NULL;
+	SubJetPtSumvsLeadJetPt = NULL;
+	TranMaxPtSumvsLeadJetPt = NULL;
+	TranMinPtSumvsLeadJetPt = NULL;
+	TranPtSumvsLeadJetPt = NULL;
 	  
 	Spectrum_LeadJetPtvsLeadJetPt = NULL;
 	Spectrum_SubJetPtvsLeadJetPt = NULL;
@@ -128,11 +128,11 @@ UnderlyingAna::~UnderlyingAna() {
 	delete TranMinNtrkvsLeadJetPt;
 	delete TranNtrkvsLeadJetPt;
 	 
-	delete LeadJetPtvsLeadJetPt;
-	delete SubJetPtvsLeadJetPt;
-	delete TranMaxPtvsLeadJetPt;
-	delete TranMinPtvsLeadJetPt;
-	delete TranPtvsLeadJetPt;
+	delete LeadJetPtSumvsLeadJetPt;
+	delete SubJetPtSumvsLeadJetPt;
+	delete TranMaxPtSumvsLeadJetPt;
+	delete TranMinPtSumvsLeadJetPt;
+	delete TranPtSumvsLeadJetPt;
 	   
 	delete Spectrum_LeadJetPtvsLeadJetPt;
 	delete Spectrum_SubJetPtvsLeadJetPt;
@@ -162,11 +162,11 @@ int UnderlyingAna::Init() {
 	ResultTree->Branch("j2eta",&j2eta, "j2eta/F");
 
 
-	ResultTree->Branch("LeadAreaPt",&mLeadAreaPt,"LeadAreaPt/F");
-	ResultTree->Branch("SubLeadAreaPt",&mSubAreaPt,"SubLeadAreaPt/F");
-	ResultTree->Branch("TranPt",&mTranPt,"TranPt/F");
-	ResultTree->Branch("TranMaxPt",&mTranMaxPt,"TranMaxPt/F");
-	ResultTree->Branch("TranMinPt",&mTranMinPt,"TranMinPt/F");
+	ResultTree->Branch("LeadAreaPtSum",&mLeadAreaPt,"LeadAreaPtSum/F");
+	ResultTree->Branch("SubLeadAreaPtSum",&mSubAreaPt,"SubLeadAreaPtSum/F");
+	ResultTree->Branch("TranPtSum",&mTranPt,"TranPtSum/F");
+	ResultTree->Branch("TranMaxPtSum",&mTranMaxPt,"TranMaxPtSum/F");
+	ResultTree->Branch("TranMinPtSum",&mTranMinPt,"TranMinPtSum/F");
 	ResultTree->Branch("LeadAreaNtrk",&mLeadAreaNtrk,"LeadAreaNtrk/I");
 	ResultTree->Branch("SubAreaNtrk",&mSubAreaNtrk,"SubAreaNtrk/I");
 	ResultTree->Branch("TranNtrk",&mTranNtrk,"TranNtrk/I");
@@ -205,11 +205,11 @@ int UnderlyingAna::Init() {
 	TranMinNtrkvsLeadJetPt = new TProfile("TranMinNtrkvsLeadJetPt","Transverse Min Ntrk vs Leading Jet Pt",100,0,100);
 	TranNtrkvsLeadJetPt = new TProfile("TranNtrkvsLeadJetPt","Transverse Ntrk vs Leading Jet Pt",100,0,100);
 
-	LeadJetPtvsLeadJetPt = new TProfile("LeadJetAreaPtvsLeadJetPt","Leading Jet Area <Pt> vs Leading Jet Pt",100,0,100);
-	SubJetPtvsLeadJetPt = new TProfile("SubJetAreaPtvsLeadJetPt","SubLeading Jet Area <Pt> vs Leading Jet Pt",100,0,100);
-	TranMaxPtvsLeadJetPt = new TProfile("TranMaxPtvsLeadJetPt","Transverse Max <Pt> vs Leading Jet Pt",100,0,100);
-	TranMinPtvsLeadJetPt = new TProfile("TranMinPtvsLeadJetPt","Transverse Min <Pt> vs Leading Jet Pt",100,0,100);
-	TranPtvsLeadJetPt = new TProfile("TranPtvsLeadJetPt","Transverse <Pt> vs Leading Jet Pt",100,0,100);
+	LeadJetPtSumvsLeadJetPt = new TProfile("LeadJetAreaPtSumvsLeadJetPt","Leading Jet Area Sum Pt vs Leading Jet Pt",100,0,100);
+	SubJetPtSumvsLeadJetPt = new TProfile("SubJetAreaPtSumvsLeadJetPt","SubLeading Jet Area Sum Pt vs Leading Jet Pt",100,0,100);
+	TranMaxPtSumvsLeadJetPt = new TProfile("TranMaxPtSumvsLeadJetPt","Transverse Max Sum Pt vs Leading Jet Pt",100,0,100);
+	TranMinPtSumvsLeadJetPt = new TProfile("TranMinPtSumvsLeadJetPt","Transverse Min Sum Pt vs Leading Jet Pt",100,0,100);
+	TranPtSumvsLeadJetPt = new TProfile("TranPtSumvsLeadJetPt","Transverse Sum Pt vs Leading Jet Pt",100,0,100);
 
 
 	Spectrum_LeadJetPtvsLeadJetPt = new TH2D("Spectrum_LeadJetAreaPtvsLeadJetPt","Leading Jet Area Pt Spectrum vs Leading Jet Pt",100,0,100,100,0,30);
@@ -378,10 +378,10 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		DiJetEta = (JAResult.at(0).eta() + JAResult.at(1).eta())/2.; 
 	}
 	else {
-		DiJetPhi = JetAnalyzer::phimod2pi(JAResult.at(0).phi());
+		DiJetPhi = JetAnalyzer::phimod2pi(JAResult.at(0).phi());	// -pi -> pi
 		DiJetEta = JAResult.at(0).eta();
 	}
-	//std::cout<<"Dijetphi = "<<JAResult.at(0).phi()<<"-"<<JAResult.at(1).phi()<<"/2="<<DiJetPhi<<std::endl;	
+	//std::cout<<"DiJetPhi = "<<JAResult.at(0).phi()<<"-"<<JAResult.at(1).phi()<<"/2="<<DiJetPhi<<std::endl;	
 
 
 
@@ -408,18 +408,18 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		double ieta = sv->eta();
 		double ipt = sv->perp();	
 		if(sv->GetCharge()==0) continue; 	// charged particle only
-		if(fabs(ieta)>max_track_rap) continue;
+		if(fabs(ieta)>max_track_rap) continue;	// rapidity cut
 
 		float idedx = sv->GetFeatureD(TStarJetVector::_DEDX);
 		float itofbeta = sv->GetFeatureD(TStarJetVector::_TOFBETA);
 		
 		//std::cout<<DiJetPhi<<"-"<<iphi<<" = "<<JetAnalyzer::phimod2pi(iphi-DiJetPhi)<<std::endl;		// test
-		if(fabs(JetAnalyzer::phimod2pi(iphi-DiJetPhi))<60./180.*TMath::Pi()) {		// leading
+		if(fabs(JetAnalyzer::phimod2pi(iphi-DiJetPhi))<60./180.*TMath::Pi()) {		// leading		phimod2pi(phi) gives -pi ->pi
 			TrkLeadAreadEdx[ntrklead] = idedx;
 			TrkLeadAreaTofbeta[ntrklead] = itofbeta;
 			TrkLeadAreaPt[ntrklead] = ipt;
 			ntrklead++;
-			ptlead+=ipt;		// scalar sum for average later
+			ptlead+=ipt;		// scalar sum
 			Spectrum_LeadJetPtvsLeadJetPt->Fill(Ptleadingjet,ipt);	
 			//std::cout<<"leading"<<std::endl;	// test
 		}
@@ -428,7 +428,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 			TrkSubAreaTofbeta[ntrksublead] = itofbeta;
 			TrkSubAreaPt[ntrksublead] = ipt;
 			ntrksublead++;
-			ptsublead+=ipt;		// scalar sum for average later
+			ptsublead+=ipt;		// scalar sum
 			Spectrum_SubJetPtvsLeadJetPt->Fill(Ptleadingjet,ipt);	
 			//std::cout<<"subleading"<<std::endl;	//test
 		}
@@ -437,7 +437,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 			tmp1Tofbeta.push_back(itofbeta);
 			tmp1Pt.push_back(ipt);
 			ntrktranmax++;		// will decide which one is max/min later and switch if needed
-			pttranmax+=ipt;		// scalar sum for average later
+			pttranmax+=ipt;		// scalar sum
 			Spectrum_TranPtvsLeadJetPt->Fill(Ptleadingjet,ipt);	
 			htmp1->Fill(Ptleadingjet,ipt);
 			//std::cout<<"transverse"<<std::endl;	//test
@@ -447,7 +447,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 			tmp2Tofbeta.push_back(itofbeta);
 			tmp2Pt.push_back(ipt);
 			ntrktranmin++;
-			pttranmin+=ipt;		// scalar sum for average later
+			pttranmin+=ipt;		// scalar sum
 			Spectrum_TranPtvsLeadJetPt->Fill(Ptleadingjet,ipt);	
 			htmp2->Fill(Ptleadingjet,ipt);
 			//std::cout<<"transverse"<<std::endl;	//test
@@ -456,7 +456,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 
 	ntrktran = ntrktranmax+ntrktranmin;
 	pttran = pttranmax+pttranmin;
-	if(ntrktran>0)  pttran/=ntrktran;
+	//if(ntrktran>0)  pttran/=ntrktran;
 
 	// Check which is TranMax / TranMin
 	if(pttranmax<pttranmin) {
@@ -494,11 +494,11 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	delete htmp1;		// #ly when 'new' is used for the variable, 'delete' is needed to free the memory 
 	delete htmp2;
 
-	if(ntrktranmax>0) pttranmax/=ntrktranmax;
-	if(ntrktranmin>0) pttranmin/=ntrktranmin;
+	//if(ntrktranmax>0) pttranmax/=ntrktranmax;
+	//if(ntrktranmin>0) pttranmin/=ntrktranmin;
 
-	if(ntrklead>0) ptlead/=ntrklead;
-	if(ntrksublead>0) ptsublead/=ntrksublead;
+	//if(ntrklead>0) ptlead/=ntrklead;
+	//if(ntrksublead>0) ptsublead/=ntrksublead;
 
 	mLeadAreaPt=ptlead;
 	mSubAreaPt=ptsublead;
@@ -518,11 +518,11 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	TranMinNtrkvsLeadJetPt->Fill(Ptleadingjet,ntrktranmin);
 	TranNtrkvsLeadJetPt->Fill(Ptleadingjet,ntrktran);
 
-	LeadJetPtvsLeadJetPt->Fill(Ptleadingjet,ptlead);
-	SubJetPtvsLeadJetPt->Fill(Ptleadingjet,ptsublead);
-	TranMaxPtvsLeadJetPt->Fill(Ptleadingjet,pttranmax);
-	TranMinPtvsLeadJetPt->Fill(Ptleadingjet,pttranmin);
-	TranPtvsLeadJetPt->Fill(Ptleadingjet,pttran);
+	LeadJetPtSumvsLeadJetPt->Fill(Ptleadingjet,ptlead);
+	SubJetPtSumvsLeadJetPt->Fill(Ptleadingjet,ptsublead);
+	TranMaxPtSumvsLeadJetPt->Fill(Ptleadingjet,pttranmax);
+	TranMinPtSumvsLeadJetPt->Fill(Ptleadingjet,pttranmin);
+	TranPtSumvsLeadJetPt->Fill(Ptleadingjet,pttran);
 
 	ResultTree->Fill();
 
