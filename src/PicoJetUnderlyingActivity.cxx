@@ -88,7 +88,7 @@ int main ( int argc, const char** argv ) {
 	// ------------------------------
 	//const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/test.root","ppHT","/home/hep/caines/ly247/Scratch/pp12Pico_150407/*root", "0", "0" };
 	//const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/MatchTrig_ppJP2.root","ppJP2","/home/hep/caines/ly247/Scratch/pp12Pico_150407/*root", "0", "0" };
-	const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/MatchTrig_ppJP2.root","ppJP2","/home/hep/caines/ly247/Scratch/pp12Pico_151018/*.root", "0", "0" };
+	const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/TransCharge0_MatchTrig_ppJP2.root","ppJP2","/home/hep/caines/ly247/Scratch/pp12Pico_151018/*.root", "0", "0" };
 	// {Code name, to be discard but needed since argv will use command name as the [0], output file name, triggername, intput file list, for variable IntTowScale to scale tower as systematics study, which effiencey file to use }
 	
 
@@ -120,18 +120,18 @@ int main ( int argc, const char** argv ) {
 		R=0.6;
 	}
 
-	// Also pull a random offset from the file name
-	// --------------------------------------------
-	// To seed the backgrounder in different ways
-	// allows for patterns like output/rndm0/test.root
-	// ONLY pulls one digit
-	int randomoff = TString( OutFileName( OutFileName.Index("rndm") + 4,  1 )).Atoi(); // defaults to zero
-	// eventid: typically < 1M --> shift by 10M
-	// runid: typically 8XXYYYY --> shift by 10M
-	randomoff *= 10000000;
-	cout << " ################################################### " << endl;
-	cout << "   FastJet random seeds offset by " << randomoff << endl;
-	cout << " ################################################### " << endl;
+	//#ly // Also pull a random offset from the file name
+	//#ly // --------------------------------------------
+	//#ly // To seed the backgrounder in different ways
+	//#ly // allows for patterns like output/rndm0/test.root
+	//#ly // ONLY pulls one digit
+	//#ly int randomoff = TString( OutFileName( OutFileName.Index("rndm") + 4,  1 )).Atoi(); // defaults to zero
+	//#ly // eventid: typically < 1M --> shift by 10M
+	//#ly // runid: typically 8XXYYYY --> shift by 10M
+	//#ly randomoff *= 10000000;
+	//#ly cout << " ################################################### " << endl;
+	//#ly cout << "   FastJet random seeds offset by " << randomoff << endl;
+	//#ly cout << " ################################################### " << endl;
 
 
 	cout << " ################################################### " << endl;
@@ -336,6 +336,8 @@ int main ( int argc, const char** argv ) {
 	ula->Init();
 
 	ula->SetToMatchJetTrigger(true);			// whether match jet found with fastjet with the location which fired the trigger
+	ula->SetNetraulJetFracCut(true);			// whether apply neutral energy fraction in jet cut
+	ula->SetUnderlyingParticleCharge(0);			// underlying event charge: 0 for netural, 1 for charged, 2 for all
 	ula->SetDiJetAngle(0);					// Use Dijet angle (1) or Monojet angle (0) 
 
 	std::vector<EtaPhiPair> TrigLoc2Match;		// trigger of High Tower or Jet Patch

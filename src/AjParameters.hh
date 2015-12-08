@@ -19,6 +19,8 @@ namespace AjParameters{
 
   const double jet_ptmin = 10.0;     ///< Min jet pT
   const double jet_ptmax = 1000.0;   ///< Max jet pT
+
+  const double JetNeutralPertMax = 0.9;		// Neutral/Total Pt of the Jet < 90%
   
   const double LeadPtMin=20.0;      ///< Min leading jet pT 
   const double SubLeadPtMin=10.0;   ///< Min sub-leading jet pT 

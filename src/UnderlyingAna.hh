@@ -64,8 +64,14 @@ private :
   // Match to trigger or not
   bool mNeedToMatchTrig;
 
+  // Neutral/Total Pt of Jet fraction cut
+  bool mNeutralJetFracCut;
+
   // Use Dijet angle (1) or Monojet angle (0)
   int mUseDijetAngle;
+
+  // Underlying event particle: charged(1) or neutral(0) or all(2, or whatever val not equal 1 or 0)
+  int mUnderlyingParticleCharge;
 
   // For output 
   TFile *fout;
@@ -260,8 +266,14 @@ public:
   // Whether need to match jet found by fastjet with the location fired the trigger
   void SetToMatchJetTrigger(bool val) {mNeedToMatchTrig = val; }
 
+  // Wether apply Neutral/Total Pt of Jet fraction cut
+  void SetNetraulJetFracCut(bool val) {mNeutralJetFracCut - val; };
+
   // Use Dijet angle (1) or Monojet angle (0)
   void SetDiJetAngle(int val) {mUseDijetAngle = val; }
+
+  // Underlying event particle: charged(1) or neutral(0) or all(2)
+  void SetUnderlyingParticleCharge(int val) {mUnderlyingParticleCharge = val;}
 
   /// Get jet radius
   inline double GetR ( )                   { return R; }

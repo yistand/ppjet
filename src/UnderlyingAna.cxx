@@ -343,9 +343,24 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		}
 		if(flagtrigmatch==0) return 0;
 	}
-
 	//if ( !IsMatched( DiJets, *ToMatch, R ) ) return 0;
 
+	// ---------------------------------------------------------
+	// Neutral/Total Pt of Jet < 90% cut
+	if( mNeutralJetFracCut ) {
+		fastjet::PseudoJet NeutralPart  = fastjet::PseudoJet();
+		std::vector<fastjet::PseudoJet> constituents = JAResult.at(0).constituents();
+		for(unsigned int jco = 0; jco<constituents.size(); jco++) {
+			if( (constituents[jco].user_info<JetAnalysisUserInfo>().GetQuarkCharge()) == 0 ) NeutralPart+=constituents[jco];
+		}
+		if( (NeutralPart.perp2()/JAResult.at(0).perp2()) > AjParameters::JetNeutralPertMax )  {
+			std::cout<<"Netural Jet .. Pass"<<std::endl;
+			return 0;
+		}
+	}
+
+
+	// ---------------------------------------------------------
 	// Calculate underlying event and fill histos 
 	double Ptleadingjet = JAResult.at(0).pt();
 
@@ -407,7 +422,8 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		double iphi = sv->phi_std();	// -pi - pi
 		double ieta = sv->eta();
 		double ipt = sv->perp();	
-		if(sv->GetCharge()==0) continue; 	// charged particle only
+		if(mUnderlyingParticleCharge==0 && sv->GetCharge()!=0) continue;		// neutral particle only
+		if(mUnderlyingParticleCharge==1 && sv->GetCharge()==0) continue;		// charged particle only
 		if(fabs(ieta)>max_track_rap) continue;	// rapidity cut
 
 		float idedx = sv->GetFeatureD(TStarJetVector::_DEDX);
