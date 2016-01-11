@@ -88,7 +88,7 @@ int main ( int argc, const char** argv ) {
 	// ------------------------------
 	//const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/test.root","ppHT","/home/hep/caines/ly247/Scratch/pp12Pico_150407/*root", "0", "0" };
 	//const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/MatchTrig_ppJP2.root","ppJP2","/home/hep/caines/ly247/Scratch/pp12Pico_150407/*root", "0", "0" };
-	const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/TransCharge0_MatchTrig_ppJP2.root","ppJP2","/home/hep/caines/ly247/Scratch/pp12Pico_151018/*.root", "0", "0" };
+	const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/TransCharge0_MatchTrig_ppJP2.root","ppJP2","/home/hep/caines/ly247/Scratch/pp12JP2Pico_151018/*.root", "0", "0" };
 	// {Code name, to be discard but needed since argv will use command name as the [0], output file name, triggername, intput file list, for variable IntTowScale to scale tower as systematics study, which effiencey file to use }
 	
 
@@ -335,9 +335,9 @@ int main ( int argc, const char** argv ) {
 	// initial ttree & histograms in ula
 	ula->Init();
 
-	ula->SetToMatchJetTrigger(true);			// whether match jet found with fastjet with the location which fired the trigger
+	ula->SetToMatchJetTrigger(false);			// whether match jet found with fastjet with the location which fired the trigger, NEED TO CHECK TrigFlagId
 	ula->SetNetraulJetFracCut(true);			// whether apply neutral energy fraction in jet cut
-	ula->SetUnderlyingParticleCharge(0);			// underlying event charge: 0 for netural, 1 for charged, 2 for all
+	ula->SetUnderlyingParticleCharge(1);			// underlying event charge: 0 for netural, 1 for charged, 2 for all
 	ula->SetDiJetAngle(0);					// Use Dijet angle (1) or Monojet angle (0) 
 
 	std::vector<EtaPhiPair> TrigLoc2Match;		// trigger of High Tower or Jet Patch
