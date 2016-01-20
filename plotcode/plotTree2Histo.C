@@ -25,8 +25,27 @@
 
 using namespace std;
 
+float inveff_tof(float pt) {
+	//return 1;			// test
+
+	if(pt<0.1) return 0;
+
+	float eff = 0;
+	TF1* feff=new TF1("feff","[0]*(exp(-pow([1]/x,[2])))", 0.1, 4.5);
+	feff->SetParameters(7.28477e-01, 1.52059e-01, 5.28031); 
+	eff = feff->Eval(pt);
+
+	if(pt>4.5) eff = feff->Eval(4.5);
+
+	delete feff;		// prevent memory leak
+
+	if(eff>0) return 1./eff;
+	else return 0;
+}
+
+
 float inveff_pion(float pt) {
-	return 1;			// test
+	//return 1;			// test
 
 	if(pt<0.1) return 0;
 
@@ -43,15 +62,21 @@ float inveff_pion(float pt) {
 	else return 0;
 }
 
-void plotTree2Histo(TString what2fill="multiplicity") {
+void plotTree2Histo(TString what2fill="multiplicity", TString filepath = "~/Scratch/pp200Y12_jetunderlying/underlyingevent_MB_R06_LeadJetAngle_FullJetFraclt90_160116.root") {
 // what2fill: refmult, leadjetpt, multiplicity	(no space)
+	if( (!what2fill.EqualTo("refmult",TString::kIgnoreCase)) && (!what2fill.EqualTo("leadjetpt",TString::kIgnoreCase)) && (!what2fill.EqualTo("multiplicity",TString::kIgnoreCase)) ) {
+  	  cout<<"ERR!! call plotTree2Histo(TString what2fill, TString filepath): what2fill should be \"refmult\", \"leadjetpt\" or \"multiplicity\"."<<endl;
+  	  return;
+  	}
 
 	int savefig = 0;
 	int saveroot = 0; 
 
 	// reader
 	//TFile *f = new TFile("~/Scratch/pp200Y12_jetunderlying/underlyingevent_JP2_R06_LeadJetAngle_MatchTrig_151110.root");
-	TFile *f = new TFile("~/Scratch/pp200Y12_jetunderlying/underlyingevent_MB_R06_LeadJetAngle_MatchTrig_151206.root");
+	//TFile *f = new TFile("~/Scratch/pp200Y12_jetunderlying/underlyingevent_MB_R06_LeadJetAngle_MatchTrig_151206.root");
+	//TFile *f = new TFile("~/Scratch/pp200Y12_jetunderlying/Charge0underlyingevent_JP2_R06_LeadJetAngle_MatchTrig_JetCharge0Fraclt90_151208.root");
+	TFile *f = new TFile(filepath);
 	if(!f) { cout<<"Cannot find input file"<<endl; return; }
 
 	TTree *t = (TTree*)f->Get("ResultTree");
@@ -100,6 +125,7 @@ void plotTree2Histo(TString what2fill="multiplicity") {
 	}
 
 	TH1D *leadjetpt = new TH1D("leadjetpt",xvariablename,nbinning,0,maxpt);
+	leadjetpt->Sumw2();
 
         TProfile *leadjetntrkvsleadjetpt = new TProfile("leadjetareantrkvsleadjetpt","Leading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt);
         TProfile *subjetntrkvsleadjetpt = new TProfile("subjetareantrkvsleadjetpt","SubLeading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt);
@@ -140,7 +166,26 @@ void plotTree2Histo(TString what2fill="multiplicity") {
         TH2D *htranminptavevsleadjetpt = new TH2D("htranminptavevsleadjetpt","Transverse Min Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
         TH2D *htranptavevsleadjetpt = new TH2D("htranptavevsleadjetpt","Transverse Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
 
+        hleadjetntrkvsleadjetpt->Sumw2();
+        hsubjetntrkvsleadjetpt->Sumw2();
+        htranmaxntrkvsleadjetpt->Sumw2();
+        htranminntrkvsleadjetpt->Sumw2();
+        htranntrkvsleadjetpt->Sumw2();
+
+        hleadjetptsumvsleadjetpt->Sumw2();
+        hsubjetptsumvsleadjetpt->Sumw2();
+        htranmaxptsumvsleadjetpt->Sumw2();
+        htranminptsumvsleadjetpt->Sumw2();
+        htranptsumvsleadjetpt->Sumw2();
+
+        hleadjetptavevsleadjetpt->Sumw2();
+        hsubjetptavevsleadjetpt->Sumw2();
+        htranmaxptavevsleadjetpt->Sumw2();
+        htranminptavevsleadjetpt->Sumw2();
+        htranptavevsleadjetpt->Sumw2();
+
 	// loop over events
+	cout<<"Total # of Events: "<<ievt<t->GetEntries()<<endl;
 	for(int ievt = 0; ievt<t->GetEntries(); ievt++) {	
 		t->GetEntry(ievt);
 
