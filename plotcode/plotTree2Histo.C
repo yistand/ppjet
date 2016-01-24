@@ -6,6 +6,14 @@
 //		This is to solve the issue that some runs have problematic behavior which ruins the original histograms  
 //
 //
+//		2016.01.23	Li Yi
+//		Previously TransMax or TransMin is defined as sum pt.
+//		TransMax or TransMin definition depends on each variable.
+//		If variable is Ntrk, TransMax or TransMin is determined by whose Ntrk is larger/smaller
+//		If variable is sum pt, TransMax or TransMin is determined by whose sum pt is larger/smaller
+//		However, currently <pT> TransMax or TransMin is still determined by whose sum pt is larger/smaller. as right now, it is track average value, not event average value
+//
+//
 //==================================================================================================================================
 
 
@@ -25,7 +33,41 @@
 
 using namespace std;
 
-float inveff_tof(float pt) {
+void MaxOrMin(float &max, float &min) {		// switch max or min
+	if(max>=min) return;
+	float tmp = max;
+	max = min;
+	min = tmp;
+}
+
+void MaxOrMin(int &max, int &min) {		// switch max or min
+	if(max>=min) return;
+	int tmp = max;
+	max = min;
+	min = tmp;
+}
+
+float getweight(float pt, int charge=1) {		// tpc and tof efficiency only apply to charged particle. set 'charge' to 0 if bemc neutral particles are used.
+	
+	if(pt<0.2) return 0;				// set minimum pt as 0.2 GeV !!!!! CHECK
+
+	if(charge==0) return 1;
+
+	float eff = 0;
+	TF1* feff=new TF1("feff","[0]*(exp(-pow([1]/x,[2])-pow([3]/x,[4])))",0.1,4.5);
+	feff->SetParameters(6.372e-01,1.52059e-01, 5.28031,0.156624, 5.67316);		// get from the below inveff_tof & inveff_tpc function parameters
+	eff = feff->Eval(pt);
+
+	if(pt>4.5) eff = feff->Eval(4.5);
+
+	delete feff;		// prevent memory leak
+
+	if(eff>0) return 1./eff;
+	else return 0;
+	
+}
+
+float inveff_tof(float pt) {		// pion embedding
 	//return 1;			// test
 
 	if(pt<0.1) return 0;
@@ -44,7 +86,7 @@ float inveff_tof(float pt) {
 }
 
 
-float inveff_pion(float pt) {
+float inveff_tpc(float pt) {		// pion embedding
 	//return 1;			// test
 
 	if(pt<0.1) return 0;
@@ -62,20 +104,27 @@ float inveff_pion(float pt) {
 	else return 0;
 }
 
-void plotTree2Histo(TString what2fill="multiplicity", TString filepath = "~/Scratch/pp200Y12_jetunderlying/underlyingevent_MB_R06_LeadJetAngle_FullJetFraclt90_160116.root") {
+void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp200Y12_jetunderlying/", TString filetag = "underlyingevent_MB_R06_LeadJetAngle_FullJetFraclt90_160116") {
 // what2fill: refmult, leadjetpt, multiplicity	(no space)
 	if( (!what2fill.EqualTo("refmult",TString::kIgnoreCase)) && (!what2fill.EqualTo("leadjetpt",TString::kIgnoreCase)) && (!what2fill.EqualTo("multiplicity",TString::kIgnoreCase)) ) {
   	  cout<<"ERR!! call plotTree2Histo(TString what2fill, TString filepath): what2fill should be \"refmult\", \"leadjetpt\" or \"multiplicity\"."<<endl;
   	  return;
   	}
 
-	int savefig = 0;
-	int saveroot = 0; 
+	int chargeflag = 1;
+	if(filetag.Contains("Charge0")) chargeflag = 0;
+	cout<<endl<<"INFO: underlying event chargeflag == "<<chargeflag<<endl;
+	if(chargeflag==1) cout<<"Apply TPC tracking & TOF matching efficiency"<<endl;
+	cout<<endl;
+
+	int savefig = 1;
+	int saveroot = 1; 
 
 	// reader
 	//TFile *f = new TFile("~/Scratch/pp200Y12_jetunderlying/underlyingevent_JP2_R06_LeadJetAngle_MatchTrig_151110.root");
 	//TFile *f = new TFile("~/Scratch/pp200Y12_jetunderlying/underlyingevent_MB_R06_LeadJetAngle_MatchTrig_151206.root");
 	//TFile *f = new TFile("~/Scratch/pp200Y12_jetunderlying/Charge0underlyingevent_JP2_R06_LeadJetAngle_MatchTrig_JetCharge0Fraclt90_151208.root");
+	TString filepath = dir+filetag+".root";
 	TFile *f = new TFile(filepath);
 	if(!f) { cout<<"Cannot find input file"<<endl; return; }
 
@@ -184,15 +233,25 @@ void plotTree2Histo(TString what2fill="multiplicity", TString filepath = "~/Scra
         htranminptavevsleadjetpt->Sumw2();
         htranptavevsleadjetpt->Sumw2();
 
+
+	// problematic runs, need future investigation
+	const int NoBadRun = 186;
+	int badrun[NoBadRun] = {13044118, 13044123, 13044124, 13044125, 13045001, 13045003, 13045005, 13045006, 13045007, 13045012, 13045029, 13046002, 13046008, 13046010, 13046029, 13046118, 13046119, 13046120, 13047004, 13047014, 13047018, 13047036, 13047037, 13047039, 13047040, 13047041, 13047042, 13047043, 13047044, 13047045, 13047046, 13047047, 13047048, 13047049, 13047050, 13047051, 13047052, 13047053, 13047054, 13047055, 13048007, 13048022, 13048046, 13049004, 13049005, 13049050, 13049052, 13049075, 13049086, 13049087, 13049088, 13049089, 13050007, 13050025, 13050026, 13050027, 13050033, 13050039, 13050043, 13050044, 13050046, 13050047, 13050049, 13050050, 13051068, 13051080, 13051088, 13051095, 13051102, 13052021, 13052022, 13052054, 13052063, 13052068, 13053010, 13053021, 13054004, 13054005, 13054006, 13054007, 13054008, 13054009, 13054011, 13054012, 13054013, 13054014, 13054015, 13054016, 13054017, 13054018, 13054019, 13054020, 13054022, 13054042, 13054045, 13054046, 13054057, 13055015, 13055072, 13055081, 13055082, 13055086, 13055087, 13055088, 13055089, 13055090, 13056011, 13056012, 13056034, 13056035, 13056037, 13056038, 13056039, 13057038, 13057039, 13058019, 13058030, 13058047, 13058048, 13059003, 13059004, 13059005, 13059006, 13059007, 13059008, 13059009, 13059010, 13059019, 13059035, 13059082, 13059083, 13059084, 13059085, 13059086, 13059087, 13060001, 13060002, 13060003, 13060009, 13060012, 13061026, 13063033, 13064030, 13064057, 13064059, 13064074, 13066035, 13066036, 13066101, 13066102, 13066104, 13066109, 13066110, 13067001, 13067002, 13067003, 13067004, 13067005, 13067006, 13067007, 13067008, 13067009, 13067010, 13067011, 13067012, 13067013, 13067014, 13067015, 13067017, 13068017, 13068022, 13068027, 13068029, 13068034, 13068036, 13068037, 13069006, 13069009, 13069029, 13070030, 13070056, 13071034, 13071037, 13071038, 13071040};
+
 	// loop over events
-	cout<<"Total # of Events: "<<ievt<t->GetEntries()<<endl;
+	cout<<"Total # of Events: "<<t->GetEntries()<<endl;
+	int processedevent = 0;
 	for(int ievt = 0; ievt<t->GetEntries(); ievt++) {	
 		t->GetEntry(ievt);
 
-		if(runid>13052000&& runid<13060000) continue;		// problematic runs, need future investigation
+		//test if(runid>13052000&& runid<13060000) continue;		// problematic runs, need future investigation
+		for(int i = 0; i<NoBadRun; i++) {
+			if(runid==badrun[i]) continue;
+		}
+
 		if(((what2fill.Contains("refmult",TString::kIgnoreCase))||(what2fill.Contains("multiplicity",TString::kIgnoreCase)))&&(jpt<10)) continue;		// when studying multiplicity dependence, exclude jet pT<10GeV/c to ensure the real jet found
 
-		if(ievt%100000==0) cout<<"event "<<ievt<<endl;
+		if(ievt%1000000==0) cout<<"event "<<ievt<<endl;
 
 		double xvariable = 0;
 		if(what2fill.Contains("jetpt",TString::kIgnoreCase)) {
@@ -209,15 +268,17 @@ void plotTree2Histo(TString what2fill="multiplicity", TString filepath = "~/Scra
 		
         	leadjetntrkvsleadjetpt->Fill(xvariable,leadntrk);
         	subjetntrkvsleadjetpt->Fill(xvariable,subntrk);
+        	tranntrkvsleadjetpt->Fill(xvariable,tranntrk);
+		MaxOrMin(tranmaxntrk,tranminntrk);
         	tranmaxntrkvsleadjetpt->Fill(xvariable,tranmaxntrk);
         	tranminntrkvsleadjetpt->Fill(xvariable,tranminntrk);
-        	tranntrkvsleadjetpt->Fill(xvariable,tranntrk);
 
         	hleadjetntrkvsleadjetpt->Fill(xvariable,leadntrk);
         	hsubjetntrkvsleadjetpt->Fill(xvariable,subntrk);
+        	htranntrkvsleadjetpt->Fill(xvariable,tranntrk);
+		MaxOrMin(tranmaxntrk,tranminntrk);
         	htranmaxntrkvsleadjetpt->Fill(xvariable,tranmaxntrk);
         	htranminntrkvsleadjetpt->Fill(xvariable,tranminntrk);
-        	htranntrkvsleadjetpt->Fill(xvariable,tranntrk);
 
         	//leadjetptsumvsleadjetpt->Fill(xvariable,leadpt);
         	//subjetptsumvsleadjetpt->Fill(xvariable,subpt);
@@ -230,7 +291,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString filepath = "~/Scra
 		float w;
 		for(int it = 0; it<tranmaxntrk; it++) {
 			//cout<<"pt_max["<<it<<"] = "<<pt_max[it];
-			w = inveff_pion(pt_max[it]);
+			w = getweight(pt_max[it],chargeflag);
 			//cout<<" w = "<<w<<endl;
 			tranmaxptavevsleadjetpt->Fill(xvariable,pt_max[it],w);
 			tranptavevsleadjetpt->Fill(xvariable,pt_max[it],w);
@@ -243,7 +304,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString filepath = "~/Scra
 		}
 		for(int it = 0; it<tranminntrk; it++) {
 			//cout<<"pt_min["<<it<<"] = "<<pt_min[it];
-			w = inveff_pion(pt_min[it]);
+			w = getweight(pt_min[it],chargeflag);
 			//cout<<" w = "<<w<<endl;
 			tranminptavevsleadjetpt->Fill(xvariable,pt_min[it],w);
 			tranptavevsleadjetpt->Fill(xvariable,pt_min[it],w);
@@ -256,7 +317,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString filepath = "~/Scra
 		}
 		for(int it = 0; it<leadntrk; it++) {
 			//cout<<"pt_jet["<<it<<"] = "<<pt_jet[it];
-			w = inveff_pion(pt_jet[it]);
+			w = getweight(pt_jet[it],chargeflag);
 			//cout<<" w = "<<w<<endl;
 			leadjetptavevsleadjetpt->Fill(xvariable,pt_jet[it],w);
 
@@ -266,7 +327,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString filepath = "~/Scra
 		}
 		for(int it = 0; it<subntrk; it++) {
 			//cout<<"pt_sub["<<it<<"] = "<<pt_sub[it];
-			w = inveff_pion(pt_sub[it]);
+			w = getweight(pt_sub[it],chargeflag);
 			//cout<<" w = "<<w<<endl;
 			subjetptavevsleadjetpt->Fill(xvariable,pt_sub[it],w);
 
@@ -276,15 +337,17 @@ void plotTree2Histo(TString what2fill="multiplicity", TString filepath = "~/Scra
 		}
         	leadjetptsumvsleadjetpt->Fill(xvariable,sumleadpt);
         	subjetptsumvsleadjetpt->Fill(xvariable,sumsubpt);
+        	tranptsumvsleadjetpt->Fill(xvariable,sumtranpt);
+		MaxOrMin(sumtranmaxpt,sumtranminpt);
         	tranmaxptsumvsleadjetpt->Fill(xvariable,sumtranmaxpt);
         	tranminptsumvsleadjetpt->Fill(xvariable,sumtranminpt);
-        	tranptsumvsleadjetpt->Fill(xvariable,sumtranpt);
 
         	hleadjetptsumvsleadjetpt->Fill(xvariable,sumleadpt);
         	hsubjetptsumvsleadjetpt->Fill(xvariable,sumsubpt);
+        	htranptsumvsleadjetpt->Fill(xvariable,sumtranpt);
+		MaxOrMin(sumtranmaxpt,sumtranminpt);
         	htranmaxptsumvsleadjetpt->Fill(xvariable,sumtranmaxpt);
         	htranminptsumvsleadjetpt->Fill(xvariable,sumtranminpt);
-        	htranptsumvsleadjetpt->Fill(xvariable,sumtranpt);
 
         	//leadjetptavevsleadjetpt->Fill(xvariable,((leadntrk>0)?leadpt/leadntrk:0),leadntrk);
         	//subjetptavevsleadjetpt->Fill(xvariable,((subntrk>0)?subpt/subntrk:0),subntrk);
@@ -292,7 +355,9 @@ void plotTree2Histo(TString what2fill="multiplicity", TString filepath = "~/Scra
         	//tranminptavevsleadjetpt->Fill(xvariable,((tranminntrk>0)?tranminpt/tranminntrk:0),tranminntrk);
         	//tranptavevsleadjetpt->Fill(xvariable,((tranntrk>0)?tranpt/tranntrk:0),tranntrk);
 
+		processedevent++;
 	}
+	cout<<"Total processed # of event "<<processedevent<<endl;
 
 	// set histogram draw properties
 	leadjetpt->GetXaxis()->SetTitle(xvariablename);
@@ -410,7 +475,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString filepath = "~/Scra
 	c[0]->cd();
 	c[0]->SetLogy(1);
 	leadjetpt->Draw();
-	if(savefig) c[0]->SaveAs(Form("%sVs%s.png",leadjetpt->GetName(),what2fill.Data()));
+	if(savefig) c[0]->SaveAs(Form("figs/%sVs%s_%s.png",leadjetpt->GetName(),what2fill.Data(),filetag.Data()));
 	
 	TLegend *leg = new TLegend(0.16,0.6,0.35,0.86);
 	leg->AddEntry(leadjetntrkvsleadjetpt,"Toward","pl");
@@ -440,7 +505,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString filepath = "~/Scra
 	tranminntrkvsleadjetpt->Draw("same");	
 	tranntrkvsleadjetpt->Draw("same");	
 	leg->Draw("same");
-	if(savefig) c[1]->SaveAs(Form("%sVs%s.png","Ntrk",what2fill.Data()));
+	if(savefig) c[1]->SaveAs(Form("figs/%sVs%s_%s.png","Ntrk",what2fill.Data(),filetag.Data()));
 
 	c[2]->cd();
 	htmp[2] = new TH2D("htmp2","",1000,0,drawxmax,1000,0,20);
@@ -454,7 +519,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString filepath = "~/Scra
 	tranminptsumvsleadjetpt->Draw("same");	
 	tranptsumvsleadjetpt->Draw("same");	
 	leg->Draw("same");
-	if(savefig) c[2]->SaveAs(Form("%sVs%s.png","PtSum",what2fill.Data()));
+	if(savefig) c[2]->SaveAs(Form("figs/%sVs%s_%s.png","PtSum",what2fill.Data(),filetag.Data()));
 	
 	c[3]->cd();
 	htmp[3] = new TH2D("htmp3","",1000,0,drawxmax,1000,0,7);
@@ -468,11 +533,13 @@ void plotTree2Histo(TString what2fill="multiplicity", TString filepath = "~/Scra
 	tranminptavevsleadjetpt->Draw("same");	
 	tranptavevsleadjetpt->Draw("same");	
 	leg->Draw("same");
-	if(savefig) c[3]->SaveAs(Form("%sVs%s.png","PtAve",what2fill.Data()));
+	if(savefig) c[3]->SaveAs(Form("figs/%sVs%s_%s.png","PtAve",what2fill.Data(),filetag.Data()));
 
 
 	if(saveroot) {
-		TFile *fout = new TFile("TwoHisto4underlyingevent_JP2_R06_LeadJetAngle_MatchTrig_151110.root","RECREATE");
+		//TFile *fout = new TFile("TwoHisto4underlyingevent_JP2_R06_LeadJetAngle_MatchTrig_151110.root","RECREATE");
+		TString outfilepath = dir+what2fill+"hist4"+filetag+".root";
+		TFile *fout = new TFile(outfilepath,"RECREATE");
 		leadjetpt->Write();
 		
         	leadjetntrkvsleadjetpt->Write();
