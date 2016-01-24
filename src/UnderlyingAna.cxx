@@ -601,6 +601,7 @@ TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const dou
 	// Towers
 	TStarJetPicoTowerCuts* towerCuts = reader.GetTowerCuts();
 	towerCuts->SetMaxEtCut(AjParameters::MaxEtCut);
+	towerCuts->AddBadTowers("./include/pp200Y12_badtower.list");		// #LY CHECK where is the bad tower list
 
 	std::cout << "Using these tower cuts:" << std::endl;
 	std::cout << "  GetMaxEtCut = " << towerCuts->GetMaxEtCut() << std::endl;

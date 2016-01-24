@@ -1,5 +1,5 @@
 #!/bin/bash -l
-#PBS -l nodes=1:ppn=1,walltime=30:00:00
+#PBS -l nodes=1:ppn=1,walltime=168:00:00
 #PBS -r n
 #PBS -V
 #PBS -q hep
@@ -22,8 +22,12 @@ source SetEnvironment.sh
 #make bin/PicoJetUnderlyingActivity || exit
 
 
-echo "./bin/PicoJetUnderlyingActivity "/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/TransCharge0_MatchTrig_ppJP2_${jobid}.root" "ppJP2" "/home/hep/caines/ly247/Scratch/pp12Pico_151018/sum${jobid}.root" "0" "0" &> Pico${jobid}.log"
-./bin/PicoJetUnderlyingActivity "/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/TransCharge0_MatchTrig_ppJP2_${jobid}.root" "ppJP2" "/home/hep/caines/ly247/Scratch/pp12Pico_151018/sum${jobid}.root" "0" "0" &> Pico${jobid}.log
+
+echo ./bin/PicoJetUnderlyingActivity "/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/${jcharge}_${tcharge}_MatchTrig_pp${trg}_${jobid}.root" "ppJP2" "/home/hep/caines/ly247/Scratch/pp12${trg}Pico_151018/sum${jobid}.root" "0" "0" &> /home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/${trg}Pico${jcharge}${tcharge}_${jobid}.log
+./bin/PicoJetUnderlyingActivity "/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/${jcharge}_${tcharge}_MatchTrig_pp${trg}_${jobid}.root" "ppJP2" "/home/hep/caines/ly247/Scratch/pp12${trg}Pico_151018/sum${jobid}.root" "0" "0" &> /home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/${trg}Pico${jcharge}${tcharge}_${jobid}.log
 
 echo "Job End at `date`"
+
+
+
 

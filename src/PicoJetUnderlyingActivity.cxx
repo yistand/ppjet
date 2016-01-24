@@ -88,8 +88,10 @@ int main ( int argc, const char** argv ) {
 	// ------------------------------
 	//const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/test.root","ppHT","/home/hep/caines/ly247/Scratch/pp12Pico_150407/*root", "0", "0" };
 	//const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/MatchTrig_ppJP2.root","ppJP2","/home/hep/caines/ly247/Scratch/pp12Pico_150407/*root", "0", "0" };
-	const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/TransCharge0_MatchTrig_ppJP2.root","ppJP2","/home/hep/caines/ly247/Scratch/pp12JP2Pico_151018/*.root", "0", "0" };
+	//const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/TransCharge0_MatchTrig_ppJP2.root","ppJP2","/home/hep/caines/ly247/Scratch/pp12JP2Pico_151018/*.root", "0", "0" };
+	const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/TransCharged_MatchTrig_ppJP2.root","ppJP2","/home/hep/caines/ly247/Scratch/pp12JP2Pico_151018/*.root", "0", "0","ChargeJet","Charge" };
 	// {Code name, to be discard but needed since argv will use command name as the [0], output file name, triggername, intput file list, for variable IntTowScale to scale tower as systematics study, which effiencey file to use }
+	// output file name can include "R0.6" OR "R0.4" OR "R0.2", "ChargeJet" OR "FullJet" OR "NeutralJet", "TransCharged" particle only OR "TransNeutral" particle only 
 	
 
 	if ( argc==1 ) {
@@ -198,8 +200,9 @@ int main ( int argc, const char** argv ) {
 	cout<<"SetupReader for pico"<<endl;
 	double RefMultCut = 0;
 	TStarJetPicoReader reader = SetupReader( chain, TriggerName, RefMultCut );			// #ly note: Events & Tracks & Towers cuts are set here
-	reader.SetTrackPileUpCut(kTRUE);		// #ly	tpc track matching to bemc or tof
-	TStarJetPicoDefinitions::SetDebugLevel(0);
+	//reader.SetTrackPileUpCut(kTRUE);		// #ly	tpc track matching to bemc or tof
+	reader.SetTrackPileUpCut(2);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match ly.    0: no requirement for fast detector matching
+	TStarJetPicoDefinitions::SetDebugLevel(2);
 
 	// // Files and histograms
 	// // --------------------
@@ -332,12 +335,38 @@ int main ( int argc, const char** argv ) {
 			OutFileName
 	);  
 
+
+	// Charge selection for jet and underlying particle
+	int jetchargecode = 2;
+	if ( OutFileName.Contains ("ChargeJet") ){
+		jetchargecode = 1;
+	}
+	else if ( OutFileName.Contains ("NeutralJet") ){
+		jetchargecode = 0;
+	}
+	else if ( OutFileName.Contains ("FullJet") ){
+		jetchargecode = 2;
+	}
+
+	int underlyingchargecode = 2;
+	if ( OutFileName.Contains ("TransCharged") ){
+		underlyingchargecode = 1;
+	}
+	else if ( OutFileName.Contains ("TransNeutral") ){
+		underlyingchargecode = 0;
+	}
+
+	cout << " ################################################### " << endl;
+	cout << " jetchargecode = " << jetchargecode <<endl; 
+	cout << " underlyingchargecode = " << underlyingchargecode <<endl; 
+	cout << " ################################################### " << endl;
+
 	// initial ttree & histograms in ula
 	ula->Init();
 
-	ula->SetToMatchJetTrigger(false);			// whether match jet found with fastjet with the location which fired the trigger, NEED TO CHECK TrigFlagId
-	ula->SetNetraulJetFracCut(true);			// whether apply neutral energy fraction in jet cut
-	ula->SetUnderlyingParticleCharge(1);			// underlying event charge: 0 for netural, 1 for charged, 2 for all
+	if(jetchargecode!=1) ula->SetToMatchJetTrigger(true);			// whether match jet found with fastjet with the location which fired the trigger, NEED TO CHECK TrigFlagId
+	if(jetchargecode==2) ula->SetNetraulJetFracCut(true);			// whether apply neutral energy fraction in jet cut
+	ula->SetUnderlyingParticleCharge(underlyingchargecode);			// underlying event charge: 0 for netural, 1 for charged, 2 for all
 	ula->SetDiJetAngle(0);					// Use Dijet angle (1) or Monojet angle (0) 
 
 	std::vector<EtaPhiPair> TrigLoc2Match;		// trigger of High Tower or Jet Patch
@@ -422,6 +451,8 @@ int main ( int argc, const char** argv ) {
 
 			for (int ip = 0; ip<container->GetEntries() ; ++ip ){
 				sv = container->Get(ip);  // Note that TStarJetVector contains more info, such as charge;
+				if(jetchargecode==1&&sv->GetCharge()==0) continue;		// ChargeJet
+				if(jetchargecode==0&&sv->GetCharge()==1) continue;		// NeutralJet
 				if (sv->GetCharge()==0 ) (*sv) *= fTowScale; // for systematics
 				pj=MakePseudoJet( sv );
 				pj.set_user_info ( new JetAnalysisUserInfo( 3*sv->GetCharge() ) );
