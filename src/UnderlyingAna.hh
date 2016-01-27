@@ -93,6 +93,8 @@ private :
   float j1area,j2area;
   float rho, rhoerr;
 
+  float j1neutralfrac;
+
   // underlying event info
   float mLeadAreaPt;
   float mSubAreaPt;
@@ -265,9 +267,10 @@ public:
   // -------------------
   // Whether need to match jet found by fastjet with the location fired the trigger
   void SetToMatchJetTrigger(bool val) {mNeedToMatchTrig = val; }
+  bool GetToMatchJetTrigger() {return mNeedToMatchTrig; }
 
   // Wether apply Neutral/Total Pt of Jet fraction cut
-  void SetNetraulJetFracCut(bool val) {mNeutralJetFracCut - val; };
+  void SetNetraulJetFracCut(bool val) {mNeutralJetFracCut = val; };
 
   // Use Dijet angle (1) or Monojet angle (0)
   void SetDiJetAngle(int val) {mUseDijetAngle = val; }
