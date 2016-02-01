@@ -9,6 +9,10 @@
 #include "UnderlyingAna.hh"
 #include <algorithm>    // std::copy
 #include <vector>
+
+using std::endl;
+
+
 // Standard ctor
 UnderlyingAna::UnderlyingAna ( double R,
 		//double jet_ptmin, double jet_ptmax,
@@ -364,17 +368,17 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		//std::cout<<"Neutral/Total Pt of Jet < 90%"<<std::endl;	//test
 		fastjet::PseudoJet NeutralPart  = fastjet::PseudoJet();
 		fastjet::PseudoJet TotalPart  = fastjet::PseudoJet();		//test
-		std::vector<fastjet::PseudoJet> constituents = JAResult.at(0).constituents();
+		fastjet::Selector NoGhosts = !fastjet::SelectorIsPureGhost();
+		std::vector<fastjet::PseudoJet> constituents = NoGhosts(JAResult.at(0).constituents());
+		int charge=-99;
 		for(unsigned int jco = 0; jco<constituents.size(); jco++) {
-			const int charge = (constituents[jco]).user_index();
-			//--> NEED TO FIX THIS, NOT SURE WHY USER_INFO IS NOT PASSED TO JAResult.at(0).constituent ()
-			//std::cout<<"charge "<<charge<<std::endl;	//test
-			//std::cout<<NeutralPart.Et()<<" -> ";		// test
-			TotalPart+=constituents[jco];			// test
-			if( charge == 0 ) NeutralPart+=constituents[jco];	//test 
-			//std::cout<<NeutralPart.Et()<<std::endl;		// test
-			//test if( (constituents[jco].user_info<JetAnalysisUserInfo>().GetQuarkCharge()) == 0 ) NeutralPart+=constituents[jco];
-			//
+			if ( constituents[jco].is_pure_ghost() ){
+				std::cout << "is a ghost" << endl;
+			} else {
+				charge = (constituents[jco]).user_info<JetAnalysisUserInfo>().GetQuarkCharge();
+			}
+		    	TotalPart+=constituents[jco];			// test
+		    	if( charge == 0 ) NeutralPart+=constituents[jco];	//test 
 		}
 		//#ly NOTE: not sure why JAResult.at(0) is not equal to sum of its constituents: because particle sum by weight for jet
 		//double frac = NeutralPart.perp2()/JAResult.at(0).perp2();
@@ -548,25 +552,25 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	mSubAreaPt=ptsublead;
 	mTranMaxPt=pttranmax;
 	mTranMinPt=pttranmin;
-	mTranPt=pttran;
+	mTranPt=pttran/2.;		// take the average of these two trans
 
 	mLeadAreaNtrk=ntrklead;
 	mSubAreaNtrk=ntrksublead;
 	mTranMaxNtrk=ntrktranmax;
 	mTranMinNtrk=ntrktranmin;
-	mTranNtrk=ntrktran;
+	mTranNtrk=ntrktran/2.;		// take the average of these two trans
 
-	LeadJetNtrkvsLeadJetPt->Fill(Ptleadingjet,ntrklead);
-	SubJetNtrkvsLeadJetPt->Fill(Ptleadingjet,ntrksublead);
-	TranMaxNtrkvsLeadJetPt->Fill(Ptleadingjet,ntrktranmax);
-	TranMinNtrkvsLeadJetPt->Fill(Ptleadingjet,ntrktranmin);
-	TranNtrkvsLeadJetPt->Fill(Ptleadingjet,ntrktran);
+	LeadJetNtrkvsLeadJetPt->Fill(Ptleadingjet,mLeadAreaNtrk);
+	SubJetNtrkvsLeadJetPt->Fill(Ptleadingjet,mSubAreaNtrk);
+	TranMaxNtrkvsLeadJetPt->Fill(Ptleadingjet,mTranMaxNtrk);
+	TranMinNtrkvsLeadJetPt->Fill(Ptleadingjet,mTranMinNtrk);
+	TranNtrkvsLeadJetPt->Fill(Ptleadingjet,mTranNtrk);
 
-	LeadJetPtSumvsLeadJetPt->Fill(Ptleadingjet,ptlead);
-	SubJetPtSumvsLeadJetPt->Fill(Ptleadingjet,ptsublead);
-	TranMaxPtSumvsLeadJetPt->Fill(Ptleadingjet,pttranmax);
-	TranMinPtSumvsLeadJetPt->Fill(Ptleadingjet,pttranmin);
-	TranPtSumvsLeadJetPt->Fill(Ptleadingjet,pttran);
+	LeadJetPtSumvsLeadJetPt->Fill(Ptleadingjet,mLeadAreaPt);
+	SubJetPtSumvsLeadJetPt->Fill(Ptleadingjet,mSubAreaPt);
+	TranMaxPtSumvsLeadJetPt->Fill(Ptleadingjet,mTranMaxPt);
+	TranMinPtSumvsLeadJetPt->Fill(Ptleadingjet,mTranMinPt);
+	TranPtSumvsLeadJetPt->Fill(Ptleadingjet,mTranPt);
 
 	ResultTree->Fill();
 
