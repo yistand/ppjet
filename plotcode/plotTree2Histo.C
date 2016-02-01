@@ -342,6 +342,8 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 
 			sumsubpt+=pt_sub[it]*w;		// will be w tracks effectively ..
 		}
+
+		sumtranpt=sumtranpt/2.;		// take the average 
         	leadjetptsumvsleadjetpt->Fill(xvariable,sumleadpt);
         	subjetptsumvsleadjetpt->Fill(xvariable,sumsubpt);
         	tranptsumvsleadjetpt->Fill(xvariable,sumtranpt);
