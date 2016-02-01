@@ -30,8 +30,8 @@ namespace AjParameters{
   const double PtConsHi=2.0;        ///< High constituent pT cut (low cut is specified in wrapper)
 
   const double VzCut=30;            ///< Vertex z 
-  // const double VzDiffCut=6;         ///< |Vz(TPC) - Vz(VPD)| <-- NOT WORKING in older data (no VPD)
-  const double VzDiffCut=1000;      ///< |Vz(TPC) - Vz(VPD)|
+  const double VzDiffCut=5;         ///< |Vz(TPC) - Vz(VPD)| <-- NOT WORKING in older data (no VPD)
+  //const double VzDiffCut=1000;      ///< |Vz(TPC) - Vz(VPD)|
   
   const double DcaCut=1.0;          ///< track dca
   const int NMinFit=20;             ///< minimum number of fit points for tracks
@@ -46,7 +46,7 @@ namespace AjParameters{
   const double MaxTrackPt=1000;     ///< track pT cut
   
   // EVENT rejection cuts
-  const double MaxEventPtCut=50; //#ly 20;       ///< track pT cut for event
+  const double MaxEventPtCut=20;       ///< track pT cut for event
   const double MaxEventEtCut=50;       ///< tower ET cut for event
 
   

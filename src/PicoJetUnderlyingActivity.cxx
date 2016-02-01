@@ -144,7 +144,7 @@ int main ( int argc, const char** argv ) {
 	TString TriggerName = arguments.at(1);
 
 	int TrigFlagId = 0;
-	if(TriggerName.EqualTo("JP2")) TrigFlagId = 1236;		//// JP2               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
+	if(TriggerName.EqualTo("ppJP2")) TrigFlagId = 1236;		//// JP2               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
 
 
 	cout<<"Chain data: "<<arguments.at(2).data()<<" for "<<ChainName<<endl;
@@ -202,7 +202,7 @@ int main ( int argc, const char** argv ) {
 	TStarJetPicoReader reader = SetupReader( chain, TriggerName, RefMultCut );			// #ly note: Events & Tracks & Towers cuts are set here
 	//reader.SetTrackPileUpCut(kTRUE);		// #ly	tpc track matching to bemc or tof
 	reader.SetTrackPileUpCut(2);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match ly.    0: no requirement for fast detector matching
-	TStarJetPicoDefinitions::SetDebugLevel(2);
+	TStarJetPicoDefinitions::SetDebugLevel(0);
 
 	// // Files and histograms
 	// // --------------------
@@ -364,19 +364,23 @@ int main ( int argc, const char** argv ) {
 	// initial ttree & histograms in ula
 	ula->Init();
 
-	if(jetchargecode!=1) ula->SetToMatchJetTrigger(true);			// whether match jet found with fastjet with the location which fired the trigger, NEED TO CHECK TrigFlagId
+	if(OutFileName.Contains ("MatchTrig")&&TriggerName.EqualTo("ppJP2") ) ula->SetToMatchJetTrigger(true);			// whether match jet found with fastjet with the location which fired the trigger, NEED TO CHECK TrigFlagId
+	else ula->SetToMatchJetTrigger(false);
+
 	if(jetchargecode==2) ula->SetNetraulJetFracCut(true);			// whether apply neutral energy fraction in jet cut
+	else ula->SetNetraulJetFracCut(false);
+
 	ula->SetUnderlyingParticleCharge(underlyingchargecode);			// underlying event charge: 0 for netural, 1 for charged, 2 for all
 	ula->SetDiJetAngle(0);					// Use Dijet angle (1) or Monojet angle (0) 
 
-	std::vector<EtaPhiPair> TrigLoc2Match;		// trigger of High Tower or Jet Patch
-
 	// Cycle through events
 	// --------------------
-	vector<PseudoJet> particles;
-	TStarJetVectorContainer<TStarJetVector>* container;
+	vector<PseudoJet> particles;		// for jet finding
+	TStarJetVectorContainer<TStarJetVector>* container;		// for underlying event loop
 	TStarJetVector* sv; // TLorentzVector* would be sufficient. 
 	PseudoJet pj;
+
+	std::vector<EtaPhiPair> TrigLoc2Match;		// trigger of High Tower or Jet Patch
 
 
 	//int nHardDijets = 0;
@@ -394,10 +398,14 @@ int main ( int argc, const char** argv ) {
 
 	//#ly fastjet::Selector GrabCone = fastjet::SelectorCircle( R );    
 
+        // problematic runs, need future investigation
+        const int NoBadRun = 186;
+        int badrun[NoBadRun] = {13044118, 13044123, 13044124, 13044125, 13045001, 13045003, 13045005, 13045006, 13045007, 13045012, 13045029, 13046002, 13046008, 13046010, 13046029, 13046118, 13046119, 13046120, 13047004, 13047014, 13047018, 13047036, 13047037, 13047039, 13047040, 13047041, 13047042, 13047043, 13047044, 13047045, 13047046, 13047047, 13047048, 13047049, 13047050, 13047051, 13047052, 13047053, 13047054, 13047055, 13048007, 13048022, 13048046, 13049004, 13049005, 13049050, 13049052, 13049075, 13049086, 13049087, 13049088, 13049089, 13050007, 13050025, 13050026, 13050027, 13050033, 13050039, 13050043, 13050044, 13050046, 13050047, 13050049, 13050050, 13051068, 13051080, 13051088, 13051095, 13051102, 13052021, 13052022, 13052054, 13052063, 13052068, 13053010, 13053021, 13054004, 13054005, 13054006, 13054007, 13054008, 13054009, 13054011, 13054012, 13054013, 13054014, 13054015, 13054016, 13054017, 13054018, 13054019, 13054020, 13054022, 13054042, 13054045, 13054046, 13054057, 13055015, 13055072, 13055081, 13055082, 13055086, 13055087, 13055088, 13055089, 13055090, 13056011, 13056012, 13056034, 13056035, 13056037, 13056038, 13056039, 13057038, 13057039, 13058019, 13058030, 13058047, 13058048, 13059003, 13059004, 13059005, 13059006, 13059007, 13059008, 13059009, 13059010, 13059019, 13059035, 13059082, 13059083, 13059084, 13059085, 13059086, 13059087, 13060001, 13060002, 13060003, 13060009, 13060012, 13061026, 13063033, 13064030, 13064057, 13064059, 13064074, 13066035, 13066036, 13066101, 13066102, 13066104, 13066109, 13066110, 13067001, 13067002, 13067003, 13067004, 13067005, 13067006, 13067007, 13067008, 13067009, 13067010, 13067011, 13067012, 13067013, 13067014, 13067015, 13067017, 13068017, 13068022, 13068027, 13068029, 13068034, 13068036, 13068037, 13069006, 13069009, 13069029, 13070030, 13070056, 13071034, 13071037, 13071038, 13071040};
+        
 	try{
 		while ( reader.NextEvent() ) {
 			reader.PrintStatus(10);
-			if(count%1000==0) cout<<"event "<<count<<endl;
+			if(count%10000==0) cout<<"event "<<count<<endl;
 			count++;
 
 			// event info
@@ -406,7 +414,13 @@ int main ( int argc, const char** argv ) {
 			TStarJetPicoEventHeader* header = reader.GetEvent()->GetHeader();
 
 			// eventid = header->GetEventId();
-			// runid   = header->GetRunId();
+			int runid   = header->GetRunId();
+			if(runid>=13058000&& runid<13061000) continue;          // a dip in TPC primary tracks. problematic runs, need future investigation
+			for(int i = 0; i<NoBadRun; i++) {
+                        	if(runid==badrun[i]) continue;
+                	}
+
+	
 
 			//#ly // Let's use the eventid as random seed.
 			//#ly // that way things stay reproducible between different trees
@@ -431,12 +445,14 @@ int main ( int argc, const char** argv ) {
 
 			// Load event ht/jetpatch trigger objs
 			// ----------
-			//std::cout<<"load trigger objs"<<endl;
-			TClonesArray *trigobj = reader.GetEvent()->GetTrigObjs();
-			for(int itrg = 0; itrg<trigobj->GetEntries(); itrg++) {
-				if( ((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetTriggerFlag()==TrigFlagId )	 { 
-					EtaPhiPair itrigloc =std::make_pair(CorrectBemcVzEta(((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetEta(),header->GetPrimaryVertexZ()), ((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetPhi()) ;
-					TrigLoc2Match.push_back(itrigloc);
+			//std::cout<<"load trigger objs"<<endl;	//test
+			if(ula->GetToMatchJetTrigger()) {
+				TClonesArray *trigobj = reader.GetEvent()->GetTrigObjs();
+				for(int itrg = 0; itrg<trigobj->GetEntries(); itrg++) {
+					if( ((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetTriggerFlag()==TrigFlagId )	 { 
+						EtaPhiPair itrigloc =std::make_pair(CorrectBemcVzEta(((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetEta(),header->GetPrimaryVertexZ()), ((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetPhi()) ;
+						TrigLoc2Match.push_back(itrigloc);
+					}
 				}
 			}
 
@@ -448,15 +464,21 @@ int main ( int argc, const char** argv ) {
 			// Make particle vector
 			// --------------------
 			particles.clear();
+			TrigLoc2Match.clear();
 
 			for (int ip = 0; ip<container->GetEntries() ; ++ip ){
 				sv = container->Get(ip);  // Note that TStarJetVector contains more info, such as charge;
+
+				if(fabs(sv->perp())<0.2) continue;		// #ly CHECK!!!!!!!! minimum pT or Et
+
 				if(jetchargecode==1&&sv->GetCharge()==0) continue;		// ChargeJet
-				if(jetchargecode==0&&sv->GetCharge()==1) continue;		// NeutralJet
+				if(jetchargecode==0&&sv->GetCharge()!=0) continue;		// NeutralJet
 				if (sv->GetCharge()==0 ) (*sv) *= fTowScale; // for systematics
 				pj=MakePseudoJet( sv );
 				pj.set_user_info ( new JetAnalysisUserInfo( 3*sv->GetCharge() ) );
-				pj.set_user_index(ip);		// #ly	link fastjet::PseudoJet to TStarJetVector class
+				//test pj.set_user_index(ip);		// #ly	link fastjet::PseudoJet to TStarJetVector class	--> NEED TO FIX THIS, NOT SURE WHY USER_INFO IS NOT PASSED TO JAResult.at(0).constituents() in UnderlyingAna.cxx
+				pj.set_user_index((int)3*sv->GetCharge() );	//test --> NEED TO FIX THIS, NOT SURE WHY USER_INFO IS NOT PASSED TO JAResult.at(0).constituents() in UnderlyingAna.cxx
+				//cout<<"input "<<sv->GetCharge() <<" -> "<<pj.user_info<JetAnalysisUserInfo>().GetQuarkCharge()<<endl;	// test 
 
 				//if ( sv->GetCharge()!=0 && tEff ) {		//#ly not apply Au+Au eff to pp, we are now calculate pp only
 				//  Double_t reff=tEff->EffRatio_20(sv->Eta(),sv->Pt());
@@ -469,7 +491,6 @@ int main ( int argc, const char** argv ) {
 				particles.push_back ( pj );
 				//}	      
 			}    
-
 			// Run analysis
 			// ------------
 			//cout<<"analyze and fill"<<endl; 	// test
@@ -580,13 +601,11 @@ int main ( int argc, const char** argv ) {
 			//	ResultTree->Fill();
 			//}
 
-
 		} // while NextEvent
 	} catch ( exception& e) {
 		cerr << "Caught " << e.what() << endl;
 		return -1;
 	}
-
 	cout << "##################################################################" << endl;
 
 	//Long64_t nEventsUsed=reader.GetNOfEvents();  
@@ -612,6 +631,5 @@ int main ( int argc, const char** argv ) {
 
 	//cout << "TranNtrkvsLeadJetPt->GetEntries() = " << TranNtrkvsLeadJetPt->GetEntries() << endl;
 	return 0;
-
 }
 

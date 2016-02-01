@@ -9,6 +9,10 @@
 #include "UnderlyingAna.hh"
 #include <algorithm>    // std::copy
 #include <vector>
+
+using std::endl;
+
+
 // Standard ctor
 UnderlyingAna::UnderlyingAna ( double R,
 		//double jet_ptmin, double jet_ptmax,
@@ -89,6 +93,11 @@ UnderlyingAna::UnderlyingAna ( double R,
 
 
   	nEventProcessed = 0;		// reset counter
+
+	mNeedToMatchTrig = true;
+	mNeutralJetFracCut = true;
+	mUseDijetAngle = 0;
+	mUnderlyingParticleCharge = 1;
 	
 	ResultTree = NULL;
 
@@ -161,6 +170,7 @@ int UnderlyingAna::Init() {
 	ResultTree->Branch("j1eta",&j1eta, "j1eta/F");
 	ResultTree->Branch("j2eta",&j2eta, "j2eta/F");
 
+	ResultTree->Branch("j1neutralfrac",&j1neutralfrac, "j1neutralfrac/F");
 
 	ResultTree->Branch("LeadAreaPtSum",&mLeadAreaPt,"LeadAreaPtSum/F");
 	ResultTree->Branch("SubLeadAreaPtSum",&mSubAreaPt,"SubLeadAreaPtSum/F");
@@ -263,6 +273,8 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	j1area=0,j2area=0;
 	rho=0, rhoerr=0;
 
+	j1neutralfrac=0;
+
 	mLeadAreaPt=0;
 	mSubAreaPt=0;
 	mTranMaxPt=0;
@@ -347,16 +359,36 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 
 	// ---------------------------------------------------------
 	// Neutral/Total Pt of Jet < 90% cut
+	//std::cout<<"mNeutralJetFracCut = "<<mNeutralJetFracCut<<std::endl;	//test
+	//std::cout<<"mNeedToMatchTrig = "<<mNeedToMatchTrig<<std::endl;	//test
+	//std::cout<<"mUseDijetAngle = "<<mUseDijetAngle<<std::endl;	//test
+	//std::cout<<"mUnderlyingParticleCharge = "<<mUnderlyingParticleCharge<<std::endl;	//test
+
 	if( mNeutralJetFracCut ) {
+		//std::cout<<"Neutral/Total Pt of Jet < 90%"<<std::endl;	//test
 		fastjet::PseudoJet NeutralPart  = fastjet::PseudoJet();
-		std::vector<fastjet::PseudoJet> constituents = JAResult.at(0).constituents();
+		fastjet::PseudoJet TotalPart  = fastjet::PseudoJet();		//test
+		fastjet::Selector NoGhosts = !fastjet::SelectorIsPureGhost();
+		std::vector<fastjet::PseudoJet> constituents = NoGhosts(JAResult.at(0).constituents());
+		int charge=-99;
 		for(unsigned int jco = 0; jco<constituents.size(); jco++) {
-			if( (constituents[jco].user_info<JetAnalysisUserInfo>().GetQuarkCharge()) == 0 ) NeutralPart+=constituents[jco];
+			if ( constituents[jco].is_pure_ghost() ){
+				std::cout << "is a ghost" << endl;
+			} else {
+				charge = (constituents[jco]).user_info<JetAnalysisUserInfo>().GetQuarkCharge();
+			}
+		    	TotalPart+=constituents[jco];			// test
+		    	if( charge == 0 ) NeutralPart+=constituents[jco];	//test 
 		}
-		if( (NeutralPart.perp2()/JAResult.at(0).perp2()) > AjParameters::JetNeutralPertMax )  {
-			std::cout<<"Netural Jet .. Pass"<<std::endl;
-			return 0;
+		//#ly NOTE: not sure why JAResult.at(0) is not equal to sum of its constituents: because particle sum by weight for jet
+		//double frac = NeutralPart.perp2()/JAResult.at(0).perp2();
+		j1neutralfrac = fabs(NeutralPart.perp()/TotalPart.perp());
+		if( j1neutralfrac > AjParameters::JetNeutralPertMax )  {
+		//if( (NeutralPart.perp2()/TotalPart.perp2()) > AjParameters::JetNeutralPertMax )  {
+			//std::cout<<"Neutral Jet .. Pass: "<<frac<<" > "<<AjParameters::JetNeutralPertMax <<std::endl;
+			//test #ly return 0;
 		}
+		//else std::cout<<":D Passed neutral cut~~~"<<std::endl;	// test
 	}
 
 
@@ -520,25 +552,25 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	mSubAreaPt=ptsublead;
 	mTranMaxPt=pttranmax;
 	mTranMinPt=pttranmin;
-	mTranPt=pttran;
+	mTranPt=pttran/2.;		// take the average of these two trans
 
 	mLeadAreaNtrk=ntrklead;
 	mSubAreaNtrk=ntrksublead;
 	mTranMaxNtrk=ntrktranmax;
 	mTranMinNtrk=ntrktranmin;
-	mTranNtrk=ntrktran;
+	mTranNtrk=ntrktran/2.;		// take the average of these two trans
 
-	LeadJetNtrkvsLeadJetPt->Fill(Ptleadingjet,ntrklead);
-	SubJetNtrkvsLeadJetPt->Fill(Ptleadingjet,ntrksublead);
-	TranMaxNtrkvsLeadJetPt->Fill(Ptleadingjet,ntrktranmax);
-	TranMinNtrkvsLeadJetPt->Fill(Ptleadingjet,ntrktranmin);
-	TranNtrkvsLeadJetPt->Fill(Ptleadingjet,ntrktran);
+	LeadJetNtrkvsLeadJetPt->Fill(Ptleadingjet,mLeadAreaNtrk);
+	SubJetNtrkvsLeadJetPt->Fill(Ptleadingjet,mSubAreaNtrk);
+	TranMaxNtrkvsLeadJetPt->Fill(Ptleadingjet,mTranMaxNtrk);
+	TranMinNtrkvsLeadJetPt->Fill(Ptleadingjet,mTranMinNtrk);
+	TranNtrkvsLeadJetPt->Fill(Ptleadingjet,mTranNtrk);
 
-	LeadJetPtSumvsLeadJetPt->Fill(Ptleadingjet,ptlead);
-	SubJetPtSumvsLeadJetPt->Fill(Ptleadingjet,ptsublead);
-	TranMaxPtSumvsLeadJetPt->Fill(Ptleadingjet,pttranmax);
-	TranMinPtSumvsLeadJetPt->Fill(Ptleadingjet,pttranmin);
-	TranPtSumvsLeadJetPt->Fill(Ptleadingjet,pttran);
+	LeadJetPtSumvsLeadJetPt->Fill(Ptleadingjet,mLeadAreaPt);
+	SubJetPtSumvsLeadJetPt->Fill(Ptleadingjet,mSubAreaPt);
+	TranMaxPtSumvsLeadJetPt->Fill(Ptleadingjet,mTranMaxPt);
+	TranMinPtSumvsLeadJetPt->Fill(Ptleadingjet,mTranMinPt);
+	TranPtSumvsLeadJetPt->Fill(Ptleadingjet,mTranPt);
 
 	ResultTree->Fill();
 
@@ -584,6 +616,8 @@ TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const dou
 
 	evCuts->SetMaxEventPtCut ( AjParameters::MaxEventPtCut );
 	evCuts->SetMaxEventEtCut ( AjParameters::MaxEventEtCut );
+
+	evCuts->SetPVRankingCut ( 0 );		// Vertex ranking
 
 	// Tracks cuts
 	TStarJetPicoTrackCuts* trackCuts = reader.GetTrackCuts();

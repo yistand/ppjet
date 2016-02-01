@@ -1,12 +1,20 @@
 #!/bin/bash -l
 
-trg=JP2
-jetcharge=FullJet
-undercharge=TransCharged
+trg=JP2					# MB or JP2
+#jetcharge=ChargeJet			# FullJet or ChargeJet
+#undercharge=TransNeutral		# TransCharged or TransNeutral
 
-for i in {0..9}
+
+for jetcharge in ChargeJet FullJet
 do
-	qsub -N ${jetcharge}${undercharge}_${trg}_${i} -v jobid=${i},trg=${trg},jcharge=${jetcharge},tcharge=${undercharge} submitjob.sh
+	for undercharge in TransCharged TransNeutral
+	do 
+		for i in {0..9}
+		do
+			bsub -W 24:00 -J "Match${jetcharge}${undercharge}_${trg}_${i}" "sh  submitjob.sh ${i} ${trg} ${jetcharge} ${undercharge}"
+			sleep .2s
+		done
+	done
 done
 
 

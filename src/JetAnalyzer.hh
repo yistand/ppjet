@@ -301,13 +301,13 @@ fastjet::PseudoJet MakePseudoJet ( const TLorentzVector* const lv );
 class JetAnalysisUserInfo: public fastjet::PseudoJet::UserInfoBase {
 public:
   /// Standard Constructor
-  JetAnalysisUserInfo(int quarkcharge=-999) :  quarkcharge( quarkcharge )  {};
+  JetAnalysisUserInfo(const int & quarkcharge) :  _quarkcharge( quarkcharge )  {};
   
   /// Charge in units of e/3
-  int GetQuarkCharge() const { return quarkcharge; };
+  int GetQuarkCharge() const { return _quarkcharge; };
 
-private:
-  const int quarkcharge;   ///< Charge in units of e/3
+protected:
+  int _quarkcharge;   ///< Charge in units of e/3
 };
 
 // =============================================================================
