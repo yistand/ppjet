@@ -136,6 +136,8 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	double refmult;
 	int runid;
 
+	float j1neutralfrac;
+
 	const int MAXARRAY = 1000;
 	float pt_min[MAXARRAY], pt_max[MAXARRAY], pt_jet[MAXARRAY], pt_sub[MAXARRAY];
 
@@ -157,6 +159,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
         t->SetBranchAddress("TrkTranMaxPt",pt_max);
         t->SetBranchAddress("TrkTranMinPt",pt_min);
 
+	t->SetBranchAddress("j1neutralfrac",&j1neutralfrac);
 	
 	// define histograms
 	double maxpt = 50; // for refmult range
@@ -244,12 +247,16 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	for(int ievt = 0; ievt<t->GetEntries(); ievt++) {	
 		t->GetEntry(ievt);
 
+		if(j1neutralfrac>0.9) continue;			// jet neutral pT fraction < 90%
+
+		if(runid>=13058000&& runid<13061000) continue;		// a dip in TPC primary tracks. problematic runs, need future investigation
 		//test if(runid>13052000&& runid<13060000) continue;		// problematic runs, need future investigation
 		for(int i = 0; i<NoBadRun; i++) {
 			if(runid==badrun[i]) continue;
 		}
 
-		if(((what2fill.Contains("refmult",TString::kIgnoreCase))||(what2fill.Contains("multiplicity",TString::kIgnoreCase)))&&(jpt<10)) continue;		// when studying multiplicity dependence, exclude jet pT<10GeV/c to ensure the real jet found
+		if(((what2fill.Contains("refmult",TString::kIgnoreCase))||(what2fill.Contains("multiplicity",TString::kIgnoreCase)))&&(jpt<10)&&(jpt>40)) continue;		// when studying multiplicity dependence, exclude jet pT<10GeV/c to ensure the real jet found + jet pT<40GeV/c there is some unphysics structure seen from Ntrk, SumPt, pT vs leadjetpt distribution
+		//if(((what2fill.Contains("refmult",TString::kIgnoreCase))||(what2fill.Contains("multiplicity",TString::kIgnoreCase)))&&(jpt<10)) continue;		// when studying multiplicity dependence, exclude jet pT<10GeV/c to ensure the real jet found 
 
 		if(ievt%1000000==0) cout<<"event "<<ievt<<endl;
 
@@ -258,7 +265,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 			xvariable = jpt;
 		}
 		else if(what2fill.Contains("multiplicity",TString::kIgnoreCase)) {	// total mulitplicity
-			xvariable = leadntrk+subntrk+tranntrk;
+			xvariable = leadntrk+subntrk+tranmaxntrk+tranminntrk;
 		}
 		else {
 			xvariable = refmult;
@@ -335,6 +342,8 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 
 			sumsubpt+=pt_sub[it]*w;		// will be w tracks effectively ..
 		}
+
+		sumtranpt=sumtranpt/2.;		// take the average 
         	leadjetptsumvsleadjetpt->Fill(xvariable,sumleadpt);
         	subjetptsumvsleadjetpt->Fill(xvariable,sumsubpt);
         	tranptsumvsleadjetpt->Fill(xvariable,sumtranpt);
@@ -348,12 +357,6 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 		MaxOrMin(sumtranmaxpt,sumtranminpt);
         	htranmaxptsumvsleadjetpt->Fill(xvariable,sumtranmaxpt);
         	htranminptsumvsleadjetpt->Fill(xvariable,sumtranminpt);
-
-        	//leadjetptavevsleadjetpt->Fill(xvariable,((leadntrk>0)?leadpt/leadntrk:0),leadntrk);
-        	//subjetptavevsleadjetpt->Fill(xvariable,((subntrk>0)?subpt/subntrk:0),subntrk);
-        	//tranmaxptavevsleadjetpt->Fill(xvariable,((tranmaxntrk>0)?tranmaxpt/tranmaxntrk:0),tranmaxntrk);
-        	//tranminptavevsleadjetpt->Fill(xvariable,((tranminntrk>0)?tranminpt/tranminntrk:0),tranminntrk);
-        	//tranptavevsleadjetpt->Fill(xvariable,((tranntrk>0)?tranpt/tranntrk:0),tranntrk);
 
 		processedevent++;
 	}
