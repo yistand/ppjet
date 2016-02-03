@@ -67,7 +67,7 @@ JetAnalyzer::JetAnalyzer( std::vector<fastjet::PseudoJet>& InOrigParticles, fast
 // Background functionality
 fastjet::Subtractor* JetAnalyzer::GetBackgroundSubtractor(){
   if ( !CanDoBackground ) {
-     //throw std::string("Should not be called unless we can actually do background subtraction.");
+    // throw std::string("Should not be called unless we can actually do background subtraction.");
     return 0;
   }
 
@@ -156,8 +156,7 @@ void SelectorDijetWorker::terminator(std::vector<const fastjet::PseudoJet *> & j
     double phi0 = jets.at(i0)->phi();
     double phi1 = jets.at(i1)->phi();
 
-    //#ly test if ( ! (fabs ( JetAnalyzer::phimod2pi( phi0 - phi1 - JetAnalyzer::pi) ) < dPhi) ) {
-    if ( ! (fabs ( JetAnalyzer::phimod2pi( phi0 - phi1 - JetAnalyzer::pi/2.) ) < dPhi) ) {		//#ly
+    if ( ! (fabs ( JetAnalyzer::phimod2pi( phi0 - phi1 - JetAnalyzer::pi) ) < dPhi) ) {
       // Nope, don't save them after all
       i0=i1=-1;
     }
@@ -183,8 +182,6 @@ fastjet::Selector SelectorDijets( const double dPhi ){
 // -------
 // Helpers
 // -------
-//#ly const double JetAnalyzer::pi;		//#ly this is definition.
-const double JetAnalyzer::pi = 3.141592653589793238462643383279502884;		//#ly this is definition.
 double JetAnalyzer::phimod2pi ( double phi ){
   while ( phi <-pi ) phi += 2.0*pi;
   while ( phi > pi ) phi -= 2.0*pi;
@@ -279,6 +276,9 @@ fastjet::PseudoJet MakePseudoJet ( const TLorentzVector* const lv ){
 fastjet::Selector SelectorChargeRange( const int cmin, const int cmax){
   return fastjet::Selector(new SelectorChargeWorker(cmin, cmax));
 };
+fastjet::Selector SelectorIsNeutralCharge( ){
+  return fastjet::Selector(new SelectorChargeWorker(0, 0));
+};
 // ------------------------------------------------------------------------
 // Helper to get an enum from a string    
 fastjet::JetAlgorithm AlgoFromString( std::string s){
@@ -292,3 +292,4 @@ fastjet::JetAlgorithm AlgoFromString( std::string s){
 
 }
 // ------------------------------------------------------------------------
+const double JetAnalyzer::pi = 3.141592653589793238462643383279502884;

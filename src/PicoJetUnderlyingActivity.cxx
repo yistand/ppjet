@@ -42,6 +42,18 @@
 #include <cstdlib>      // std::rand, std::srand
 #include <algorithm>    // std::random_shuffle
 
+#include "TStarJetPicoReader.h"
+#include "TStarJetPicoEvent.h"
+#include "TStarJetPicoEventHeader.h"
+#include "TStarJetPicoEventCuts.h"
+
+#include "TStarJetPicoPrimaryTrack.h"
+#include "TStarJetPicoTrackCuts.h"
+#include "TStarJetPicoTowerCuts.h"
+
+#include "TStarJetPicoTriggerInfo.h"
+
+
 using namespace std;
 using namespace fastjet;
 
@@ -81,6 +93,64 @@ float CorrectBemcVzEta(float geoEta, float PrimVertexZ, float radius = 224){	// 
 	return corrEta;
 
 }
+
+
+// Helper to deal with repetitive stuff
+TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const double RefMultCut ){
+	TStarJetPicoDefinitions::SetDebugLevel(10); // 10 for more output, 0 for less output
+
+	TStarJetPicoReader reader;
+	reader.SetInputChain (chain);
+
+	// Event and track selection
+	// -------------------------
+	TStarJetPicoEventCuts* evCuts = reader.GetEventCuts();
+	evCuts->SetTriggerSelection( TriggerString ); //All, MB, HT, pp, ppHT, ppJP
+	// Additional cuts 
+	evCuts->SetVertexZCut (AjParameters::VzCut);
+	evCuts->SetRefMultCut ( RefMultCut );
+	evCuts->SetVertexZDiffCut( AjParameters::VzDiffCut );
+
+	evCuts->SetMaxEventPtCut ( AjParameters::MaxEventPtCut );
+	evCuts->SetMaxEventEtCut ( AjParameters::MaxEventEtCut );
+
+	evCuts->SetPVRankingCut ( 0 );		// Vertex ranking
+
+	// Tracks cuts
+	TStarJetPicoTrackCuts* trackCuts = reader.GetTrackCuts();
+	trackCuts->SetDCACut( AjParameters::DcaCut );
+	trackCuts->SetMinNFitPointsCut( AjParameters::NMinFit );
+	trackCuts->SetFitOverMaxPointsCut( AjParameters::FitOverMaxPointsCut );
+	trackCuts->SetMaxPtCut ( AjParameters::MaxTrackPt );
+
+	std::cout << "Using these track cuts:" << std::endl;
+	std::cout << " dca : " << trackCuts->GetDCACut(  ) << std::endl;
+	std::cout << " nfit : " <<   trackCuts->GetMinNFitPointsCut( ) << std::endl;
+	std::cout << " nfitratio : " <<   trackCuts->GetFitOverMaxPointsCut( ) << std::endl;
+	std::cout << " maxpt : " << trackCuts->GetMaxPtCut (  ) << std::endl;
+
+	// Towers
+	TStarJetPicoTowerCuts* towerCuts = reader.GetTowerCuts();
+	towerCuts->SetMaxEtCut(AjParameters::MaxEtCut);
+	towerCuts->AddBadTowers("./include/pp200Y12_badtower.list");		// #LY CHECK where is the bad tower list
+
+	// Tower energy correction (subtract associated charged particle deposit energy). By default, it is MIP correction (comment out the following 3 lines)
+	reader.SetApplyFractionHadronicCorrection(kTRUE);
+	reader.SetFractionHadronicCorrection(0.9999);
+	reader.SetRejectTowerElectrons( kFALSE );
+
+
+	std::cout << "Using these tower cuts:" << std::endl;
+	std::cout << "  GetMaxEtCut = " << towerCuts->GetMaxEtCut() << std::endl;
+	std::cout << "  Gety8PythiaCut = " << towerCuts->Gety8PythiaCut() << std::endl;
+
+	// V0s: Turn off
+	reader.SetProcessV0s(false);
+
+	return reader;
+
+}
+
 
 int main ( int argc, const char** argv ) {
 
@@ -197,6 +267,7 @@ int main ( int argc, const char** argv ) {
 	//float R = 0.6;	// test
 	UnderlyingAna *ula = new UnderlyingAna( R,
 			AjParameters::max_track_rap,
+			0.2,			// pt min for const.
 			AjParameters::dPhiCut,
 			OutFileName
 	);  
@@ -236,7 +307,10 @@ int main ( int argc, const char** argv ) {
 	if(jetchargecode==2) ula->SetNetraulJetFracCut(true);			// whether apply neutral energy fraction in jet cut
 	else ula->SetNetraulJetFracCut(false);
 
+	ula->SetJetCharge(jetchargecode);			// Jet charge
+
 	ula->SetUnderlyingParticleCharge(underlyingchargecode);			// underlying event charge: 0 for netural, 1 for charged, 2 for all
+
 	ula->SetDiJetAngle(0);					// Use Dijet angle (1) or Monojet angle (0) 
 
 	// Cycle through events
@@ -309,11 +383,9 @@ int main ( int argc, const char** argv ) {
 
 				if(fabs(sv->perp())<0.2) continue;		// #ly CHECK!!!!!!!! minimum pT or Et
 
-				if(jetchargecode==1&&sv->GetCharge()==0) continue;		// ChargeJet
-				if(jetchargecode==0&&sv->GetCharge()!=0) continue;		// NeutralJet
 				if (sv->GetCharge()==0 ) (*sv) *= fTowScale; // for systematics
 				pj=MakePseudoJet( sv );
-				pj.set_user_info ( new JetAnalysisUserInfo( 3*sv->GetCharge() ) );
+				pj.set_user_info ( new JetAnalysisUserInfo( 3*sv->GetCharge(), sv->GetFeatureD(TStarJetVector::_DEDX), sv->GetFeatureD(TStarJetVector::_TOFBETA) ) );
 				pj.set_user_index(ip);		// #ly	link fastjet::PseudoJet to TStarJetVector class	--> NEED TO FIX THIS, NOT SURE WHY USER_INFO IS NOT PASSED TO JAResult.at(0).constituents() in UnderlyingAna.cxx
 				//cout<<"input "<<sv->GetCharge() <<" -> "<<pj.user_info<JetAnalysisUserInfo>().GetQuarkCharge()<<endl;	// test 
 
@@ -325,8 +397,10 @@ int main ( int argc, const char** argv ) {
 			//cout<<"analyze and fill"<<endl; 	// test
 
 			ula->AnalyzeAndFill( particles, 
-					*container, 
-					reader,
+					//*container, 
+					reader.GetEvent()->GetHeader()->GetEventId(),
+					reader.GetEvent()->GetHeader()->GetRunId(),
+					reader.GetEvent()->GetHeader()->GetGReferenceMultiplicity(),
 					TrigLoc2Match
 			);
 

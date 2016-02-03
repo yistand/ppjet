@@ -17,44 +17,32 @@ using std::endl;
 UnderlyingAna::UnderlyingAna ( double R,
 		//double jet_ptmin, double jet_ptmax,
 		//double LeadPtMin, double SubLeadPtMin, 
-		double max_const_rap, //double PtConsLo, double PtConsHi,
-		double min_const_pt,
+		double max_track_rap, //double PtConsLo, double PtConsHi,
 		double dPhiCut,
 		TString name
 		)
 		: R(R),
 	//jet_ptmin(jet_ptmin), jet_ptmax(jet_ptmax),
 	//LeadPtMin(LeadPtMin), SubLeadPtMin(SubLeadPtMin),
-	max_const_rap (max_const_rap), //PtConsLo (PtConsLo), PtConsHi (PtConsHi),
-	min_const_pt (min_const_pt),
+	max_track_rap (max_track_rap), //PtConsLo (PtConsLo), PtConsHi (PtConsHi),
 	dPhiCut (dPhiCut),
 	OutFileName (name),
-	pJA (0),
-	pJA_bkgsub (0)
+	pJA (0)
 	 //pJAhi (0), pJAlo(0), pOtherJAlo(0)
 {
 	// derived rapidity cuts
 	// ---------------------
-	max_rap      = max_const_rap-R;
+	max_rap      = max_track_rap-R;
 	ghost_maxrap = max_rap + 2.0 * R;
 
 	// Constituent selectors
 	// ---------------------
-	select_const_rap = fastjet::SelectorAbsRapMax(max_const_rap);
-	select_const_ptmin = fastjet::SelectorPtMin(min_const_pt);
+	select_track_rap = fastjet::SelectorAbsRapMax(max_track_rap);
 
 	// Provide but turn off charge selector
-	// fastjet::Selector select_const_charge= SelectorChargeRange( -3, 3);
-	fastjet::Selector select_const_charge= fastjet::SelectorIdentity();
-	if (mJetCharge==1) {
-		select_const_charge = !SelectorIsNeutralCharge();		// Charged Jet only
-	}
-	if (mJetCharge==0) {
-		select_const_charge = SelectorIsNeutralCharge();		// Neutral Jet only
-	}
-	sconst     = select_const_rap && select_const_ptmin && select_const_charge;			
-	//fastjet watch out: the operator * acts like an operator product i.e. does not commute. The order of its arguments is therefore important. Whenever they commute (in particluar, when they apply jet by jet), this would have the same effect as the logical &&.
-	//fastjet watch out: && for both s1 and s2, the selection is applied on the original list of objects. For successive applications of two selectors (convolution/multiplication) see the operator *
+	// fastjet::Selector select_track_charge= SelectorChargeRange( -3, 3);
+	fastjet::Selector select_track_charge= fastjet::SelectorIdentity();
+	sconst     = select_track_rap * select_track_charge;
 
 	// Jet candidate selectors
 	// -----------------------
@@ -181,10 +169,6 @@ int UnderlyingAna::Init() {
 	ResultTree->Branch("j2phi",&j2phi, "j2phi/F");
 	ResultTree->Branch("j1eta",&j1eta, "j1eta/F");
 	ResultTree->Branch("j2eta",&j2eta, "j2eta/F");
-	ResultTree->Branch("j1area",&j1area, "j1area/F");
-	ResultTree->Branch("j2area",&j2area, "j2area/F");
-	ResultTree->Branch("j1area_err",&j1area_err, "j1area_err/F");
-	ResultTree->Branch("j2area_err",&j2area_err, "j2area_err/F");
 
 	ResultTree->Branch("j1neutralfrac",&j1neutralfrac, "j1neutralfrac/F");
 
@@ -255,9 +239,8 @@ int UnderlyingAna::Init() {
 // ====================
 //int UnderlyingAna::AnalyzeAndFill ( std::vector<fastjet::PseudoJet>& particles, std::vector<fastjet::PseudoJet>& ToMatch,
 int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& particles, 
-		//TStarJetVectorContainer<TStarJetVector>& container,
-		int ineventid, int inrunid, double inrefmult,
-		//TStarJetPicoReader &reader,
+		TStarJetVectorContainer<TStarJetVector>& container,
+		TStarJetPicoReader &reader,
 	 	//Int_t mEffUn,	
 		const std::vector<std::pair<float,float> > &ToMatch
 		//Double_t EventClassifier
@@ -272,7 +255,6 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	// We want to hold onto the jetanalyzer objects, so they're created dynamically
 	// Need to delete them by hand
 	if (pJA){    delete pJA;    pJA=0;  }
-	if (pJA_bkgsub){    delete pJA_bkgsub;    pJA_bkgsub=0;  }
 
 	DiJets.clear();
 
@@ -281,18 +263,14 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	Has10Gev=false;
 	HasDijet=false;
 
-	eventid = ineventid;
-	runid = inrunid;
-	refmult = inrefmult;	
-	//eventid = reader.GetEvent()->GetHeader()->GetEventId();	
-	//runid = reader.GetEvent()->GetHeader()->GetRunId();
-	//refmult = reader.GetEvent()->GetHeader()->GetGReferenceMultiplicity();
+	eventid = reader.GetEvent()->GetHeader()->GetEventId();	
+	runid = reader.GetEvent()->GetHeader()->GetRunId();
+	refmult = reader.GetEvent()->GetHeader()->GetGReferenceMultiplicity();
 
 	j1pt=0, j2pt=0;
 	j1phi=-999, j2phi=-999;
 	j1eta=-999, j2eta=-999;
 	j1area=0,j2area=0;
-	j1area_err=0,j2area_err=0;
 	rho=0, rhoerr=0;
 
 	j1neutralfrac=0;
@@ -332,6 +310,15 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	// ---------------------------------------
 	//std::cout<<"selector for consti"<<std::endl; 		// test
 	Jconstituents = sconst( particles );
+	
+	// Something like this should work..... but doesn't
+	// 	for ( std::vector<fastjet::PseudoJet>::iterator it = particles.begin() ; 
+	// it != particles.end();
+	//     ++it ){
+	for ( int i=0; i< particles.size() ; ++i ){
+	  std::cout << particles.at(i).pt()
+		    << "  " << particles.at(i).user_info<JetAnalysisUserInfo>().GetQuarkCharge() << std::endl;
+	}
 
 	// Background selector
 	// -------------------
@@ -342,16 +329,11 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 
 	// find jets
 	// -----------------------------
-	// WITH subtract background 
-	pJA_bkgsub = new JetAnalyzer( Jconstituents, jet_def , area_def, selector_bkgd); // with background subtraction
-	JetAnalyzer& JA_bkgsub = *pJA_bkgsub;
-	fastjet::Subtractor* BackgroundSubtractor =  JA_bkgsub.GetBackgroundSubtractor();
-	JAResult_bkgsub = fastjet::sorted_by_pt( sjet ((*BackgroundSubtractor) ( JA_bkgsub.inclusive_jets()) ) );
-
-	// NO background subtraction
-	pJA = new JetAnalyzer( Jconstituents, jet_def); // NO background subtraction
+	pJA = new JetAnalyzer( Jconstituents, jet_def , area_def, selector_bkgd); // with background subtraction
 	JetAnalyzer& JA = *pJA;
-	JAResult = fastjet::sorted_by_pt( sjet ( JA.inclusive_jets() ) );
+	//std::cout<<"selector on jet"<<std::endl; 			// test
+	fastjet::Subtractor* BackgroundSubtractor =  JA.GetBackgroundSubtractor();
+	JAResult = fastjet::sorted_by_pt( (*BackgroundSubtractor) ( JA.inclusive_jets() ) );
 
 	if ( JAResult.size() < 1 )                 {     return 0; }
 	if ( JAResult.at(0).pt() > 10 )            { Has10Gev=true; }
@@ -395,21 +377,29 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		//std::cout<<"Neutral/Total Pt of Jet < 90%"<<std::endl;	//test
 		fastjet::PseudoJet NeutralPart  = fastjet::PseudoJet();
 		fastjet::PseudoJet TotalPart  = fastjet::PseudoJet();		//test
+		// std::vector<fastjet::PseudoJet> constituents = JAResult.at(0).constituents();
 		fastjet::Selector NoGhosts = !fastjet::SelectorIsPureGhost();
-		std::vector<fastjet::PseudoJet> constituents = NoGhosts(JAResult.at(0).constituents());
+		std::vector<fastjet::PseudoJet> constituents = NoGhost(JAResult.at(0).constituents());
 		int charge=-99;
 		for(unsigned int jco = 0; jco<constituents.size(); jco++) {
-			if ( constituents[jco].is_pure_ghost() ){
-				std::cout << "is a ghost" << endl;
-			} else {
-				charge = (constituents[jco]).user_info<JetAnalysisUserInfo>().GetQuarkCharge();
-			}
-		    	TotalPart+=constituents[jco];			// test
-		    	if( charge == 0 ) NeutralPart+=constituents[jco];	//test 
+			//const int charge = (constituents[jco]).user_index();
+		  if ( constituents[jco].is_pure_ghost() ){
+		    std::cout << "is a ghost" << endl;
+		  } else {
+		    charge = (constituents[jco]).user_info<JetAnalysisUserInfo>().GetQuarkCharge();
+		  }
+		    //--> NEED TO FIX THIS, NOT SURE WHY USER_INFO IS NOT PASSED TO JAResult.at(0).constituent ()
+		    std::cout<<"charge "<<charge<<std::endl;	//test
+		    //std::cout<<NeutralPart.Et()<<" -> ";		// test
+		    TotalPart+=constituents[jco];			// test
+		    if( charge == 0 ) NeutralPart+=constituents[jco];	//test 
+		    //std::cout<<NeutralPart.Et()<<std::endl;		// test
+			//test if( (constituents[jco].user_info<JetAnalysisUserInfo>().GetQuarkCharge()) == 0 ) NeutralPart+=constituents[jco];
+			//
 		}
 		//#ly NOTE: not sure why JAResult.at(0) is not equal to sum of its constituents: because particle sum by weight for jet
 		//double frac = NeutralPart.perp2()/JAResult.at(0).perp2();
-		j1neutralfrac = fabs(NeutralPart.perp()/TotalPart.perp());		// pt
+		j1neutralfrac = fabs(NeutralPart.perp()/TotalPart.perp());
 		if( j1neutralfrac > AjParameters::JetNeutralPertMax )  {
 		//if( (NeutralPart.perp2()/TotalPart.perp2()) > AjParameters::JetNeutralPertMax )  {
 			//std::cout<<"Neutral Jet .. Pass: "<<frac<<" > "<<AjParameters::JetNeutralPertMax <<std::endl;
@@ -429,7 +419,6 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	j1phi = j1.Phi();
 	j1eta = j1.Eta();
 	j1area = JAResult.at(0).area();
-	j1area_err = JAResult.at(0).area_error();
 	if(HasDijet) { 
 		SubJetPt->Fill(JAResult.at(1).pt());
 		j2 = MakeTLorentzVector(JAResult.at(1));
@@ -437,26 +426,19 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		j2phi = j2.Phi();
 		j2eta = j2.Eta();
 		j2area = JAResult.at(1).area();
-		j2area_err = JAResult.at(1).area_error();
 	}
 	else {
 		SubJetPt->Fill(0);
 		j2 = TLorentzVector(0,0,0,0);
-		j2pt = 0;
-		j2phi = -999;
-		j2eta = -999;
-		j2area = 0;
-		j2area_err = 0;
 	}
-	rho = pJA_bkgsub->GetBackgroundEstimator()->rho() ;
-	rhoerr = pJA_bkgsub->GetBackgroundEstimator()->sigma() ;
+	rho = pJA->GetBackgroundEstimator()->rho() ;
+	rhoerr = pJA->GetBackgroundEstimator()->sigma() ;
 
 	double DiJetPhi;
 	double DiJetEta; 
 
 	if(HasDijet && mUseDijetAngle) {
-		//DiJetPhi = JetAnalyzer::phimod2pi( (JAResult.at(0).phi() + (TMath::Pi() - JAResult.at(1).phi()))/2. ); // -pi -> pi		Taken from CMS missing pT analysis. But it doesn't look right, or maybe they used different notation.
-		DiJetPhi = JetAnalyzer::phimod2pi( (JAResult.at(0).phi() + JetAnalyzer::phimod2pi(TMath::Pi() + JAResult.at(1).phi()) )/2. ); // -pi -> pi
+		DiJetPhi = JetAnalyzer::phimod2pi( (JAResult.at(0).phi() + (TMath::Pi() - JAResult.at(1).phi()))/2. ); // -pi -> pi
 		DiJetEta = (JAResult.at(0).eta() + JAResult.at(1).eta())/2.; 
 	}
 	else {
@@ -480,23 +462,21 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	std::vector<float> tmp2Pt;
 
 	//==================== Loop over TStarJetVectorContainer for underlying info ====================================
-	fastjet::PseudoJet pj;
+	TStarJetVector* sv; 		// derived from TLorentzVector
 	int ntrklead = 0, ntrksublead = 0, ntrktran = 0, ntrktranmax = 0, ntrktranmin = 0;
 	float ptlead = 0, ptsublead = 0, pttran = 0, pttranmax = 0, pttranmin = 0;
 
-	for(std::vector<fastjet::PseudoJet>::const_iterator pj = particles.begin(); pj!=particles.end(); pj++) {
-		double iphi = pj->phi_std();	// -pi - pi
-		double ieta = pj->eta();
-		double ipt = pj->perp();	
-		int icharge = pj->user_info<JetAnalysisUserInfo>().GetQuarkCharge();
-		if(mUnderlyingParticleCharge==0 && icharge!=0) continue;		// neutral particle only
-		if(mUnderlyingParticleCharge==1 && icharge==0) continue;		// charged particle only
-		if(fabs(ieta)>max_const_rap) continue;	// rapidity cut
+	for(int i = 0; i<container.GetEntries(); i++) {
+		sv = container.Get(i);
+		double iphi = sv->phi_std();	// -pi - pi
+		double ieta = sv->eta();
+		double ipt = sv->perp();	
+		if(mUnderlyingParticleCharge==0 && sv->GetCharge()!=0) continue;		// neutral particle only
+		if(mUnderlyingParticleCharge==1 && sv->GetCharge()==0) continue;		// charged particle only
+		if(fabs(ieta)>max_track_rap) continue;	// rapidity cut
 
-		std::cout<<"Charge = "<<icharge<<std::endl;
-
-		float idedx = pj->user_info<JetAnalysisUserInfo>().GetdEdx();
-		float itofbeta = pj->user_info<JetAnalysisUserInfo>().GettofBeta();
+		float idedx = sv->GetFeatureD(TStarJetVector::_DEDX);
+		float itofbeta = sv->GetFeatureD(TStarJetVector::_TOFBETA);
 		
 		//std::cout<<DiJetPhi<<"-"<<iphi<<" = "<<JetAnalyzer::phimod2pi(iphi-DiJetPhi)<<std::endl;		// test
 		if(fabs(JetAnalyzer::phimod2pi(iphi-DiJetPhi))<60./180.*TMath::Pi()) {		// leading		phimod2pi(phi) gives -pi ->pi
@@ -589,25 +569,25 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	mSubAreaPt=ptsublead;
 	mTranMaxPt=pttranmax;
 	mTranMinPt=pttranmin;
-	mTranPt=pttran/2.;		// take the average of these two trans
+	mTranPt=pttran;
 
 	mLeadAreaNtrk=ntrklead;
 	mSubAreaNtrk=ntrksublead;
 	mTranMaxNtrk=ntrktranmax;
 	mTranMinNtrk=ntrktranmin;
-	mTranNtrk=ntrktran/2.;		// take the average of these two trans
+	mTranNtrk=ntrktran;
 
-	LeadJetNtrkvsLeadJetPt->Fill(Ptleadingjet,mLeadAreaNtrk);
-	SubJetNtrkvsLeadJetPt->Fill(Ptleadingjet,mSubAreaNtrk);
-	TranMaxNtrkvsLeadJetPt->Fill(Ptleadingjet,mTranMaxNtrk);
-	TranMinNtrkvsLeadJetPt->Fill(Ptleadingjet,mTranMinNtrk);
-	TranNtrkvsLeadJetPt->Fill(Ptleadingjet,mTranNtrk);
+	LeadJetNtrkvsLeadJetPt->Fill(Ptleadingjet,ntrklead);
+	SubJetNtrkvsLeadJetPt->Fill(Ptleadingjet,ntrksublead);
+	TranMaxNtrkvsLeadJetPt->Fill(Ptleadingjet,ntrktranmax);
+	TranMinNtrkvsLeadJetPt->Fill(Ptleadingjet,ntrktranmin);
+	TranNtrkvsLeadJetPt->Fill(Ptleadingjet,ntrktran);
 
-	LeadJetPtSumvsLeadJetPt->Fill(Ptleadingjet,mLeadAreaPt);
-	SubJetPtSumvsLeadJetPt->Fill(Ptleadingjet,mSubAreaPt);
-	TranMaxPtSumvsLeadJetPt->Fill(Ptleadingjet,mTranMaxPt);
-	TranMinPtSumvsLeadJetPt->Fill(Ptleadingjet,mTranMinPt);
-	TranPtSumvsLeadJetPt->Fill(Ptleadingjet,mTranPt);
+	LeadJetPtSumvsLeadJetPt->Fill(Ptleadingjet,ptlead);
+	SubJetPtSumvsLeadJetPt->Fill(Ptleadingjet,ptsublead);
+	TranMaxPtSumvsLeadJetPt->Fill(Ptleadingjet,pttranmax);
+	TranMinPtSumvsLeadJetPt->Fill(Ptleadingjet,pttranmin);
+	TranPtSumvsLeadJetPt->Fill(Ptleadingjet,pttran);
 
 	ResultTree->Fill();
 
@@ -634,8 +614,7 @@ int UnderlyingAna::Finish ( ) {
 	return 1;
 
 }
-/*
- Move the read in to the main macro 
+
 // Helper to deal with repetitive stuff
 TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const double RefMultCut ){
 	TStarJetPicoDefinitions::SetDebugLevel(10); // 10 for more output, 0 for less output
@@ -675,12 +654,6 @@ TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const dou
 	towerCuts->SetMaxEtCut(AjParameters::MaxEtCut);
 	towerCuts->AddBadTowers("./include/pp200Y12_badtower.list");		// #LY CHECK where is the bad tower list
 
-	// Tower energy correction (subtract associated charged particle deposit energy). By default, it is MIP correction (comment out the following 3 lines)
-	reader.SetApplyFractionHadronicCorrection(kTRUE);
-	reader.SetFractionHadronicCorrection(0.9999);
-	reader.SetRejectTowerElectrons( kFALSE );
-
-
 	std::cout << "Using these tower cuts:" << std::endl;
 	std::cout << "  GetMaxEtCut = " << towerCuts->GetMaxEtCut() << std::endl;
 	std::cout << "  Gety8PythiaCut = " << towerCuts->Gety8PythiaCut() << std::endl;
@@ -693,4 +666,4 @@ TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const dou
 }
 
 
-*/
+

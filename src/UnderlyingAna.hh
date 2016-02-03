@@ -31,20 +31,20 @@
 #include "TTree.h"
 
 
-// Not needed for analysis per se
-#include "TStarJetPicoReader.h"
-#include "TStarJetPicoEvent.h"
-#include "TStarJetPicoEventHeader.h"
-#include "TStarJetPicoEventCuts.h"
-
-#include "TStarJetPicoPrimaryTrack.h"
-#include "TStarJetPicoTrackCuts.h"
-#include "TStarJetPicoTowerCuts.h"
-
-#include "TStarJetVectorContainer.h"
-#include "TStarJetVector.h"
-#include "TStarJetPicoTriggerInfo.h"
-#include "TStarJetPicoUtils.h"
+//// Not needed for analysis per se
+//#include "TStarJetPicoReader.h"
+//#include "TStarJetPicoEvent.h"
+//#include "TStarJetPicoEventHeader.h"
+//#include "TStarJetPicoEventCuts.h"
+//
+//#include "TStarJetPicoPrimaryTrack.h"
+//#include "TStarJetPicoTrackCuts.h"
+//#include "TStarJetPicoTowerCuts.h"
+//
+//#include "TStarJetVectorContainer.h"
+//#include "TStarJetVector.h"
+//#include "TStarJetPicoTriggerInfo.h"
+//#include "TStarJetPicoUtils.h"
 
 #include <assert.h>
 #include <iostream>
@@ -73,6 +73,9 @@ private :
   // Underlying event particle: charged(1) or neutral(0) or all(2, or whatever val not equal 1 or 0)
   int mUnderlyingParticleCharge;
 
+  // Jet: charged(1) or neutral(0) or all(2, or whatever val not equal 1 or 0)
+  int mJetCharge;
+
   // For output 
   TFile *fout;
   TString OutFileName;
@@ -91,6 +94,7 @@ private :
   float j1phi, j2phi;
   float j1eta, j2eta;
   float j1area,j2area;
+  float j1area_err,j2area_err;
   float rho, rhoerr;
 
   float j1neutralfrac;
@@ -153,14 +157,16 @@ private :
   double max_rap;        ///< jet rapidity acceptance
   double ghost_maxrap;   ///< for ghosted area, should be >= max_rap + 2*R
 
-  double max_track_rap;  ///< constituent rapidity cut
+  double max_const_rap;  ///< constituent rapidity cut
+  double min_const_pt;   ///< constituent pt cut
 
   double dPhiCut;        ///< opening angle for dijet requirement. Accept only  |&phi;1 - &phi;2 - &pi;| < &Delta;&phi;.
 
   fastjet::JetDefinition jet_def;       ///< jet definition
   fastjet::JetDefinition other_jet_def; ///< jet definition with a different radius
 
-  fastjet::Selector select_track_rap;   ///< constituent rapidity selector
+  fastjet::Selector select_const_rap;   ///< constituent rapidity selector
+  fastjet::Selector select_const_ptmin;   ///< constituent p<SUB>T</SUB>  selector
 
   fastjet::Selector sconst;                ///< compound selector for  constituents
 
@@ -174,10 +180,13 @@ private :
   fastjet::AreaDefinition area_def;        ///< jet area definition
 
   JetAnalyzer* pJA;                      ///< JetAnalyzer object
+  JetAnalyzer* pJA_bkgsub;                      ///< JetAnalyzer object with background subtraction
   
   std::vector<fastjet::PseudoJet> Jconstituents;     ///< constituents
 
   std::vector<fastjet::PseudoJet> JAResult;  ///< Unaltered clustering result 
+  
+  std::vector<fastjet::PseudoJet> JAResult_bkgsub;  ///< Unaltered clustering result with background subtraction
   
 
   std::vector<fastjet::PseudoJet> DiJets;    ///< Dijet result 
@@ -190,7 +199,7 @@ public:
       \param jet_ptmax: maximum jet p<SUB>T</SUB>
       \param LeadPtMin: leading jet minimum p<SUB>T</SUB>
       \param SubLeadPtMin: subleading jet minimum p<SUB>T</SUB>
-      \param max_track_rap: constituent rapidity cut
+      \param max_const_rap: constituent rapidity cut
       \param PtConsLo: constituent minimum p<SUB>T</SUB>
       \param PtConsHi: constituent maximum p<SUB>T</SUB>
       \param dPhiCut: opening angle for dijet requirement. Accept only  |&phi;1 - &phi;2 - &pi;| < dPhiCut.
@@ -198,7 +207,8 @@ public:
   UnderlyingAna ( double R = 0.4,
 	       //double jet_ptmin = 10.0, double jet_ptmax = 100.0,
 	       //double LeadPtMin = 20.0, double SubLeadPtMin = 10, 
-	       double max_track_rap = 1.0, //double PtConsLo=0.2, double PtConsHi=2.0,
+	       double max_const_rap = 1.0, //double PtConsLo=0.2, double PtConsHi=2.0,
+	       double min_const_pt = 0.2,
 	       double dPhiCut = 0.4,
 		TString name = "underlyingoutput.root"
 	       );
@@ -240,8 +250,9 @@ public:
 
   //int AnalyzeAndFill ( std::vector<fastjet::PseudoJet>& particles, std::vector<fastjet::PseudoJet>& ToMatch,
   int AnalyzeAndFill (	const std::vector<fastjet::PseudoJet>& particles, 			
-			TStarJetVectorContainer<TStarJetVector>& container,
-			TStarJetPicoReader &reader,
+			//TStarJetVectorContainer<TStarJetVector>& container,
+			int ineventid, int inrunid, double inrefmult,
+			//TStarJetPicoReader &reader,
 	 		//Int_t mEffUn,	
 			const std::vector<std::pair<float,float> > &ToMatch
 		      	//Double_t EventClassifier = 0
@@ -277,6 +288,9 @@ public:
 
   // Underlying event particle: charged(1) or neutral(0) or all(2)
   void SetUnderlyingParticleCharge(int val) {mUnderlyingParticleCharge = val;}
+
+  // Jet: charged(1) or neutral(0) or all(2)
+  void SetJetCharge(int val) {mJetCharge = val;}
 
   /// Get jet radius
   inline double GetR ( )                   { return R; }
@@ -344,15 +358,18 @@ public:
 
 /** Helper to perform the TStarJetPicoReader initialization
  */
+/*
 TStarJetPicoReader GetReader ( TString ChainPattern="~putschke/Data/Pico_ppHT/*.root", 
 			       TString TriggerString="ppHT",
 			       TString ChainName="JetTree",
 			       const double RefMultCut=0
 			       );
-
+*/
 /** Slightly different, preferred version of GetReader
  */
+/*
 TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const double RefMultCut=0 );
+*/
 
 
 #endif // __UNDERLYINGANA_HH

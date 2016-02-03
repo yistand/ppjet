@@ -171,7 +171,6 @@ public :
   // -------
   /** The nth version of this important constant.
    */
-  //#ly static const double pi = 3.141592653589793238462643383279502884;
   static const double pi;
 
   /** Returns an angle between -pi and pi
@@ -301,13 +300,18 @@ fastjet::PseudoJet MakePseudoJet ( const TLorentzVector* const lv );
 class JetAnalysisUserInfo: public fastjet::PseudoJet::UserInfoBase {
 public:
   /// Standard Constructor
-  JetAnalysisUserInfo(const int & quarkcharge) :  _quarkcharge( quarkcharge )  {};
+  JetAnalysisUserInfo(const int & quarkcharge, const float & dEdx, const float & tofBeta) :  _quarkcharge( quarkcharge ), _dEdx( dEdx ), _tofBeta( tofBeta )   {};
+  JetAnalysisUserInfo(const int & quarkcharge) :  _quarkcharge( quarkcharge ) {_dEdx = 0; _tofBeta = 0;};
   
   /// Charge in units of e/3
   int GetQuarkCharge() const { return _quarkcharge; };
+  float GetdEdx() const {return _dEdx; }
+  float GettofBeta() const {return _tofBeta;};
 
 protected:
-  int _quarkcharge;   ///< Charge in units of e/3
+  int _quarkcharge;     ///< Charge in units of e/3
+  float _dEdx;		///< TPC dEdx 
+  float _tofBeta;	///< TOF beta
 };
 
 // =============================================================================
@@ -353,6 +357,10 @@ private:
     Selector sel = SelectorChargeRange( cmin, cmax );
 */
 fastjet::Selector SelectorChargeRange( const int cmin=-999, const int cmax=999);
+
+/** Selection Neutral particles only
+*/
+fastjet::Selector SelectorIsNeutralCharge();
 
 // =============================================================================
 // =============================================================================
