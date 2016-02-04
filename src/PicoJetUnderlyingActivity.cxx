@@ -381,7 +381,7 @@ int main ( int argc, const char** argv ) {
 			for (int ip = 0; ip<container->GetEntries() ; ++ip ){
 				sv = container->Get(ip);  // Note that TStarJetVector contains more info, such as charge;
 
-				if(fabs(sv->perp())<0.2) continue;		// #ly CHECK!!!!!!!! minimum pT or Et
+				//if(fabs(sv->perp())<0.2) continue;		// #ly CHECK!!!!!!!! minimum pT or Et. --> NOT in use anymore, moved cuts to UnderlyingAna class min_const_pt for all particles (tracks and towers)
 
 				if (sv->GetCharge()==0 ) (*sv) *= fTowScale; // for systematics
 				pj=MakePseudoJet( sv );

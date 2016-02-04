@@ -290,7 +290,7 @@ public:
   void SetUnderlyingParticleCharge(int val) {mUnderlyingParticleCharge = val;}
 
   // Jet: charged(1) or neutral(0) or all(2)
-  void SetJetCharge(int val) {mJetCharge = val;}
+  void SetJetCharge(int val);
 
   /// Get jet radius
   inline double GetR ( )                   { return R; }
