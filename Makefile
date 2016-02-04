@@ -3,6 +3,7 @@ os = $(shell uname -s)
 #INCFLAGS      = -I$(ROOTSYS)/include -I$(FASTJETDIR)/include -I$(PYTHIA8DIR)/include -I$(STARPICOPATH)
 INCFLAGS      = -I$(ROOTSYS)/include -I$(FASTJETDIR)/include -I$(PYTHIA8DIR)/include -I$(PYTHIA8DIR)/include/Pythia8/ -I$(PYTHIA8DIR)/include/Pythia8Plugins/ -I$(STARPICOPATH)
 INCFLAGS      += -I./src
+INCFLAGS      += -I./include
 
 
 ifeq ($(os),Linux)
@@ -36,10 +37,10 @@ LIBPATH       = $(ROOTLIBS) -L$(FASTJETDIR)/lib -L$(PYTHIA8DIR)/lib -L$(STARPICO
 #ly LIBS          = -lfastjet -lfastjettools -lpythia8  -llhapdfdummy -lTStarJetPico
 LIBS          = -lfastjet -lfastjettools -lpythia8  -lTStarJetPico
 
-## Unfolding Test
-INCFLAGS      += -I/home/hep/caines/ly247/Software/RooUnfold-1.1.1/src
-LIBPATH       += -L/home/hep/caines/ly247/Software/RooUnfold-1.1.1
-LIBS          += -lRooUnfold
+### Unfolding Test
+#INCFLAGS      += -I/home/hep/caines/ly247/Software/RooUnfold-1.1.1/src
+#LIBPATH       += -L/home/hep/caines/ly247/Software/RooUnfold-1.1.1
+#LIBS          += -lRooUnfold
 
 
 
@@ -71,7 +72,11 @@ $(BDIR)/%  : $(ODIR)/%.o
 ###############################################################################
 ############################# Main Targets ####################################
 ###############################################################################
-all    : $(BDIR)/PicoJetUnderlyingActivity  $(BDIR)/ppInAuAuAj  \
+all    : $(BDIR)/PicoJetUnderlyingActivity  \
+	lib/libMyJetlib.so 
+
+
+#$(BDIR)/ppInAuAuAj  \
 	 $(BDIR)/RandomCone  \
 	 $(BDIR)/TreeWithMc \
 	 $(BDIR)/MakeSmallerTrees \
@@ -111,8 +116,10 @@ $(ODIR)/JetAnalyzer.o 		: $(SDIR)/JetAnalyzer.cxx $(INCS)
 $(ODIR)/UnderlyingAna.o 	 	: $(SDIR)/UnderlyingAna.cxx $(INCS) $(SDIR)/UnderlyingAna.hh
 
 
+
 #Aj
 $(BDIR)/PicoJetUnderlyingActivity		: $(ODIR)/PicoJetUnderlyingActivity.o		$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so
+$(BDIR)/STARPythiaJetUnderlyingActivity		: $(ODIR)/STARPythiaJetUnderlyingActivity.o	$(ODIR)/StarPythia.o	$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so
 $(BDIR)/ppInAuAuAj 	: $(ODIR)/ppInAuAuAj.o 		$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so
 $(BDIR)/ppInMcAj	: $(ODIR)/ppInMcAj.o		$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so
 $(BDIR)/PythiaAj	: $(ODIR)/PythiaAj.o 		$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so
