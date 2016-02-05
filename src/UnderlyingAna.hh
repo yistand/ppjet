@@ -168,7 +168,9 @@ private :
   fastjet::Selector select_const_rap;   ///< constituent rapidity selector
   fastjet::Selector select_const_ptmin;   ///< constituent p<SUB>T</SUB>  selector
 
-  fastjet::Selector sconst;                ///< compound selector for  constituents
+  fastjet::Selector sconst;                ///< compound selector for constituents for jet finding
+
+  fastjet::Selector sUconst;                ///< compound selector for constituents for underlying event 
 
 // Relevant jet candidates
   fastjet::Selector select_jet_rap;        ///< jet rapidity selector
@@ -182,7 +184,7 @@ private :
   JetAnalyzer* pJA;                      ///< JetAnalyzer object
   JetAnalyzer* pJA_bkgsub;                      ///< JetAnalyzer object with background subtraction
   
-  std::vector<fastjet::PseudoJet> Jconstituents;     ///< constituents
+  std::vector<fastjet::PseudoJet> Jconstituents;     ///< constituents for jet finding
 
   std::vector<fastjet::PseudoJet> JAResult;  ///< Unaltered clustering result 
   
@@ -190,7 +192,10 @@ private :
   
 
   std::vector<fastjet::PseudoJet> DiJets;    ///< Dijet result 
+
   
+  std::vector<fastjet::PseudoJet> Uconstituents;     ///< particles for underlying events
+
 public:
 
   /** Standard constructor. Set up analysis parameters.
@@ -287,10 +292,12 @@ public:
   void SetDiJetAngle(int val) {mUseDijetAngle = val; }
 
   // Underlying event particle: charged(1) or neutral(0) or all(2)
-  void SetUnderlyingParticleCharge(int val) {mUnderlyingParticleCharge = val;}
+  void SetUnderlyingParticleCharge(int val);
+  int GetUnderlyingParticleCharge() { return mUnderlyingParticleCharge; }
 
   // Jet: charged(1) or neutral(0) or all(2)
   void SetJetCharge(int val);
+  int GetJetCharge() { return mJetCharge; }
 
   /// Get jet radius
   inline double GetR ( )                   { return R; }

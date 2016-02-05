@@ -24,7 +24,6 @@ JetAnalyzer::JetAnalyzer( std::vector<fastjet::PseudoJet>& InOrigParticles, fast
   CanDoBackground=true;
 	 
   // this should not be necessary :-/
-  bkgd_subtractor=0;
   jet_def_bkgd = 0;
   bkgd_estimator = 0;
   bkgd_subtractor = 0;
@@ -48,7 +47,6 @@ JetAnalyzer::JetAnalyzer( std::vector<fastjet::PseudoJet>& InOrigParticles, fast
   CanDoBackground=false;
 
   // this should not be necessary :-/
-  bkgd_subtractor=0;
   area_def_bkgd=0;
   jet_def_bkgd = 0;
   bkgd_estimator = 0;

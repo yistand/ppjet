@@ -114,7 +114,7 @@ TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const dou
 	evCuts->SetMaxEventPtCut ( AjParameters::MaxEventPtCut );
 	evCuts->SetMaxEventEtCut ( AjParameters::MaxEventEtCut );
 
-	evCuts->SetPVRankingCut ( 0 );		// Vertex ranking
+	evCuts->SetPVRankingCut ( 0 );		// Vertex ranking > 0. Use SetPVRankingCutOff() to turn off vertex ranking cut.  default is OFF
 
 	// Tracks cuts
 	TStarJetPicoTrackCuts* trackCuts = reader.GetTrackCuts();
@@ -156,7 +156,7 @@ int main ( int argc, const char** argv ) {
 
 	// Set up some convenient default
 	// ------------------------------
-	const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/TransCharged_MatchTrig_ppJP2.root","ppJP2","/home/hep/caines/ly247/Scratch/pp12JP2Pico_151018/*.root", "0", "0","ChargeJet","Charge" };
+	const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/FullJet_TransCharged_MatchTrig_ppJP2.root","ppJP2","/home/hep/caines/ly247/Scratch/pp12JP2Pico_151018/*.root", "0", "0","ChargeJet","Charge" };
 	// {Code name, to be discard but needed since argv will use command name as the [0], output file name, triggername, intput file list, for variable IntTowScale to scale tower as systematics study, which effiencey file to use }
 	// output file name can include "R0.6" OR "R0.4" OR "R0.2", "ChargeJet" OR "FullJet" OR "NeutralJet", "TransCharged" particle only OR "TransNeutral" particle only 
 	
@@ -256,7 +256,8 @@ int main ( int argc, const char** argv ) {
 	double RefMultCut = 0;
 	TStarJetPicoReader reader = SetupReader( chain, TriggerName, RefMultCut );			// #ly note: Events & Tracks & Towers cuts are set here
 	//reader.SetTrackPileUpCut(kTRUE);		// #ly	tpc track matching to bemc or tof
-	reader.SetTrackPileUpCut(2);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match ly.    0: no requirement for fast detector matching
+	reader.SetTrackPileUpCut(2);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
+	//reader.SetTrackPileUpCut(0);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching	// test
 	TStarJetPicoDefinitions::SetDebugLevel(0);
 
 	// Initialize analysis class
@@ -352,6 +353,7 @@ int main ( int argc, const char** argv ) {
                         	if(runid==badrun[i]) continue;
                 	}
 
+			//if(header->GetZdcCoincidenceRate()>6000) continue;		// test
 	
 
 
@@ -381,7 +383,7 @@ int main ( int argc, const char** argv ) {
 			for (int ip = 0; ip<container->GetEntries() ; ++ip ){
 				sv = container->Get(ip);  // Note that TStarJetVector contains more info, such as charge;
 
-				//if(fabs(sv->perp())<0.2) continue;		// #ly CHECK!!!!!!!! minimum pT or Et. --> NOT in use anymore, moved cuts to UnderlyingAna class min_const_pt for all particles (tracks and towers)
+				if(fabs(sv->perp())<0.2) continue;		// #ly CHECK!!!!!!!! minimum pT or Et. --> NOT in use anymore, moved cuts to UnderlyingAna class min_const_pt for all particles (tracks and towers)
 
 				if (sv->GetCharge()==0 ) (*sv) *= fTowScale; // for systematics
 				pj=MakePseudoJet( sv );

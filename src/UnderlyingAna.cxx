@@ -45,11 +45,17 @@ UnderlyingAna::UnderlyingAna ( double R,
 
 	// Provide but turn off charge selector	; will be set in function void UnderlyingAna::SetJetCharge(int val) 
 	// fastjet::Selector select_const_charge= SelectorChargeRange( -3, 3);
-	fastjet::Selector select_const_charge= fastjet::SelectorIdentity();
-	sconst     = select_const_rap && select_const_ptmin && select_const_charge;			
+	//fastjet::Selector select_const_charge= fastjet::SelectorIdentity();
+
+	// Constituent Selector for jet finding
+	//sconst     = select_const_rap && select_const_ptmin && select_const_charge;			
+	sconst     = select_const_rap && select_const_ptmin;			
 	//fastjet watch out: the operator * acts like an operator product i.e. does not commute. The order of its arguments is therefore important. Whenever they commute (in particluar, when they apply jet by jet), this would have the same effect as the logical &&.
 	//fastjet watch out: && for both s1 and s2, the selection is applied on the original list of objects. For successive applications of two selectors (convolution/multiplication) see the operator *
 
+	// Constituent Selector for jet finding
+	sUconst	    = select_const_rap && select_const_ptmin;		
+	
 	// Jet candidate selectors
 	// -----------------------
 	select_jet_rap     = fastjet::SelectorAbsRapMax(max_rap);
@@ -271,6 +277,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	DiJets.clear();
 
 	Jconstituents.clear();
+	Uconstituents.clear();
 
 	Has10Gev=false;
 	HasDijet=false;
@@ -325,7 +332,10 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	// Select particles to perform analysis on
 	// ---------------------------------------
 	//std::cout<<"selector for consti"<<std::endl; 		
+	// Constituent Selector for jet finding
 	Jconstituents = sconst( particles );
+	// Constituent Selector for underlying events 
+	Uconstituents = sUconst( particles );
 
 	// Background selector
 	// -------------------
@@ -336,16 +346,17 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 
 	// find jets
 	// -----------------------------
+	// NO background subtraction
+	pJA = new JetAnalyzer( Jconstituents, jet_def, area_def, selector_bkgd); // NO background subtraction
+	JetAnalyzer& JA = *pJA;
+	JAResult = fastjet::sorted_by_pt( sjet ( JA.inclusive_jets() ) );
+	
 	// WITH subtract background 
 	pJA_bkgsub = new JetAnalyzer( Jconstituents, jet_def , area_def, selector_bkgd); // with background subtraction
 	JetAnalyzer& JA_bkgsub = *pJA_bkgsub;
 	fastjet::Subtractor* BackgroundSubtractor =  JA_bkgsub.GetBackgroundSubtractor();
 	JAResult_bkgsub = fastjet::sorted_by_pt( sjet ((*BackgroundSubtractor) ( JA_bkgsub.inclusive_jets()) ) );
 
-	// NO background subtraction
-	pJA = new JetAnalyzer( Jconstituents, jet_def); // NO background subtraction
-	JetAnalyzer& JA = *pJA;
-	JAResult = fastjet::sorted_by_pt( sjet ( JA.inclusive_jets() ) );
 
 	if ( JAResult.size() < 1 )                 {     return 0; }
 	if ( JAResult.at(0).pt() > 10 )            { Has10Gev=true; }
@@ -385,7 +396,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	//std::cout<<"mUseDijetAngle = "<<mUseDijetAngle<<std::endl;	
 	//std::cout<<"mUnderlyingParticleCharge = "<<mUnderlyingParticleCharge<<std::endl;	
 
-	if( 1 || mNeutralJetFracCut ) {
+	if( mNeutralJetFracCut ) {
 		//std::cout<<"Neutral/Total Pt of Jet < 90%"<<std::endl;	
 		fastjet::PseudoJet NeutralPart  = fastjet::PseudoJet();
 		fastjet::PseudoJet TotalPart  = fastjet::PseudoJet();	
@@ -406,7 +417,12 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		}
 		//#ly NOTE: not sure why JAResult.at(0) is not equal to sum of its constituents: because particle sum by weight for jet
 		//double frac = NeutralPart.perp2()/JAResult.at(0).perp2();
-		j1neutralfrac = fabs(NeutralPart.perp()/TotalPart.perp());		// pt
+		if(TotalPart.perp()!=0) {
+			j1neutralfrac = fabs(NeutralPart.perp()/TotalPart.perp());		// pt
+		}
+		else {
+			j1neutralfrac = 0;
+		}
 		if( j1neutralfrac > AjParameters::JetNeutralPertMax )  {
 		//if( (NeutralPart.perp2()/TotalPart.perp2()) > AjParameters::JetNeutralPertMax )  {
 			//std::cout<<"Neutral Jet .. Pass: "<<frac<<" > "<<AjParameters::JetNeutralPertMax <<std::endl;
@@ -483,14 +499,12 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 
 	//std::cout<<"# of particles = "<<particles.size()<<std::endl;
 
-	for(std::vector<fastjet::PseudoJet>::const_iterator pj = particles.begin(); pj!=particles.end(); pj++) {
+	for(std::vector<fastjet::PseudoJet>::const_iterator pj = Uconstituents.begin(); pj!=Uconstituents.end(); pj++) {
 		double iphi = pj->phi_std();	// -pi - pi
 		double ieta = pj->eta();
 		double ipt = pj->perp();	
-		int icharge = pj->user_info<JetAnalysisUserInfo>().GetQuarkCharge();
-		if(mUnderlyingParticleCharge==0 && icharge!=0) continue;		// neutral particle only
-		if(mUnderlyingParticleCharge==1 && icharge==0) continue;		// charged particle only
-		if(fabs(ieta)>max_const_rap) continue;	// rapidity cut
+		//int icharge = pj->user_info<JetAnalysisUserInfo>().GetQuarkCharge();	
+		//if(fabs(ieta)>max_const_rap) continue;	// rapidity cut		--> MOVE to sUconst
 
 		//std::cout<<"Charge = "<<icharge<<std::endl;
 
@@ -634,6 +648,22 @@ int UnderlyingAna::Finish ( ) {
 	return 1;
 
 }
+
+void UnderlyingAna::SetUnderlyingParticleCharge(int val) {
+
+	mUnderlyingParticleCharge = val;
+
+	fastjet::Selector select_Uconst_charge= fastjet::SelectorIdentity();
+	//std::cout<<"UnderlyingParticleChargeCode = "<<mUnderlyingParticleCharge<<std::endl;	
+	if (mUnderlyingParticleCharge==1) {
+		select_Uconst_charge = !SelectorIsNeutralCharge();		// Charged UnderlyingParticle only
+	}
+	if (mUnderlyingParticleCharge==0) {
+		select_Uconst_charge = SelectorIsNeutralCharge();		// Neutral UnderlyingParticle only
+	}
+	sUconst     = sUconst && select_Uconst_charge;			
+}
+
 
 void UnderlyingAna::SetJetCharge(int val) {
 
