@@ -13,6 +13,9 @@
 //		If variable is sum pt, TransMax or TransMin is determined by whose sum pt is larger/smaller
 //		However, currently <pT> TransMax or TransMin is still determined by whose sum pt is larger/smaller. as right now, it is track average value, not event average value
 //
+//		2016.02.01	Li Yi
+//		TransPt and TransNtrk now are the average of TransMax and TranMin, Previously it was the sum of these two
+//
 //
 //==================================================================================================================================
 
@@ -31,6 +34,14 @@
 
 #include <iostream>
 
+#define MINPTCUT	0.2				// CHECK!!!! need to cut consistence with production code in: 
+//UnderlyingAna::UnderlyingAna ( double R,
+//                double max_const_rap, //double PtConsLo, double PtConsHi,
+//                double min_const_pt,				<------------ This one
+//                double dPhiCut,
+//                TString name
+//                )
+
 using namespace std;
 
 void MaxOrMin(float &max, float &min) {		// switch max or min
@@ -47,11 +58,13 @@ void MaxOrMin(int &max, int &min) {		// switch max or min
 	min = tmp;
 }
 
-float getweight(float pt, int charge=1) {		// tpc and tof efficiency only apply to charged particle. set 'charge' to 0 if bemc neutral particles are used.
+float getweight(float pt, int charge=1, int MC=0) {		// tpc and tof efficiency only apply to charged particle. set 'charge' to 0 if bemc neutral particles are used.
 	
-	if(pt<0.2) return 0;				// set minimum pt as 0.2 GeV !!!!! CHECK
+	if(MC>0) return 1;					// pythia data, no correction needed
 
 	if(charge==0) return 1;
+
+	if(pt<MINPTCUT) return 0;				// set minimum pt as 0.2 GeV !!!!! CHECK
 
 	float eff = 0;
 	TF1* feff=new TF1("feff","[0]*(exp(-pow([1]/x,[2])-pow([3]/x,[4])))",0.1,4.5);
@@ -67,10 +80,14 @@ float getweight(float pt, int charge=1) {		// tpc and tof efficiency only apply 
 	
 }
 
-float inveff_tof(float pt) {		// pion embedding
+float inveff_tof(float pt, int charge=1, int MC=0) {		// pion embedding
 	//return 1;			// test
 
-	if(pt<0.1) return 0;
+	if(MC>0) return 1;					// pythia data, no correction needed
+
+	if(charge==0) return 1;
+
+	if(pt<MINPTCUT) return 0;
 
 	float eff = 0;
 	TF1* feff=new TF1("feff","[0]*(exp(-pow([1]/x,[2])))", 0.1, 4.5);
@@ -86,10 +103,14 @@ float inveff_tof(float pt) {		// pion embedding
 }
 
 
-float inveff_tpc(float pt) {		// pion embedding
+float inveff_tpc(float pt, int charge=1, int MC=0) {		// pion embedding
 	//return 1;			// test
 
-	if(pt<0.1) return 0;
+	if(MC>0) return 1;					// pythia data, no correction needed
+
+	if(charge==0) return 1;
+
+	if(pt<MINPTCUT) return 0;
 
 	float eff = 0;
 	TF1* feff=new TF1("feff","[0]*(exp(-pow([1]/x,[2])))", 0.1, 4.5);
@@ -111,13 +132,20 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
   	  return;
   	}
 
+	int MCflag=0;
+	if(filetag.Contains("pythia",TString::kIgnoreCase)) 	{
+		MCflag = 1;
+		cout<<endl<<"INFO: process as MC data: not efficiency correction will be applied"<<endl;
+	}
+
+
 	int chargeflag = 1;
-	if(filetag.Contains("Charge0")) chargeflag = 0;
+	if(filetag.Contains("Charge0",TString::kIgnoreCase)||filetag.Contains("TransNeutral",TString::kIgnoreCase)) chargeflag = 0;
 	cout<<endl<<"INFO: underlying event chargeflag == "<<chargeflag<<endl;
-	if(chargeflag==1) cout<<"Apply TPC tracking & TOF matching efficiency"<<endl;
+	if(chargeflag==1&&MCflag==0) cout<<"Apply TPC tracking & TOF matching efficiency"<<endl;
 	cout<<endl;
 
-	int savefig = 1;
+	int savefig = 0;
 	int saveroot = 1; 
 
 	// reader
@@ -131,7 +159,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	TTree *t = (TTree*)f->Get("ResultTree");
 	if(!t) { cout<<"Cannot find Tree"<<endl; return; }
 
-	float jpt, leadpt, subpt, tranmaxpt,tranminpt, tranpt;
+	float jpt, jeta, leadpt, subpt, tranmaxpt,tranminpt, tranpt;
 	int leadntrk, subntrk, tranmaxntrk, tranminntrk, tranntrk;
 	double refmult;
 	int runid;
@@ -144,6 +172,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	t->SetBranchAddress("runid",&runid);
 	t->SetBranchAddress("refmult",&refmult);
 	t->SetBranchAddress("j1pt",&jpt);
+	t->SetBranchAddress("j1eta",&jeta);
 	t->SetBranchAddress("LeadAreaPtSum",&leadpt);
         t->SetBranchAddress("SubLeadAreaPtSum",&subpt);
         t->SetBranchAddress("TranPtSum",&tranpt);
@@ -176,47 +205,47 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 		xvariablename = "Total multiplicity";
 	}
 
-	TH1D *leadjetpt = new TH1D("leadjetpt",xvariablename,nbinning,0,maxpt);
+	TH1D *leadjetpt = new TH1D(xvariablename,xvariablename,nbinning,0,maxpt);
 	leadjetpt->Sumw2();
 
-        TProfile *leadjetntrkvsleadjetpt = new TProfile("leadjetareantrkvsleadjetpt","Leading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *subjetntrkvsleadjetpt = new TProfile("subjetareantrkvsleadjetpt","SubLeading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranmaxntrkvsleadjetpt = new TProfile("tranmaxntrkvsleadjetpt","Transverse Max Ntrk vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranminntrkvsleadjetpt = new TProfile("tranminntrkvsleadjetpt","Transverse Min Ntrk vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranntrkvsleadjetpt = new TProfile("tranntrkvsleadjetpt","Transverse Ntrk vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *leadjetntrkvsleadjetpt = new TProfile("leadjetareantrkvs"+xvariablename,"Leading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *subjetntrkvsleadjetpt = new TProfile("subjetareantrkvs"+xvariablename,"SubLeading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *tranmaxntrkvsleadjetpt = new TProfile("tranmaxntrkvs"+xvariablename,"Transverse Max Ntrk vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *tranminntrkvsleadjetpt = new TProfile("tranminntrkvs"+xvariablename,"Transverse Min Ntrk vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *tranntrkvsleadjetpt = new TProfile("tranntrkvs"+xvariablename,"Transverse Ntrk vs "+xvariablename,nbinning,0,maxpt);
 
-        TProfile *leadjetptsumvsleadjetpt = new TProfile("leadjetareaptsumvsleadjetpt","Leading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *subjetptsumvsleadjetpt = new TProfile("subjetareaptsumvsleadjetpt","SubLeading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranmaxptsumvsleadjetpt = new TProfile("tranmaxptsumvsleadjetpt","Transverse Max Sum Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranminptsumvsleadjetpt = new TProfile("tranminptsumvsleadjetpt","Transverse Min Sum Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranptsumvsleadjetpt = new TProfile("tranptsumvsleadjetpt","Transverse Sum Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *leadjetptsumvsleadjetpt = new TProfile("leadjetareaptsumvs"+xvariablename,"Leading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *subjetptsumvsleadjetpt = new TProfile("subjetareaptsumvs"+xvariablename,"SubLeading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *tranmaxptsumvsleadjetpt = new TProfile("tranmaxptsumvs"+xvariablename,"Transverse Max Sum Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *tranminptsumvsleadjetpt = new TProfile("tranminptsumvs"+xvariablename,"Transverse Min Sum Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *tranptsumvsleadjetpt = new TProfile("tranptsumvs"+xvariablename,"Transverse Sum Pt vs "+xvariablename,nbinning,0,maxpt);
 
-        TProfile *leadjetptavevsleadjetpt = new TProfile("leadjetareaptavevsleadjetpt","Leading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *subjetptavevsleadjetpt = new TProfile("subjetareaptavevsleadjetpt","SubLeading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranmaxptavevsleadjetpt = new TProfile("tranmaxptavevsleadjetpt","Transverse Max Average Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranminptavevsleadjetpt = new TProfile("tranminptavevsleadjetpt","Transverse Min Average Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranptavevsleadjetpt = new TProfile("tranptavevsleadjetpt","Transverse Average Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *leadjetptavevsleadjetpt = new TProfile("leadjetareaptavevs"+xvariablename,"Leading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *subjetptavevsleadjetpt = new TProfile("subjetareaptavevs"+xvariablename,"SubLeading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *tranmaxptavevsleadjetpt = new TProfile("tranmaxptavevs"+xvariablename,"Transverse Max Average Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *tranminptavevsleadjetpt = new TProfile("tranminptavevs"+xvariablename,"Transverse Min Average Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *tranptavevsleadjetpt = new TProfile("tranptavevs"+xvariablename,"Transverse Average Pt vs "+xvariablename,nbinning,0,maxpt);
 
 	
 	int nbinning_tpt = 1000;
 	double max_tpt = 50;
-        TH2D *hleadjetntrkvsleadjetpt = new TH2D("hleadjetareantrkvsleadjetpt","Leading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *hsubjetntrkvsleadjetpt = new TH2D("hsubjetareantrkvsleadjetpt","SubLeading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranmaxntrkvsleadjetpt = new TH2D("htranmaxntrkvsleadjetpt","Transverse Max Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranminntrkvsleadjetpt = new TH2D("htranminntrkvsleadjetpt","Transverse Min Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranntrkvsleadjetpt = new TH2D("htranntrkvsleadjetpt","Transverse Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *hleadjetntrkvsleadjetpt = new TH2D("hleadjetareantrkvs"+xvariablename,"Leading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *hsubjetntrkvsleadjetpt = new TH2D("hsubjetareantrkvs"+xvariablename,"SubLeading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htranmaxntrkvsleadjetpt = new TH2D("htranmaxntrkvs"+xvariablename,"Transverse Max Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htranminntrkvsleadjetpt = new TH2D("htranminntrkvs"+xvariablename,"Transverse Min Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htranntrkvsleadjetpt = new TH2D("htranntrkvs"+xvariablename,"Transverse Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
 
-        TH2D *hleadjetptsumvsleadjetpt = new TH2D("hleadjetareaptsumvsleadjetpt","Leading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *hsubjetptsumvsleadjetpt = new TH2D("hsubjetareaptsumvsleadjetpt","SubLeading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranmaxptsumvsleadjetpt = new TH2D("htranmaxptsumvsleadjetpt","Transverse Max Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranminptsumvsleadjetpt = new TH2D("htranminptsumvsleadjetpt","Transverse Min Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranptsumvsleadjetpt = new TH2D("htranptsumvsleadjetpt","Transverse Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *hleadjetptsumvsleadjetpt = new TH2D("hleadjetareaptsumvs"+xvariablename,"Leading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *hsubjetptsumvsleadjetpt = new TH2D("hsubjetareaptsumvs"+xvariablename,"SubLeading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htranmaxptsumvsleadjetpt = new TH2D("htranmaxptsumvs"+xvariablename,"Transverse Max Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htranminptsumvsleadjetpt = new TH2D("htranminptsumvs"+xvariablename,"Transverse Min Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htranptsumvsleadjetpt = new TH2D("htranptsumvs"+xvariablename,"Transverse Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
 
-        TH2D *hleadjetptavevsleadjetpt = new TH2D("hleadjetareaptavevsleadjetpt","Leading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *hsubjetptavevsleadjetpt = new TH2D("hsubjetareaptavevsleadjetpt","SubLeading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranmaxptavevsleadjetpt = new TH2D("htranmaxptavevsleadjetpt","Transverse Max Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranminptavevsleadjetpt = new TH2D("htranminptavevsleadjetpt","Transverse Min Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranptavevsleadjetpt = new TH2D("htranptavevsleadjetpt","Transverse Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *hleadjetptavevsleadjetpt = new TH2D("hleadjetareaptavevs"+xvariablename,"Leading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *hsubjetptavevsleadjetpt = new TH2D("hsubjetareaptavevs"+xvariablename,"SubLeading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htranmaxptavevsleadjetpt = new TH2D("htranmaxptavevs"+xvariablename,"Transverse Max Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htranminptavevsleadjetpt = new TH2D("htranminptavevs"+xvariablename,"Transverse Min Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htranptavevsleadjetpt = new TH2D("htranptavevs"+xvariablename,"Transverse Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
 
         hleadjetntrkvsleadjetpt->Sumw2();
         hsubjetntrkvsleadjetpt->Sumw2();
@@ -237,9 +266,9 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
         htranptavevsleadjetpt->Sumw2();
 
 
-	// problematic runs, need future investigation
-	const int NoBadRun = 186;
-	int badrun[NoBadRun] = {13044118, 13044123, 13044124, 13044125, 13045001, 13045003, 13045005, 13045006, 13045007, 13045012, 13045029, 13046002, 13046008, 13046010, 13046029, 13046118, 13046119, 13046120, 13047004, 13047014, 13047018, 13047036, 13047037, 13047039, 13047040, 13047041, 13047042, 13047043, 13047044, 13047045, 13047046, 13047047, 13047048, 13047049, 13047050, 13047051, 13047052, 13047053, 13047054, 13047055, 13048007, 13048022, 13048046, 13049004, 13049005, 13049050, 13049052, 13049075, 13049086, 13049087, 13049088, 13049089, 13050007, 13050025, 13050026, 13050027, 13050033, 13050039, 13050043, 13050044, 13050046, 13050047, 13050049, 13050050, 13051068, 13051080, 13051088, 13051095, 13051102, 13052021, 13052022, 13052054, 13052063, 13052068, 13053010, 13053021, 13054004, 13054005, 13054006, 13054007, 13054008, 13054009, 13054011, 13054012, 13054013, 13054014, 13054015, 13054016, 13054017, 13054018, 13054019, 13054020, 13054022, 13054042, 13054045, 13054046, 13054057, 13055015, 13055072, 13055081, 13055082, 13055086, 13055087, 13055088, 13055089, 13055090, 13056011, 13056012, 13056034, 13056035, 13056037, 13056038, 13056039, 13057038, 13057039, 13058019, 13058030, 13058047, 13058048, 13059003, 13059004, 13059005, 13059006, 13059007, 13059008, 13059009, 13059010, 13059019, 13059035, 13059082, 13059083, 13059084, 13059085, 13059086, 13059087, 13060001, 13060002, 13060003, 13060009, 13060012, 13061026, 13063033, 13064030, 13064057, 13064059, 13064074, 13066035, 13066036, 13066101, 13066102, 13066104, 13066109, 13066110, 13067001, 13067002, 13067003, 13067004, 13067005, 13067006, 13067007, 13067008, 13067009, 13067010, 13067011, 13067012, 13067013, 13067014, 13067015, 13067017, 13068017, 13068022, 13068027, 13068029, 13068034, 13068036, 13068037, 13069006, 13069009, 13069029, 13070030, 13070056, 13071034, 13071037, 13071038, 13071040};
+	// problematic runs, need future investigation		--> already exclude in ttree production code
+	//const int NoBadRun = 186;
+	//int badrun[NoBadRun] = {13044118, 13044123, 13044124, 13044125, 13045001, 13045003, 13045005, 13045006, 13045007, 13045012, 13045029, 13046002, 13046008, 13046010, 13046029, 13046118, 13046119, 13046120, 13047004, 13047014, 13047018, 13047036, 13047037, 13047039, 13047040, 13047041, 13047042, 13047043, 13047044, 13047045, 13047046, 13047047, 13047048, 13047049, 13047050, 13047051, 13047052, 13047053, 13047054, 13047055, 13048007, 13048022, 13048046, 13049004, 13049005, 13049050, 13049052, 13049075, 13049086, 13049087, 13049088, 13049089, 13050007, 13050025, 13050026, 13050027, 13050033, 13050039, 13050043, 13050044, 13050046, 13050047, 13050049, 13050050, 13051068, 13051080, 13051088, 13051095, 13051102, 13052021, 13052022, 13052054, 13052063, 13052068, 13053010, 13053021, 13054004, 13054005, 13054006, 13054007, 13054008, 13054009, 13054011, 13054012, 13054013, 13054014, 13054015, 13054016, 13054017, 13054018, 13054019, 13054020, 13054022, 13054042, 13054045, 13054046, 13054057, 13055015, 13055072, 13055081, 13055082, 13055086, 13055087, 13055088, 13055089, 13055090, 13056011, 13056012, 13056034, 13056035, 13056037, 13056038, 13056039, 13057038, 13057039, 13058019, 13058030, 13058047, 13058048, 13059003, 13059004, 13059005, 13059006, 13059007, 13059008, 13059009, 13059010, 13059019, 13059035, 13059082, 13059083, 13059084, 13059085, 13059086, 13059087, 13060001, 13060002, 13060003, 13060009, 13060012, 13061026, 13063033, 13064030, 13064057, 13064059, 13064074, 13066035, 13066036, 13066101, 13066102, 13066104, 13066109, 13066110, 13067001, 13067002, 13067003, 13067004, 13067005, 13067006, 13067007, 13067008, 13067009, 13067010, 13067011, 13067012, 13067013, 13067014, 13067015, 13067017, 13068017, 13068022, 13068027, 13068029, 13068034, 13068036, 13068037, 13069006, 13069009, 13069029, 13070030, 13070056, 13071034, 13071037, 13071038, 13071040};
 
 	// loop over events
 	cout<<"Total # of Events: "<<t->GetEntries()<<endl;
@@ -248,15 +277,17 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 		t->GetEntry(ievt);
 
 		if(j1neutralfrac>0.9) continue;			// jet neutral pT fraction < 90%
+		
+		if(fabs(jeta)>0.6) continue;			// I miss this cut in jet finding selector
 
-		if(runid>=13058000&& runid<13061000) continue;		// a dip in TPC primary tracks. problematic runs, need future investigation
+		//if(runid>=13058000&& runid<13061000) continue;		// a dip in TPC primary tracks. problematic runs, need future investigation		--> already exclude in ttree production code
 		//test if(runid>13052000&& runid<13060000) continue;		// problematic runs, need future investigation
-		for(int i = 0; i<NoBadRun; i++) {
-			if(runid==badrun[i]) continue;
-		}
+		//for(int i = 0; i<NoBadRun; i++) {
+		//	if(runid==badrun[i]) continue;
+		//}
 
-		if(((what2fill.Contains("refmult",TString::kIgnoreCase))||(what2fill.Contains("multiplicity",TString::kIgnoreCase)))&&(jpt<10)&&(jpt>40)) continue;		// when studying multiplicity dependence, exclude jet pT<10GeV/c to ensure the real jet found + jet pT<40GeV/c there is some unphysics structure seen from Ntrk, SumPt, pT vs leadjetpt distribution
-		//if(((what2fill.Contains("refmult",TString::kIgnoreCase))||(what2fill.Contains("multiplicity",TString::kIgnoreCase)))&&(jpt<10)) continue;		// when studying multiplicity dependence, exclude jet pT<10GeV/c to ensure the real jet found 
+		//if(((what2fill.Contains("refmult",TString::kIgnoreCase))||(what2fill.Contains("multiplicity",TString::kIgnoreCase)))&&((jpt<10)||(jpt>40))) continue;		// when studying multiplicity dependence, exclude jet pT<10GeV/c to ensure the real jet found + jet pT<40GeV/c there is some unphysics structure seen from Ntrk, SumPt, pT vs leadjetpt distribution(solved -> due to hot tower missed in QA, now excluded)
+		if(((what2fill.Contains("refmult",TString::kIgnoreCase))||(what2fill.Contains("multiplicity",TString::kIgnoreCase)))&&(jpt<10)) continue;		// when studying multiplicity dependence, exclude jet pT<10GeV/c to ensure the real jet found 
 
 		if(ievt%1000000==0) cout<<"event "<<ievt<<endl;
 
@@ -298,7 +329,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 		float w;
 		for(int it = 0; it<tranmaxntrk; it++) {
 			//cout<<"pt_max["<<it<<"] = "<<pt_max[it];
-			w = getweight(pt_max[it],chargeflag);
+			w = getweight(pt_max[it],chargeflag,MCflag);
 			//cout<<" w = "<<w<<endl;
 			tranmaxptavevsleadjetpt->Fill(xvariable,pt_max[it],w);
 			tranptavevsleadjetpt->Fill(xvariable,pt_max[it],w);
@@ -311,7 +342,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 		}
 		for(int it = 0; it<tranminntrk; it++) {
 			//cout<<"pt_min["<<it<<"] = "<<pt_min[it];
-			w = getweight(pt_min[it],chargeflag);
+			w = getweight(pt_min[it],chargeflag,MCflag);
 			//cout<<" w = "<<w<<endl;
 			tranminptavevsleadjetpt->Fill(xvariable,pt_min[it],w);
 			tranptavevsleadjetpt->Fill(xvariable,pt_min[it],w);
@@ -324,7 +355,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 		}
 		for(int it = 0; it<leadntrk; it++) {
 			//cout<<"pt_jet["<<it<<"] = "<<pt_jet[it];
-			w = getweight(pt_jet[it],chargeflag);
+			w = getweight(pt_jet[it],chargeflag,MCflag);
 			//cout<<" w = "<<w<<endl;
 			leadjetptavevsleadjetpt->Fill(xvariable,pt_jet[it],w);
 
@@ -334,7 +365,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 		}
 		for(int it = 0; it<subntrk; it++) {
 			//cout<<"pt_sub["<<it<<"] = "<<pt_sub[it];
-			w = getweight(pt_sub[it],chargeflag);
+			w = getweight(pt_sub[it],chargeflag,MCflag);
 			//cout<<" w = "<<w<<endl;
 			subjetptavevsleadjetpt->Fill(xvariable,pt_sub[it],w);
 
