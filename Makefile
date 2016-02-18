@@ -119,7 +119,7 @@ $(ODIR)/UnderlyingAna.o 	 	: $(SDIR)/UnderlyingAna.cxx $(INCS) $(SDIR)/Underlyin
 
 #Aj
 $(BDIR)/PicoJetUnderlyingActivity		: $(ODIR)/PicoJetUnderlyingActivity.o		$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so
-$(BDIR)/STARPythiaJetUnderlyingActivity		: $(ODIR)/STARPythiaJetUnderlyingActivity.o	$(ODIR)/StarPythia.o	$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so
+$(BDIR)/STARPythiaJetUnderlyingActivity		: $(ODIR)/STARPythiaJetUnderlyingActivity.o	$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so
 $(BDIR)/ppInAuAuAj 	: $(ODIR)/ppInAuAuAj.o 		$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so
 $(BDIR)/ppInMcAj	: $(ODIR)/ppInMcAj.o		$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so
 $(BDIR)/PythiaAj	: $(ODIR)/PythiaAj.o 		$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so
