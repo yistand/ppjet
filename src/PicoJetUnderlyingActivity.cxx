@@ -194,9 +194,17 @@ int main ( int argc, const char** argv ) {
 
 	// Set up some convenient default
 	// ------------------------------
-	const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/FullJet_TransCharged_MatchTrig_ppJP2.root","ppJP2","/home/hep/caines/ly247/Scratch/pp12JP2Pico_151018/*.root", "0", "0","ChargeJet","Charge" };
+	const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/FullJet_TransCharged_MatchTrig_ppJP2.root","ppJP2","/home/hep/caines/ly247/Scratch/pp12JP2Pico_151018/*.root", "0", "0" };
 	// {Code name, to be discard but needed since argv will use command name as the [0], output file name, triggername, intput file list, for variable IntTowScale to scale tower as systematics study, which effiencey file to use }
-	// output file name can include "R0.6" OR "R0.4" OR "R0.2", "ChargeJet" OR "FullJet" OR "NeutralJet", "TransCharged" particle only OR "TransNeutral" particle only 
+	//
+	// output file name can include(optional): 
+	// 	"R0.6" (default) OR "R0.4" OR "R0.2";
+	// 	"FullJet"(default) OR "ChargeJet" OR "NeutralJet";
+	// 	"TransCharged" (default) particle only OR "TransNeutral" particle only;
+	// 	"AntikT" (default) OR "kT"
+	// 	"MatchTrig" together with "ppJP2" will match leading jet with the trigger jet phi, eta
+	// 	"Monojet" (default) OR "Dijet"
+	//	"TranPhi60" (default) OR "TranPhi30"
 	
 
 	if ( argc==1 ) {
@@ -304,11 +312,16 @@ int main ( int argc, const char** argv ) {
 
 	//TString OutFileName = "test.root"; //test 
 	//float R = 0.6;	// test
+	string jetalgorithm = "antikt";		
+	if(OutFileName.Contains ("kT") && (!(OutFileName.Contains ("AntikT")))) {
+		jetalgorithm = "kt";
+	}
 	UnderlyingAna *ula = new UnderlyingAna( R,
 			AjParameters::max_track_rap,
 			0.2,			// pt min for const.
 			AjParameters::dPhiCut,
-			OutFileName
+			OutFileName,
+			jetalgorithm
 	);  
 
 
@@ -332,6 +345,7 @@ int main ( int argc, const char** argv ) {
 		underlyingchargecode = 0;
 	}
 
+
 	cout << " ################################################### " << endl;
 	cout << " jetchargecode = " << jetchargecode <<endl; 
 	cout << " underlyingchargecode = " << underlyingchargecode <<endl; 
@@ -350,7 +364,16 @@ int main ( int argc, const char** argv ) {
 
 	ula->SetUnderlyingParticleCharge(underlyingchargecode);			// underlying event charge: 0 for netural, 1 for charged, 2 for all
 
-	ula->SetDiJetAngle(0);					// Use Dijet angle (1) or Monojet angle (0) 
+	if(OutFileName.Contains ("Dijet")) {
+		ula->SetDiJetAngle(1);					// Use Dijet angle (1) or Monojet angle (0) 
+	}
+	else {
+		ula->SetDiJetAngle(0);					// Use Dijet angle (1) or Monojet angle (0) 
+	}
+	
+	if ( OutFileName.Contains ("TranPhi30") ) {
+		ula->SetTransversePhiSize(30);	
+	}
 
 	// Cycle through events
 	// --------------------

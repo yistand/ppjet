@@ -9,6 +9,7 @@
 #include "UnderlyingAna.hh"
 #include <algorithm>    // std::copy
 #include <vector>
+#include <string>
 
 using std::endl;
 
@@ -20,7 +21,8 @@ UnderlyingAna::UnderlyingAna ( double R,
 		double max_const_rap, //double PtConsLo, double PtConsHi,
 		double min_const_pt,
 		double dPhiCut,
-		TString name
+		TString name,
+		std::string jetalgo
 		)
 		: R(R),
 	//jet_ptmin(jet_ptmin), jet_ptmax(jet_ptmax),
@@ -63,7 +65,16 @@ UnderlyingAna::UnderlyingAna ( double R,
 
 	// Choose a jet and area definition
 	// --------------------------------
-	jet_def = fastjet::JetDefinition(fastjet::antikt_algorithm, R);
+	//jet_def = fastjet::JetDefinition(fastjet::antikt_algorithm, R);
+	std::cout<<"INFO: jetalgo = "<<jetalgo<<std::endl;
+	jet_def = fastjet::JetDefinition(AlgoFromString(jetalgo), R);	// in JetAnalyzer.cxx
+
+	// For leading jet, how much is the jet pt if increase R to R = 1
+	float OtherR = 1;
+	// find the jet
+	other_jet_def = fastjet::JetDefinition( AlgoFromString(jetalgo), OtherR);		// in JetAnalyzer.cxx
+
+
 
 	// create an area definition for the clustering
 	//----------------------------------------------------------
@@ -110,6 +121,7 @@ UnderlyingAna::UnderlyingAna ( double R,
 	mNeutralJetFracCut = true;
 	mUseDijetAngle = 0;
 	mUnderlyingParticleCharge = 1;
+	mTranPhiSize = 60;
 	
 	ResultTree = NULL;
 
@@ -176,17 +188,31 @@ int UnderlyingAna::Init() {
 	ResultTree->Branch("rhoerr",&rhoerr, "rhoerr/F");
 
 	ResultTree->Branch("j1pt",&j1pt, "j1pt/F");
+	ResultTree->Branch("jaspt",&jaspt, "jaspt/F");
 	ResultTree->Branch("j2pt",&j2pt, "j2pt/F");
 	ResultTree->Branch("j1phi",&j1phi, "j1phi/F");
+	ResultTree->Branch("jasphi",&jasphi, "jasphi/F");
 	ResultTree->Branch("j2phi",&j2phi, "j2phi/F");
 	ResultTree->Branch("j1eta",&j1eta, "j1eta/F");
+	ResultTree->Branch("jaseta",&jaseta, "jaseta/F");
 	ResultTree->Branch("j2eta",&j2eta, "j2eta/F");
 	ResultTree->Branch("j1area",&j1area, "j1area/F");
+	ResultTree->Branch("jasarea",&jasarea, "jasarea/F");
 	ResultTree->Branch("j2area",&j2area, "j2area/F");
 	ResultTree->Branch("j1area_err",&j1area_err, "j1area_err/F");
+	ResultTree->Branch("jasarea_err",&jasarea_err, "jasarea_err/F");
 	ResultTree->Branch("j2area_err",&j2area_err, "j2area_err/F");
 
 	ResultTree->Branch("j1neutralfrac",&j1neutralfrac, "j1neutralfrac/F");
+	ResultTree->Branch("j1r1pt",&j1r1pt, "j1r1pt/F");
+
+
+	ResultTree->Branch("j3pt",&j3pt, "j3pt/F");
+	ResultTree->Branch("j4pt",&j4pt, "j4pt/F");
+	ResultTree->Branch("j3phi",&j3phi, "j3phi/F");
+	ResultTree->Branch("j4phi",&j4phi, "j4phi/F");
+	ResultTree->Branch("j3eta",&j3eta, "j3eta/F");
+	ResultTree->Branch("j4eta",&j4eta, "j4eta/F");
 
 	ResultTree->Branch("LeadAreaPtSum",&mLeadAreaPt,"LeadAreaPtSum/F");
 	ResultTree->Branch("SubLeadAreaPtSum",&mSubAreaPt,"SubLeadAreaPtSum/F");
@@ -202,15 +228,23 @@ int UnderlyingAna::Init() {
 	ResultTree->Branch("TrkTranMaxdEdx",TrkTranMaxdEdx,"TrkTranMaxdEdx[TranMaxNtrk]/F");
 	ResultTree->Branch("TrkTranMaxTofbeta",TrkTranMaxTofbeta,"TrkTranMaxTofbeta[TranMaxNtrk]/F");
 	ResultTree->Branch("TrkTranMaxPt",TrkTranMaxPt,"TrkTranMaxPt[TranMaxNtrk]/F");
+	ResultTree->Branch("TrkTranMaxPhi",TrkTranMaxPhi,"TrkTranMaxPhi[TranMaxNtrk]/F");
+	ResultTree->Branch("TrkTranMaxEta",TrkTranMaxEta,"TrkTranMaxEta[TranMaxNtrk]/F");
 	ResultTree->Branch("TrkTranMindEdx",TrkTranMindEdx,"TrkTranMindEdx[TranMinNtrk]/F");
 	ResultTree->Branch("TrkTranMinTofbeta",TrkTranMinTofbeta,"TrkTranMinTofbeta[TranMinNtrk]/F");
 	ResultTree->Branch("TrkTranMinPt",TrkTranMinPt,"TrkTranMinPt[TranMinNtrk]/F");
+	ResultTree->Branch("TrkTranMinPhi",TrkTranMinPhi,"TrkTranMinPhi[TranMinNtrk]/F");
+	ResultTree->Branch("TrkTranMinEta",TrkTranMinEta,"TrkTranMinEta[TranMinNtrk]/F");
 	ResultTree->Branch("TrkLeadAreadEdx",TrkLeadAreadEdx,"TrkLeadAreadEdx[LeadAreaNtrk]/F");
 	ResultTree->Branch("TrkLeadAreaTofbeta",TrkLeadAreaTofbeta,"TrkLeadAreaTofbeta[LeadAreaNtrk]/F");
 	ResultTree->Branch("TrkLeadAreaPt",TrkLeadAreaPt,"TrkLeadAreaPt[LeadAreaNtrk]/F");
+	ResultTree->Branch("TrkLeadAreaPhi",TrkLeadAreaPhi,"TrkLeadAreaPhi[LeadAreaNtrk]/F");
+	ResultTree->Branch("TrkLeadAreaEta",TrkLeadAreaEta,"TrkLeadAreaEta[LeadAreaNtrk]/F");
 	ResultTree->Branch("TrkSubAreadEdx",TrkSubAreadEdx,"TrkSubAreadEdx[SubAreaNtrk]/F");
 	ResultTree->Branch("TrkSubAreaTofbeta",TrkSubAreaTofbeta,"TrkSubAreaTofbeta[SubAreaNtrk]/F");
 	ResultTree->Branch("TrkSubAreaPt",TrkSubAreaPt,"TrkSubAreaPt[SubAreaNtrk]/F");
+	ResultTree->Branch("TrkSubAreaPhi",TrkSubAreaPhi,"TrkSubAreaPhi[SubAreaNtrk]/F");
+	ResultTree->Branch("TrkSubAreaEta",TrkSubAreaEta,"TrkSubAreaEta[SubAreaNtrk]/F");
  
 	//ResultTree->Branch("nRestJ",&nRestJ, "nRestJ/i");
 	//ResultTree->Branch("RestArea",RestArea, "RestArea[nRestJ]/f");
@@ -289,14 +323,19 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	//runid = reader.GetEvent()->GetHeader()->GetRunId();
 	//refmult = reader.GetEvent()->GetHeader()->GetGReferenceMultiplicity();
 
-	j1pt=0, j2pt=0;
-	j1phi=-999, j2phi=-999;
-	j1eta=-999, j2eta=-999;
-	j1area=0,j2area=0;
-	j1area_err=0,j2area_err=0;
+	j1pt=0, jaspt=0, j2pt=0;
+	j1phi=-999, jaspt=-999, j2phi=-999;
+	j1eta=-999, jaseta=-999, j2eta=-999;
+	j1area=0, jasarea=0, j2area=0;
+	j1area_err=0, jasarea_err=0, j2area_err=0;
+	j1neutralfrac=0;
+	j1r1pt=0;
+
 	rho=0, rhoerr=0;
 
-	j1neutralfrac=0;
+	j3pt=0, j4pt=0;
+	j3phi=-999, j4phi=-999;
+	j3eta=-999, j4eta=-999;
 
 	mLeadAreaPt=0;
 	mSubAreaPt=0;
@@ -314,15 +353,23 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		TrkTranMaxdEdx[i]=0;
 		TrkTranMaxTofbeta[i]=0;
 		TrkTranMaxPt[i]=0;
+		TrkTranMaxPhi[i]=0;
+		TrkTranMaxEta[i]=0;
 		TrkTranMindEdx[i]=0;
 		TrkTranMinTofbeta[i]=0;
 		TrkTranMinPt[i]=0;
+		TrkTranMinPhi[i]=0;
+		TrkTranMinEta[i]=0;
 		TrkLeadAreadEdx[i]=0;
 		TrkLeadAreaTofbeta[i]=0;
 		TrkLeadAreaPt[i]=0;
+		TrkLeadAreaPhi[i]=0;
+		TrkLeadAreaEta[i]=0;
 		TrkSubAreadEdx[i]=0;
 		TrkSubAreaTofbeta[i]=0;
 		TrkSubAreaPt[i]=0;
+		TrkSubAreaPhi[i]=0;
+		TrkSubAreaEta[i]=0;
 	}
 	
 	// Set eff
@@ -347,19 +394,28 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	// find jets
 	// -----------------------------
 	// NO background subtraction
-	pJA = new JetAnalyzer( Jconstituents, jet_def, area_def, selector_bkgd); // NO background subtraction
+	pJA = new JetAnalyzer( Jconstituents, jet_def, area_def);		// still need area def
 	JetAnalyzer& JA = *pJA;
-	JAResult = fastjet::sorted_by_pt( sjet ( JA.inclusive_jets() ) );
+	JAResult = fastjet::sorted_by_pt( sjet ( JA.inclusive_jets() ) ); // NO background subtraction
 	
-	// WITH subtract background 
-	pJA_bkgsub = new JetAnalyzer( Jconstituents, jet_def , area_def, selector_bkgd); // with background subtraction
-	JetAnalyzer& JA_bkgsub = *pJA_bkgsub;
-	fastjet::Subtractor* BackgroundSubtractor =  JA_bkgsub.GetBackgroundSubtractor();
-	JAResult_bkgsub = fastjet::sorted_by_pt( sjet ((*BackgroundSubtractor) ( JA_bkgsub.inclusive_jets()) ) );
-
-
 	if ( JAResult.size() < 1 )                 {     return 0; }
 	if ( JAResult.at(0).pt() > 10 )            { Has10Gev=true; }
+
+
+	// NO background subtraction && NO jet eta subtraction. This is used for --> when the hardest jet outside jet eta coverage, but inside underlying event study eta coverage, it could end up in any toward, away, transverse regions and disturb the study by selecting different regions. Therefore it is better to not use these events.
+	JetAnalyzer *nosjetJA = new JetAnalyzer( Jconstituents, jet_def);
+	std::vector<fastjet::PseudoJet> nosjetJAResult = fastjet::sorted_by_pt(nosjetJA->inclusive_jets());
+	if(nosjetJAResult.size()>0&&JAResult.size()>0&&nosjetJAResult.at(0).delta_R(JAResult.at(0))>R) {
+		//std::cout<<"jet pt = "<<nosjetJAResult.at(0).pt()<<" phi = "<<nosjetJAResult.at(0).phi()<<" eta = "<<nosjetJAResult.at(0).eta()<<" outside jet eta coverage"<<std::endl;	// testly
+		//std::cout<<"inside jet pt = "<<JAResult.at(0).pt()<<" phi = "<<JAResult.at(0).phi()<<" eta = "<<JAResult.at(0).eta()<<" outside jet eta coverage"<<std::endl;	// testly
+		return 0;	// testly
+	}
+	
+	// WITH subtract background 
+	pJA_bkgsub = new JetAnalyzer( Jconstituents, jet_def , area_def, selector_bkgd);
+	JetAnalyzer& JA_bkgsub = *pJA_bkgsub;
+	fastjet::Subtractor* BackgroundSubtractor =  JA_bkgsub.GetBackgroundSubtractor();
+	JAResult_bkgsub = fastjet::sorted_by_pt( sjet ((*BackgroundSubtractor) ( JA_bkgsub.inclusive_jets()) ) ); // with background subtraction
 
 	//if ( JAResult.size() < 2 )                 {     return 0; }
 
@@ -443,17 +499,80 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	j1eta = j1.Eta();
 	j1area = JAResult.at(0).area();
 	j1area_err = JAResult.at(0).area_error();
+	//if(j1pt<10) return 0;	// testly
+
+	// For leading jet, how much is the jet pt if increase R to R = 1
+	// find the jet
+	JetAnalyzer *OtherJA = new JetAnalyzer(Jconstituents,other_jet_def);
+	std::vector<fastjet::PseudoJet> OtherJAResult = fastjet::sorted_by_pt( OtherJA->inclusive_jets() );		// no jet eta selection used. as we are going to match to the previous jet found with eta selection anyway. Here just to make sure we will have everything available to match.
+	// Match to leading jet within R 
+	fastjet::Selector SelectClose = fastjet::SelectorCircle( R );
+	SelectClose.set_reference( JAResult.at(0) );
+	std::vector<fastjet::PseudoJet> OtherMatchedToLead = sorted_by_pt( SelectClose( OtherJAResult ) );
+	if ( OtherMatchedToLead.size() == 0 ) {
+		j1r1pt = 0;
+	  	//std::cerr << "OTHER R PROBLEM: SelectorClose returned no match to leading jet." << std::endl;
+	}
+	else {
+		j1r1pt =  OtherMatchedToLead.at(0).perp();
+		//std::cout<<"INCEASE R="<<R<<"-> R=1 pt = "<<j1pt<<"->"<<j1r1pt<<" phi = "<<j1phi<<"->"<<OtherMatchedToLead.at(0).phi()<<" eta = "<<j1eta<<"->"<<OtherMatchedToLead.at(0).eta()<<" ";	// testly
+	}
+	delete OtherJA;
+	//std::cout<<j1r1pt<<std::endl;	// testly
+
+
 	if(HasDijet) { 
-		SubJetPt->Fill(JAResult.at(1).pt());
+		SubJetPt->Fill(DiJets.at(1).pt());
+		jas = MakeTLorentzVector(DiJets.at(1));
+		jaspt = jas.Pt();	
+		jasphi = jas.Phi();
+		jaseta = jas.Eta();
+		jasarea = JAResult.at(1).area();
+		jasarea_err = JAResult.at(1).area_error();
+	}
+	else {
+		SubJetPt->Fill(0);
+		jas = TLorentzVector(0,0,0,0);
+		jaspt = 0;
+		jasphi = -999;
+		jaseta = -999;
+		jasarea = 0;
+		jasarea_err = 0;
+	}
+
+	if(JAResult.size()>=2) {
 		j2 = MakeTLorentzVector(JAResult.at(1));
 		j2pt = j2.Pt();	
 		j2phi = j2.Phi();
 		j2eta = j2.Eta();
 		j2area = JAResult.at(1).area();
 		j2area_err = JAResult.at(1).area_error();
+		if(JAResult.size()>=3) {
+			j3 = MakeTLorentzVector(JAResult.at(2));
+			j3pt = j3.Pt();	
+			j3phi = j3.Phi();
+			j3eta = j3.Eta();
+			if(JAResult.size()>=4) {
+				j4 = MakeTLorentzVector(JAResult.at(3));
+				j4pt = j4.Pt();	
+				j4phi = j4.Phi();
+				j4eta = j4.Eta();
+			}
+			else {
+				j4 = TLorentzVector(0,0,0,0);
+				j4pt = 0;
+				j4phi = -999;
+				j4eta = -999;
+			}
+		}
+		else {
+			j3 = TLorentzVector(0,0,0,0);
+			j3pt = 0;
+			j3phi = -999;
+			j3eta = -999;
+		}
 	}
 	else {
-		SubJetPt->Fill(0);
 		j2 = TLorentzVector(0,0,0,0);
 		j2pt = 0;
 		j2phi = -999;
@@ -467,16 +586,20 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	double DiJetPhi;
 	double DiJetEta; 
 
-	if(HasDijet && mUseDijetAngle) {
+	if(mUseDijetAngle && !(HasDijet) ) { 
+		//std::cout<<"No Dijet for angle"<<std::endl;
+		return 0;
+	}
+	if(mUseDijetAngle && HasDijet ) {
 		//DiJetPhi = JetAnalyzer::phimod2pi( (JAResult.at(0).phi() + (TMath::Pi() - JAResult.at(1).phi()))/2. ); // -pi -> pi		Taken from CMS missing pT analysis. But it doesn't look right, or maybe they used different notation.
-		DiJetPhi = JetAnalyzer::phimod2pi( (JAResult.at(0).phi() + JetAnalyzer::phimod2pi(TMath::Pi() + JAResult.at(1).phi()) )/2. ); // -pi -> pi
+		DiJetPhi = JetAnalyzer::phimod2pi( (JetAnalyzer::phimod2pi(JAResult.at(0).phi()) + JetAnalyzer::phimod2pi(TMath::Pi() + JetAnalyzer::phimod2pi(JAResult.at(1).phi()) ) )/2. ); // -pi -> pi
 		DiJetEta = (JAResult.at(0).eta() + JAResult.at(1).eta())/2.; 
 	}
 	else {
 		DiJetPhi = JetAnalyzer::phimod2pi(JAResult.at(0).phi());	// -pi -> pi
 		DiJetEta = JAResult.at(0).eta();
 	}
-	//std::cout<<"DiJetPhi = "<<JAResult.at(0).phi()<<"-"<<JAResult.at(1).phi()<<"/2="<<DiJetPhi<<std::endl;	
+	//std::cout<<"DiJetPhi = ("<<JAResult.at(0).phi()<<"-"<<JAResult.at(1).phi()<<")/2="<<DiJetPhi<<std::endl;		// testly
 
 
 
@@ -488,9 +611,13 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	std::vector<float> tmp1dEdx;		
 	std::vector<float> tmp1Tofbeta;
 	std::vector<float> tmp1Pt;
+	std::vector<float> tmp1Phi;
+	std::vector<float> tmp1Eta;
 	std::vector<float> tmp2dEdx;
 	std::vector<float> tmp2Tofbeta;
 	std::vector<float> tmp2Pt;
+	std::vector<float> tmp2Phi;
+	std::vector<float> tmp2Eta;
 
 	//==================== Loop over TStarJetVectorContainer for underlying info ====================================
 	fastjet::PseudoJet pj;
@@ -505,6 +632,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		double ipt = pj->perp();	
 		//int icharge = pj->user_info<JetAnalysisUserInfo>().GetQuarkCharge();	
 		//if(fabs(ieta)>max_const_rap) continue;	// rapidity cut		--> MOVE to sUconst
+		//std::cout<<"pt = "<<ipt<<" "<<"eta = "<<ieta<<" "<<" ";		// testly
 
 		//std::cout<<"Charge = "<<icharge<<std::endl;
 
@@ -512,44 +640,52 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		float itofbeta = pj->user_info<JetAnalysisUserInfo>().GettofBeta();
 		
 		//std::cout<<"dEdx = "<<idedx<<"\tTOfBeta = "<<itofbeta<<std::endl;
-		//std::cout<<DiJetPhi<<"-"<<iphi<<" = "<<JetAnalyzer::phimod2pi(iphi-DiJetPhi)<<std::endl;		
-		if(fabs(JetAnalyzer::phimod2pi(iphi-DiJetPhi))<60./180.*TMath::Pi()) {		// leading		phimod2pi(phi) gives -pi ->pi
+		//std::cout<<"phi = "<<DiJetPhi<<"-"<<iphi<<" = "<<JetAnalyzer::phimod2pi(iphi-DiJetPhi)<<std::endl;			// testly
+		if(fabs(JetAnalyzer::phimod2pi(iphi-DiJetPhi))<((180.-mTranPhiSize)/2.)/180.*TMath::Pi()) {		// leading		phimod2pi(phi) gives -pi ->pi
 			TrkLeadAreadEdx[ntrklead] = idedx;
 			TrkLeadAreaTofbeta[ntrklead] = itofbeta;
 			TrkLeadAreaPt[ntrklead] = ipt;
+			TrkLeadAreaPhi[ntrklead] = iphi;
+			TrkLeadAreaEta[ntrklead] = ieta;
 			ntrklead++;
 			ptlead+=ipt;		// scalar sum
 			Spectrum_LeadJetPtvsLeadJetPt->Fill(Ptleadingjet,ipt);	
-			//std::cout<<"leading"<<std::endl;	
+			//std::cout<<"leading"<<std::endl;		// testly
 		}
-		if(fabs(JetAnalyzer::phimod2pi(iphi-DiJetPhi))>120/180.*TMath::Pi()) {	//sub-leading
+		if(fabs(JetAnalyzer::phimod2pi(iphi-DiJetPhi))>((180.+mTranPhiSize)/2.)/180.*TMath::Pi()) {	//sub-leading
 			TrkSubAreadEdx[ntrksublead] = idedx;
 			TrkSubAreaTofbeta[ntrksublead] = itofbeta;
 			TrkSubAreaPt[ntrksublead] = ipt;
+			TrkSubAreaPhi[ntrklead] = iphi;
+			TrkSubAreaEta[ntrklead] = ieta;
 			ntrksublead++;
 			ptsublead+=ipt;		// scalar sum
 			Spectrum_SubJetPtvsLeadJetPt->Fill(Ptleadingjet,ipt);	
-			//std::cout<<"subleading"<<std::endl;	
+			//std::cout<<"subleading"<<std::endl;		// testly
 		}
-		if(JetAnalyzer::phimod2pi(iphi-DiJetPhi)<=120/180.*TMath::Pi() && JetAnalyzer::phimod2pi(iphi-DiJetPhi)>=60/180.*TMath::Pi()) {
+		if(JetAnalyzer::phimod2pi(iphi-DiJetPhi)<=((180.+mTranPhiSize)/2.)/180.*TMath::Pi() && JetAnalyzer::phimod2pi(iphi-DiJetPhi)>=((180.-mTranPhiSize)/2.)/180.*TMath::Pi()) {
 			tmp1dEdx.push_back(idedx);
 			tmp1Tofbeta.push_back(itofbeta);
 			tmp1Pt.push_back(ipt);
+			tmp1Phi.push_back(iphi);
+			tmp1Eta.push_back(ieta);
 			ntrktranmax++;		// will decide which one is max/min later and switch if needed
 			pttranmax+=ipt;		// scalar sum
 			Spectrum_TranPtvsLeadJetPt->Fill(Ptleadingjet,ipt);	
 			htmp1->Fill(Ptleadingjet,ipt);
-			//std::cout<<"transverse"<<std::endl;	
+			//std::cout<<"transverse"<<std::endl;		// testly
 		}
-		if(JetAnalyzer::phimod2pi(iphi-DiJetPhi)>=-120/180.*TMath::Pi() && JetAnalyzer::phimod2pi(iphi-DiJetPhi)<=-60/180.*TMath::Pi()) {
+		if(JetAnalyzer::phimod2pi(iphi-DiJetPhi)>=-((180.+mTranPhiSize)/2.)/180.*TMath::Pi() && JetAnalyzer::phimod2pi(iphi-DiJetPhi)<=-((180.-mTranPhiSize)/2.)/180.*TMath::Pi()) {
 			tmp2dEdx.push_back(idedx);
 			tmp2Tofbeta.push_back(itofbeta);
 			tmp2Pt.push_back(ipt);
+			tmp2Phi.push_back(iphi);
+			tmp2Eta.push_back(ieta);
 			ntrktranmin++;
 			pttranmin+=ipt;		// scalar sum
 			Spectrum_TranPtvsLeadJetPt->Fill(Ptleadingjet,ipt);	
 			htmp2->Fill(Ptleadingjet,ipt);
-			//std::cout<<"transverse"<<std::endl;
+			//std::cout<<"transverse"<<std::endl;	// testly
 		}
 	}
 
@@ -570,10 +706,14 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		std::copy(tmp2dEdx.begin(),tmp2dEdx.end(),TrkTranMaxdEdx);	// #ly template <class InputIterator, class OutputIterator>  OutputIterator copy (InputIterator first, InputIterator last, OutputIterator result);
 		std::copy(tmp2Tofbeta.begin(),tmp2Tofbeta.end(),TrkTranMaxTofbeta);
 		std::copy(tmp2Pt.begin(),tmp2Pt.end(),TrkTranMaxPt);
+		std::copy(tmp2Phi.begin(),tmp2Phi.end(),TrkTranMaxPhi);
+		std::copy(tmp2Eta.begin(),tmp2Eta.end(),TrkTranMaxEta);
 
 		std::copy(tmp1dEdx.begin(),tmp1dEdx.end(),TrkTranMindEdx);	// #ly template <class InputIterator, class OutputIterator>  OutputIterator copy (InputIterator first, InputIterator last, OutputIterator result);
 		std::copy(tmp1Tofbeta.begin(),tmp1Tofbeta.end(),TrkTranMinTofbeta);
 		std::copy(tmp1Pt.begin(),tmp1Pt.end(),TrkTranMinPt);
+		std::copy(tmp1Phi.begin(),tmp1Phi.end(),TrkTranMinPhi);
+		std::copy(tmp1Eta.begin(),tmp1Eta.end(),TrkTranMinEta);
 
 		Spectrum_TranMaxPtvsLeadJetPt->Add(htmp2);
 		Spectrum_TranMinPtvsLeadJetPt->Add(htmp1);
@@ -582,10 +722,14 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		std::copy(tmp1dEdx.begin(),tmp1dEdx.end(),TrkTranMaxdEdx);	// #ly template <class InputIterator, class OutputIterator>  OutputIterator copy (InputIterator first, InputIterator last, OutputIterator result);
 		std::copy(tmp1Tofbeta.begin(),tmp1Tofbeta.end(),TrkTranMaxTofbeta);
 		std::copy(tmp1Pt.begin(),tmp1Pt.end(),TrkTranMaxPt);
+		std::copy(tmp1Phi.begin(),tmp1Phi.end(),TrkTranMaxPhi);
+		std::copy(tmp1Eta.begin(),tmp1Eta.end(),TrkTranMaxEta);
 
 		std::copy(tmp2dEdx.begin(),tmp2dEdx.end(),TrkTranMindEdx);	// #ly template <class InputIterator, class OutputIterator>  OutputIterator copy (InputIterator first, InputIterator last, OutputIterator result);
 		std::copy(tmp2Tofbeta.begin(),tmp2Tofbeta.end(),TrkTranMinTofbeta);
 		std::copy(tmp2Pt.begin(),tmp2Pt.end(),TrkTranMinPt);
+		std::copy(tmp2Phi.begin(),tmp2Phi.end(),TrkTranMinPhi);
+		std::copy(tmp2Eta.begin(),tmp2Eta.end(),TrkTranMinEta);
 
 		Spectrum_TranMaxPtvsLeadJetPt->Add(htmp1);
 		Spectrum_TranMinPtvsLeadJetPt->Add(htmp2);
@@ -629,6 +773,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 
 	nEventProcessed++;
 
+	delete nosjetJA;
 
 	return 1;
 }
@@ -679,6 +824,7 @@ void UnderlyingAna::SetJetCharge(int val) {
 	}
 	sconst     = sconst && select_const_charge;			
 }
+
 
 /*
  Move the read in to the main macro 
