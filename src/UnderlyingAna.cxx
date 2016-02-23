@@ -656,8 +656,8 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 			TrkSubAreadEdx[ntrksublead] = idedx;
 			TrkSubAreaTofbeta[ntrksublead] = itofbeta;
 			TrkSubAreaPt[ntrksublead] = ipt;
-			TrkSubAreaPhi[ntrklead] = iphi;
-			TrkSubAreaEta[ntrklead] = ieta;
+			TrkSubAreaPhi[ntrksublead] = iphi;
+			TrkSubAreaEta[ntrksublead] = ieta;
 			ntrksublead++;
 			ptsublead+=ipt;		// scalar sum
 			Spectrum_SubJetPtvsLeadJetPt->Fill(Ptleadingjet,ipt);	
