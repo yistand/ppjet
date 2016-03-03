@@ -23,7 +23,7 @@ using namespace std;
 
 double getphi(double px, double py) {
 	
-	double phi = ((py==0)?0:atan(py/px)) ;
+	double phi = ((px==0)?0:atan(py/px)) ;
 
 	if(px<0&&py<0) phi-=TMath::Pi();
 	if(px<0&&py>0) phi+=TMath::Pi();
