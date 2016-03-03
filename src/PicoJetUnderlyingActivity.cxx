@@ -37,6 +37,8 @@
 
 #include <utility>	// std::pair, std::make_pair
 #include <iostream>
+#include <fstream>
+#include <set>
 #include <cmath>
 #include <exception>
 #include <cstdlib>      // std::rand, std::srand
@@ -94,6 +96,39 @@ float CorrectBemcVzEta(float geoEta, float PrimVertexZ, float radius = 224){	// 
 
 }
 
+bool readinbadrunlist(std::set<int> & badrun, TString csvfile="./include/pp200Y12_badrun.list") {
+	
+	// open infile
+	std::string line;
+	std::ifstream inFile (csvfile );
+	
+	std::cout<<"Loading bad run id from "<< csvfile.Data()<<std::endl;;
+	        
+	if ( !inFile.good() ) {
+	  std::cout<<"Can't open "<<csvfile.Data()<<std::endl;
+	  return false;
+	}
+	
+	while (std::getline (inFile, line) ){
+	  if ( line.size()==0 ) continue; // skip empty lines
+	  if ( line[0] == '#' ) continue; // skip comments
+	
+	  std::istringstream ss( line );
+	  while( ss ){
+	    std::string entry;
+	    std::getline( ss, entry, ',' );
+	    int ientry = atoi(entry.c_str());
+	    if (ientry) {
+	      badrun.insert( ientry );
+	      std::cout<<"Added bad runid "<<ientry<<std::endl;
+	    }
+	  }
+	}
+	
+	return true;
+}
+
+
 
 // Helper to deal with repetitive stuff
 TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const double RefMultCut ){
@@ -115,6 +150,9 @@ TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const dou
 	evCuts->SetMaxEventEtCut ( AjParameters::MaxEventEtCut );
 
 	evCuts->SetPVRankingCut ( 0 );		// Vertex ranking > 0. Use SetPVRankingCutOff() to turn off vertex ranking cut.  default is OFF
+
+	std::cout << "Exclude event with track > " << evCuts->GetMaxEventPtCut() << std::endl;
+	std::cout << "Exclude event with tower > " << evCuts->GetMaxEventEtCut() << std::endl;
 
 	// Tracks cuts
 	TStarJetPicoTrackCuts* trackCuts = reader.GetTrackCuts();
@@ -156,9 +194,17 @@ int main ( int argc, const char** argv ) {
 
 	// Set up some convenient default
 	// ------------------------------
-	const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/FullJet_TransCharged_MatchTrig_ppJP2.root","ppJP2","/home/hep/caines/ly247/Scratch/pp12JP2Pico_151018/*.root", "0", "0","ChargeJet","Charge" };
+	const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/FullJet_TransCharged_MatchTrig_ppJP2.root","ppJP2","/home/hep/caines/ly247/Scratch/pp12JP2Pico_151018/*.root", "0", "0" };
 	// {Code name, to be discard but needed since argv will use command name as the [0], output file name, triggername, intput file list, for variable IntTowScale to scale tower as systematics study, which effiencey file to use }
-	// output file name can include "R0.6" OR "R0.4" OR "R0.2", "ChargeJet" OR "FullJet" OR "NeutralJet", "TransCharged" particle only OR "TransNeutral" particle only 
+	//
+	// output file name can include(optional): 
+	// 	"R0.6" (default) OR "R0.4" OR "R0.2";
+	// 	"FullJet"(default) OR "ChargeJet" OR "NeutralJet";
+	// 	"TransCharged" (default) particle only OR "TransNeutral" particle only;
+	// 	"AntikT" (default) OR "kT"
+	// 	"MatchTrig" together with "ppJP2" will match leading jet with the trigger jet phi, eta
+	// 	"Monojet" (default) OR "Dijet"
+	//	"TranPhi60" (default) OR "TranPhi30"
 	
 
 	if ( argc==1 ) {
@@ -266,11 +312,16 @@ int main ( int argc, const char** argv ) {
 
 	//TString OutFileName = "test.root"; //test 
 	//float R = 0.6;	// test
+	string jetalgorithm = "antikt";		
+	if(OutFileName.Contains ("kT") && (!(OutFileName.Contains ("AntikT")))) {
+		jetalgorithm = "kt";
+	}
 	UnderlyingAna *ula = new UnderlyingAna( R,
 			AjParameters::max_track_rap,
 			0.2,			// pt min for const.
 			AjParameters::dPhiCut,
-			OutFileName
+			OutFileName,
+			jetalgorithm
 	);  
 
 
@@ -294,6 +345,7 @@ int main ( int argc, const char** argv ) {
 		underlyingchargecode = 0;
 	}
 
+
 	cout << " ################################################### " << endl;
 	cout << " jetchargecode = " << jetchargecode <<endl; 
 	cout << " underlyingchargecode = " << underlyingchargecode <<endl; 
@@ -312,7 +364,16 @@ int main ( int argc, const char** argv ) {
 
 	ula->SetUnderlyingParticleCharge(underlyingchargecode);			// underlying event charge: 0 for netural, 1 for charged, 2 for all
 
-	ula->SetDiJetAngle(0);					// Use Dijet angle (1) or Monojet angle (0) 
+	if(OutFileName.Contains ("Dijet")) {
+		ula->SetDiJetAngle(1);					// Use Dijet angle (1) or Monojet angle (0) 
+	}
+	else {
+		ula->SetDiJetAngle(0);					// Use Dijet angle (1) or Monojet angle (0) 
+	}
+	
+	if ( OutFileName.Contains ("TranPhi30") ) {
+		ula->SetTransversePhiSize(30);	
+	}
 
 	// Cycle through events
 	// --------------------
@@ -331,10 +392,16 @@ int main ( int argc, const char** argv ) {
 	int count = 0;
 
 
-        // problematic runs, need future investigation
-        const int NoBadRun = 186;
-        int badrun[NoBadRun] = {13044118, 13044123, 13044124, 13044125, 13045001, 13045003, 13045005, 13045006, 13045007, 13045012, 13045029, 13046002, 13046008, 13046010, 13046029, 13046118, 13046119, 13046120, 13047004, 13047014, 13047018, 13047036, 13047037, 13047039, 13047040, 13047041, 13047042, 13047043, 13047044, 13047045, 13047046, 13047047, 13047048, 13047049, 13047050, 13047051, 13047052, 13047053, 13047054, 13047055, 13048007, 13048022, 13048046, 13049004, 13049005, 13049050, 13049052, 13049075, 13049086, 13049087, 13049088, 13049089, 13050007, 13050025, 13050026, 13050027, 13050033, 13050039, 13050043, 13050044, 13050046, 13050047, 13050049, 13050050, 13051068, 13051080, 13051088, 13051095, 13051102, 13052021, 13052022, 13052054, 13052063, 13052068, 13053010, 13053021, 13054004, 13054005, 13054006, 13054007, 13054008, 13054009, 13054011, 13054012, 13054013, 13054014, 13054015, 13054016, 13054017, 13054018, 13054019, 13054020, 13054022, 13054042, 13054045, 13054046, 13054057, 13055015, 13055072, 13055081, 13055082, 13055086, 13055087, 13055088, 13055089, 13055090, 13056011, 13056012, 13056034, 13056035, 13056037, 13056038, 13056039, 13057038, 13057039, 13058019, 13058030, 13058047, 13058048, 13059003, 13059004, 13059005, 13059006, 13059007, 13059008, 13059009, 13059010, 13059019, 13059035, 13059082, 13059083, 13059084, 13059085, 13059086, 13059087, 13060001, 13060002, 13060003, 13060009, 13060012, 13061026, 13063033, 13064030, 13064057, 13064059, 13064074, 13066035, 13066036, 13066101, 13066102, 13066104, 13066109, 13066110, 13067001, 13067002, 13067003, 13067004, 13067005, 13067006, 13067007, 13067008, 13067009, 13067010, 13067011, 13067012, 13067013, 13067014, 13067015, 13067017, 13068017, 13068022, 13068027, 13068029, 13068034, 13068036, 13068037, 13069006, 13069009, 13069029, 13070030, 13070056, 13071034, 13071037, 13071038, 13071040};
-        
+        // problematic runs, need future investigation			<--------- Moved to include/pp200Y12_badrun.list
+        //const int NoBadRun = 185;
+        //int badrun[NoBadRun] = {13044118, 13044123, 13044124, 13044125, 13045001, 13045003, 13045005, 13045006, 13045007, 13045012, 13045029, 13046002, 13046008, 13046010, 13046029, 13046118, 13046119, 13046120, 13047004, 13047014, 13047018, 13047036, 13047037, 13047039, 13047040, 13047041, 13047042, 13047043, 13047044, 13047045, 13047046, 13047047, 13047048, 13047049, 13047050, 13047051, 13047052, 13047053, 13047054, 13047055, 13048007, 13048022, 13048046, 13049004, 13049005, 13049050, 13049052, 13049075, 13049086, 13049087, 13049088, 13049089, 13050007, 13050025, 13050026, 13050027, 13050033, 13050039, 13050043, 13050044, 13050046, 13050047, 13050049, 13050050, 13051068, 13051080, 13051088, 13051095, 13051102, 13052021, 13052022, 13052054, 13052063, 13052068, 13053010, 13053021, 13054004, 13054005, 13054006, 13054007, 13054008, 13054009, 13054011, 13054012, 13054013, 13054014, 13054015, 13054016, 13054017, 13054018, 13054019, 13054020, 13054022, 13054042, 13054045, 13054046, 13054057, 13055015, 13055072, 13055081, 13055082, 13055086, 13055087, 13055088, 13055089, 13055090, 13056011, 13056012, 13056034, 13056035, 13056037, 13056038, 13056039, 13057038, 13057039, 13058019, 13058030, 13058047, 13058048, 13059003, 13059004, 13059005, 13059006, 13059007, 13059008, 13059009, 13059010, 13059019, 13059035, 13059082, 13059083, 13059084, 13059085, 13059086, 13059087, 13060001, 13060002, 13060003, 13060009, 13060012, 13061026, 13063033, 13064030, 13064057, 13064059, 13064074, 13066035, 13066036, 13066101, 13066102, 13066104, 13066109, 13066110, 13067001, 13067002, 13067003, 13067004, 13067005, 13067006, 13067007, 13067008, 13067009, 13067010, 13067011, 13067012, 13067013, 13067014, 13067015, 13067017, 13068017, 13068022, 13068027, 13068029, 13068034, 13068036, 13068037, 13069006, 13069009, 13069029, 13070030, 13070056, 13071034, 13071037, 13071038, 13071040};
+	
+	std::set<int>badrun;
+	badrun.clear();
+
+	readinbadrunlist(badrun);        
+
+
 	try{
 		while ( reader.NextEvent() ) {
 			reader.PrintStatus(10);
@@ -348,10 +415,11 @@ int main ( int argc, const char** argv ) {
 
 			// eventid = header->GetEventId();
 			int runid   = header->GetRunId();
-			if(runid>=13058000&& runid<13061000) continue;          // a dip in TPC primary tracks. problematic runs, need future investigation
-			for(int i = 0; i<NoBadRun; i++) {
-                        	if(runid==badrun[i]) continue;
-                	}
+			if(badrun.count(runid)>0) continue;			// in bad run list
+			//if(runid>=13058000&& runid<13061000) continue;          // a dip in TPC primary tracks. problematic runs, need future investigation	<--------- Moved to include/pp200Y12_badrun.list
+			//for(int i = 0; i<NoBadRun; i++) {
+                        //	if(runid==badrun[i]) continue;
+                	//}
 
 			//if(header->GetZdcCoincidenceRate()>6000) continue;		// test
 	

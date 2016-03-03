@@ -1,33 +1,34 @@
 #!/bin/bash -l
-#PBS -l nodes=1:ppn=1,walltime=168:00:00
-#PBS -r n
-#PBS -V
-#PBS -q hep
-#PBS -j oe
 
+#STAR data
+jobid=$1
+trg=$2
+jcharge=$3
+tcharge=$4
+match=$5
+tag=$6
 
-cd $PBS_O_WORKDIR
+##pythia
+#jcharge=$1
+#tcharge=$2
+
 echo $PWD
 echo "Job Start at `date`"
 
-#module load Apps/ROOT/5.34.34
-echo source /home/hep/caines/ly247/.bashrc
-source /home/hep/caines/ly247/.bashrc
+echo source /home/fas/caines/ly247/.bash_profile
+source /home/fas/caines/ly247/.bash_profile
 
-echo source SetEnvironment.sh
-source SetEnvironment.sh
-
-## make sure executable exists
-#echo make bin/PicoJetUnderlyingActivity || exit
-#make bin/PicoJetUnderlyingActivity || exit
+echo source /home/fas/caines/ly247/code/ppjet/SetEnvironment.sh
+source /home/fas/caines/ly247/code/ppjet/SetEnvironment.sh
 
 
+echo ./bin/PicoJetUnderlyingActivity "/home/fas/caines/ly247/Scratch/pp200Y12_jetunderlying/${tag}${jcharge}_${tcharge}_${match}pp${trg}_${jobid}.root" "pp${trg}" "/home/fas/caines/ly247/Scratch/run12ppQA/pp200Y12Pico${trg}_sum${jobid}.root" "0" "0"  # &> /home/fas/caines/ly247/Scratch/pp200Y12_jetunderlying/log/_${match}${trg}Pico${jcharge}${tcharge}_${jobid}.log
+./bin/PicoJetUnderlyingActivity "/home/fas/caines/ly247/Scratch/pp200Y12_jetunderlying/${tag}${jcharge}_${tcharge}_${match}pp${trg}_${jobid}.root" "pp${trg}" "/home/fas/caines/ly247/Scratch/run12ppQA/pp200Y12Pico${trg}_sum${jobid}.root" "0" "0" &> /home/fas/caines/ly247/Scratch/pp200Y12_jetunderlying/log/${tag}${match}${trg}Pico${jcharge}${tcharge}_${jobid}.log
 
-echo ./bin/PicoJetUnderlyingActivity "/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/${jcharge}_${tcharge}_MatchTrig_pp${trg}_${jobid}.root" "ppJP2" "/home/hep/caines/ly247/Scratch/pp12${trg}Pico_151018/sum${jobid}.root" "0" "0" &> /home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/${trg}Pico${jcharge}${tcharge}_${jobid}.log
-./bin/PicoJetUnderlyingActivity "/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/${jcharge}_${tcharge}_MatchTrig_pp${trg}_${jobid}.root" "ppJP2" "/home/hep/caines/ly247/Scratch/pp12${trg}Pico_151018/sum${jobid}.root" "0" "0" &> /home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/${trg}Pico${jcharge}${tcharge}_${jobid}.log
+
+wait
+
 
 echo "Job End at `date`"
-
-
 
 

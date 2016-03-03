@@ -49,6 +49,7 @@
 #include <assert.h>
 #include <iostream>
 #include <cmath>
+#include <string>
 
 #define MAXARRAYLENGTH  5000
 
@@ -76,6 +77,9 @@ private :
   // Jet: charged(1) or neutral(0) or all(2, or whatever val not equal 1 or 0)
   int mJetCharge;
 
+  // Underlying event phi size: default 60 degree
+  float mTranPhiSize;
+
   // For output 
   TFile *fout;
   TString OutFileName;
@@ -89,15 +93,22 @@ private :
 
 
   // Jet-finding from fastjet
-  TLorentzVector j1, j2; 	// leading & subleading
-  float j1pt, j2pt;
-  float j1phi, j2phi;
-  float j1eta, j2eta;
-  float j1area,j2area;
-  float j1area_err,j2area_err;
+  TLorentzVector j1, jas, j2; 	// leading & away-side jet & subleading jet	(away-side jet passed dijet phi selection; subleading is the 2nd highest pt jet)
+  float j1pt, jaspt, j2pt;
+  float j1phi, jasphi, j2phi;
+  float j1eta, jaseta, j2eta;
+  float j1area,jasarea, j2area;
+  float j1area_err, jasarea_err, j2area_err;
+  float j1neutralfrac;
+  float j1r1pt;			// leading jet with R = 1
+
   float rho, rhoerr;
 
-  float j1neutralfrac;
+
+  TLorentzVector j3, j4; 	// whether there are jets in transverse region
+  float j3pt, j4pt;
+  float j3phi, j4phi;
+  float j3eta, j4eta;
 
   // underlying event info
   float mLeadAreaPt;
@@ -115,15 +126,23 @@ private :
   float TrkTranMaxdEdx[MAXARRAYLENGTH];		// for track in tranmax
   float TrkTranMaxTofbeta[MAXARRAYLENGTH];  	// for track in tranmax
   float TrkTranMaxPt[MAXARRAYLENGTH];		// for track in tranmax
+  float TrkTranMaxPhi[MAXARRAYLENGTH];		// for track in tranmax
+  float TrkTranMaxEta[MAXARRAYLENGTH];		// for track in tranmax
   float TrkTranMindEdx[MAXARRAYLENGTH];		// for track in tranmin
   float TrkTranMinTofbeta[MAXARRAYLENGTH];  	// for track in tranmin
   float TrkTranMinPt[MAXARRAYLENGTH];		// for track in tranmin
+  float TrkTranMinPhi[MAXARRAYLENGTH];		// for track in tranmax
+  float TrkTranMinEta[MAXARRAYLENGTH];		// for track in tranmax
   float TrkLeadAreadEdx[MAXARRAYLENGTH];		// for track in lead 
   float TrkLeadAreaTofbeta[MAXARRAYLENGTH];  		// for track in lead
   float TrkLeadAreaPt[MAXARRAYLENGTH];			// for track in lead
+  float TrkLeadAreaPhi[MAXARRAYLENGTH];		// for track in lead
+  float TrkLeadAreaEta[MAXARRAYLENGTH];		// for track in lead
   float TrkSubAreadEdx[MAXARRAYLENGTH];		// for track in sublead
   float TrkSubAreaTofbeta[MAXARRAYLENGTH];  	// for track in sublead
   float TrkSubAreaPt[MAXARRAYLENGTH];		// for track in sublead
+  float TrkSubAreaPhi[MAXARRAYLENGTH];		// for track in sublead
+  float TrkSubAreaEta[MAXARRAYLENGTH];		// for track in sublead
  
   // Histograms
   TH1D* LeadJetPt;
@@ -210,13 +229,14 @@ public:
       \param dPhiCut: opening angle for dijet requirement. Accept only  |&phi;1 - &phi;2 - &pi;| < dPhiCut.
    */
   UnderlyingAna ( double R = 0.4,
-	       //double jet_ptmin = 10.0, double jet_ptmax = 100.0,
-	       //double LeadPtMin = 20.0, double SubLeadPtMin = 10, 
-	       double max_const_rap = 1.0, //double PtConsLo=0.2, double PtConsHi=2.0,
-	       double min_const_pt = 0.2,
-	       double dPhiCut = 0.4,
-		TString name = "underlyingoutput.root"
-	       );
+		//double jet_ptmin = 10.0, double jet_ptmax = 100.0,
+		//double LeadPtMin = 20.0, double SubLeadPtMin = 10, 
+		double max_const_rap = 1.0, //double PtConsLo=0.2, double PtConsHi=2.0,
+		double min_const_pt = 0.2,
+		double dPhiCut = 0.4,
+		TString name = "underlyingoutput.root",
+		std::string jetalgo = "antikt"	
+	        );
 
   ~UnderlyingAna();
 
@@ -298,6 +318,10 @@ public:
   // Jet: charged(1) or neutral(0) or all(2)
   void SetJetCharge(int val);
   int GetJetCharge() { return mJetCharge; }
+
+  // Underlying phi size
+  void SetTransversePhiSize(float val) { if(val<180&&val>0) {mTranPhiSize = val;} else {mTranPhiSize = 60;} }
+  int GetTransversePhiSize() { return mTranPhiSize; }
 
   /// Get jet radius
   inline double GetR ( )                   { return R; }
