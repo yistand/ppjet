@@ -23,7 +23,7 @@ using namespace std;
 
 double getphi(double px, double py) {
 	
-	double phi = ((py==0)?0:atan(px/py)) ;
+	double phi = ((px==0)?0:atan(py/px)) ;
 
 	if(px<0&&py<0) phi-=TMath::Pi();
 	if(px<0&&py>0) phi+=TMath::Pi();
@@ -71,7 +71,8 @@ void plotpT_fromJetTree() {
         TChain *chain = new TChain("JetTree");
 	//chain->Add("/projects/rhig/ly247/stardata/pp200Y12picoMB_151113/sum*root");
 	//chain->Add("/home/ly247/data/pp200Y12picoJP2_151030/*root");
-	chain->Add("/projects/rhig/ly247/stardata/pp200Y12picoMB_151207/*_*.root");
+	//chain->Add("/projects/rhig/ly247/stardata/pp200Y12picoMB_151207/*_*.root");
+	chain->Add("/home/hep/caines/ly247/Scratch/pp12MBPico_151207/*.root");
 
 	Jet *t = new Jet(chain);
 
@@ -110,36 +111,37 @@ void plotpT_fromJetTree() {
 
 
 	for(int in = 0; in<NoZdc ; in++) {
-		hptVsmult[in] = new TH2D(Form("hptVsmult%d",in),Form("pT vs Mulitplicity %g<zdc<%g"),50,0,50,1000,0,25);
-		hgptVsmult[in] = new TH2D(Form("hgptVsmult%d",in),Form("global pT vs Mulitplicity %g<zdc<%g"),50,0,50,1000,0,25);
-		hrefmutVsNtracks[in] = new TH2D(Form("hrefmultVsNtracks%d",in),Form("refmult vs Ntracks %g<zdc<%g"),50,0,50,50,0,50);
+		hptVsmult[in] = new TH2D(Form("hptVsmult%d",in),Form("pT vs Mulitplicity %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,1000,0,25);
+		hgptVsmult[in] = new TH2D(Form("hgptVsmult%d",in),Form("global pT vs Mulitplicity %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,1000,0,25);
+		hrefmutVsNtracks[in] = new TH2D(Form("hrefmultVsNtracks%d",in),Form("refmult vs Ntracks %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,50,0,50);
 
-		hptVsrefmult[in] = new TH2D(Form("hptVsrefmult%d",in),Form("pT vs refMult %g<zdc<%g"),50,0,50,1000,0,25);
-		hgptVsrefmult[in] = new TH2D(Form("hgptVsrefmult%d",in),Form("global pT vs refMult %g<zdc<%g"),50,0,50,1000,0,25);
+		hptVsrefmult[in] = new TH2D(Form("hptVsrefmult%d",in),Form("pT vs refMult %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,1000,0,25);
+		hgptVsrefmult[in] = new TH2D(Form("hgptVsrefmult%d",in),Form("global pT vs refMult %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,1000,0,25);
 
-		hptVsbemcmatchmult[in] = new TH2D(Form("hptVsbemcmatchmult%d",in),Form("pT vs bemcmatch Multiplicity %g<zdc<%g"),50,0,50,1000,0,25);
-		hptVsbemcmatchrefmult[in] = new TH2D(Form("hptVsbemcmatchrefmult%d",in),Form("pT vs bemcmatch refmult %g<zdc<%g"),50,0,50,1000,0,25);
-		hbemcmatchrefmultVsrefmult[in] = new TH2D(Form("hbemcmatchrefmultVsrefmult%d",in),Form("Bemcmatch refmult vs refmult %g<zdc<%g"),50,0,50,50,0,50);
-		hbemcmatchNtracksVsNtracks[in] = new TH2D(Form("hbemcmatchNtracksVsNtracks%d",in),Form("Bemcmatch Multiplicity vs Multiplicity %g<zdc<%g"),50,0,50,50,0,50);
+		hptVsbemcmatchmult[in] = new TH2D(Form("hptVsbemcmatchmult%d",in),Form("pT vs bemcmatch Multiplicity %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,1000,0,25);
+		hptVsbemcmatchrefmult[in] = new TH2D(Form("hptVsbemcmatchrefmult%d",in),Form("pT vs bemcmatch refmult %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,1000,0,25);
+		hbemcmatchrefmultVsrefmult[in] = new TH2D(Form("hbemcmatchrefmultVsrefmult%d",in),Form("Bemcmatch refmult vs refmult %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,50,0,50);
+		hbemcmatchNtracksVsNtracks[in] = new TH2D(Form("hbemcmatchNtracksVsNtracks%d",in),Form("Bemcmatch Multiplicity vs Multiplicity %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,50,0,50);
 
-		hptVsbtofmatchmult[in] = new TH2D(Form("hptVsbtofmatchmult%d",in),Form("pT vs btofmatch Multiplicity %g<zdc<%g"),50,0,50,1000,0,25);
-		hptVsbtofmatchrefmult[in] = new TH2D(Form("hptVsbtofmatchrefmult%d",in),Form("pT vs btofmatch refmult %g<zdc<%g"),50,0,50,1000,0,25);
-		hbtofmatchrefmultVsrefmult[in] = new TH2D(Form("hbtofmatchrefmultVsrefmult%d",in),Form("Btofmatch refmult vs refmult %g<zdc<%g"),50,0,50,50,0,50);
-		hbtofmatchNtracksVsNtracks[in] = new TH2D(Form("hbtofmatchNtracksVsNtracks%d",in),Form("Btofmatch Multiplicity vs Multiplicity %g<zdc<%g"),50,0,50,50,0,50);
+		hptVsbtofmatchmult[in] = new TH2D(Form("hptVsbtofmatchmult%d",in),Form("pT vs btofmatch Multiplicity %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,1000,0,25);
+		hptVsbtofmatchrefmult[in] = new TH2D(Form("hptVsbtofmatchrefmult%d",in),Form("pT vs btofmatch refmult %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,1000,0,25);
+		hbtofmatchrefmultVsrefmult[in] = new TH2D(Form("hbtofmatchrefmultVsrefmult%d",in),Form("Btofmatch refmult vs refmult %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,50,0,50);
+		hbtofmatchNtracksVsNtracks[in] = new TH2D(Form("hbtofmatchNtracksVsNtracks%d",in),Form("Btofmatch Multiplicity vs Multiplicity %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,50,0,50);
 
-		hptVsbothmatchmult[in] = new TH2D(Form("hptVsbothmatchmult%d",in),Form("pT vs bothmatch Multiplicity %g<zdc<%g"),50,0,50,1000,0,25);
-		hptVsbothmatchrefmult[in] = new TH2D(Form("hptVsbothmatchrefmult%d",in),Form("pT vs bothmatch refmult %g<zdc<%g"),50,0,50,1000,0,25);
-		hbothmatchrefmultVsrefmult[in] = new TH2D(Form("hbothmatchrefmultVsrefmult%d",in),Form("bothmatch refmult vs refmult %g<zdc<%g"),50,0,50,50,0,50);
-		hbothmatchNtracksVsNtracks[in] = new TH2D(Form("hbothmatchNtracksVsNtracks%d",in),Form("bothmatch Multiplicity vs Multiplicity %g<zdc<%g"),50,0,50,50,0,50);
+		hptVsbothmatchmult[in] = new TH2D(Form("hptVsbothmatchmult%d",in),Form("pT vs bothmatch Multiplicity %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,1000,0,25);
+		hptVsbothmatchrefmult[in] = new TH2D(Form("hptVsbothmatchrefmult%d",in),Form("pT vs bothmatch refmult %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,1000,0,25);
+		hbothmatchrefmultVsrefmult[in] = new TH2D(Form("hbothmatchrefmultVsrefmult%d",in),Form("bothmatch refmult vs refmult %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,50,0,50);
+		hbothmatchNtracksVsNtracks[in] = new TH2D(Form("hbothmatchNtracksVsNtracks%d",in),Form("bothmatch Multiplicity vs Multiplicity %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,50,0,50);
 
-		hptVsnotower[in] = new TH2D(Form("hptVsnotower%d",in),Form("pT vs notower %g<zdc<%g"),50,0,50,1000,0,25);
-		hnotowerVsbemcmatchNtracks[in] = new TH2D(Form("hnotowerVsbemcmatchNtracks%d",in),Form("Number of Towers vs Bemcmatch Multiplicity %g<zdc<%g"),50,0,50,50,0,50);
-		hnotowerVsbtofmatchNtracks[in] = new TH2D(Form("hnotowerVsbtofmatchNtracks%d",in),Form("Number of Towers vs Btofmatch Multiplicity %g<zdc<%g"),50,0,50,50,0,50);
-		hbemcmatchNtracksVsbtofmatchNtracks[in] = new TH2D(Form("hbemcmatchNtracksVsbtofmatchNtracks%d",in),Form("Bemcmatch Vs Btofmatch %g<zdc<%g"),50,0,50,50,0,50);
-		hbemcmatchNtracksVsbothmatchNtracks[in] = new TH2D(Form("hbemcmatchNtracksVsbothmatchNtracks%d",in),Form("Bemcmatch Vs Bothmatch %g<zdc<%g"),50,0,50,50,0,50);
-		hbtofmatchNtracksVsbothmatchNtracks[in] = new TH2D(Form("hbtofmatchNtracksVsbothmatchNtracks%d",in),Form("Btofmatch Vs Bothmatch %g<zdc<%g"),50,0,50,50,0,50);
+		hptVsnotower[in] = new TH2D(Form("hptVsnotower%d",in),Form("pT vs notower %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,1000,0,25);
+		hnotowerVsbemcmatchNtracks[in] = new TH2D(Form("hnotowerVsbemcmatchNtracks%d",in),Form("Number of Towers vs Bemcmatch Multiplicity %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,50,0,50);
+		hnotowerVsbtofmatchNtracks[in] = new TH2D(Form("hnotowerVsbtofmatchNtracks%d",in),Form("Number of Towers vs Btofmatch Multiplicity %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,50,0,50);
+		hbemcmatchNtracksVsbtofmatchNtracks[in] = new TH2D(Form("hbemcmatchNtracksVsbtofmatchNtracks%d",in),Form("Bemcmatch Vs Btofmatch %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,50,0,50);
+		hbemcmatchNtracksVsbothmatchNtracks[in] = new TH2D(Form("hbemcmatchNtracksVsbothmatchNtracks%d",in),Form("Bemcmatch Vs Bothmatch %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,50,0,50);
+		hbtofmatchNtracksVsbothmatchNtracks[in] = new TH2D(Form("hbtofmatchNtracksVsbothmatchNtracks%d",in),Form("Btofmatch Vs Bothmatch %g<zdc<%g",ZDClow[in],ZDChigh[in]),50,0,50,50,0,50);
 	}
 
+	float zdc = 0;
 	int refmult = 0;
 	int bemcmatchrefmult = 0;
 	int btofmatchrefmult = 0;
@@ -157,6 +159,7 @@ void plotpT_fromJetTree() {
 	double pdca[1000] = {0};
 
 	TTree *tree = new TTree("MeanPtTree","recreate");
+	tree->Branch("zdc",&zdc,"zdc/F");
 	tree->Branch("btofmatch",&Nbtofmatchtracks,"btofmatch/I");
 	tree->Branch("bemcmatch",&Nbemcmatchtracks,"bemcmatch/I");
 	tree->Branch("bothmatch",&Nbothmatchtracks,"bothmatch/I");
@@ -175,7 +178,7 @@ void plotpT_fromJetTree() {
 		t->GetEntry(ievt);
 		if(ievt%100000==0) cout<<ievt<<endl;
 
-		if(ievt>1000000) break;	// test
+		//if(ievt>1000000) break;	// test
 
 
 		// event cuts
@@ -272,7 +275,7 @@ void plotpT_fromJetTree() {
 		int notower = t->fEventHeader_fNOfTowers;		
 		
 
-		double zdc = t->fEventHeader_fZdcCoincidenceRate;
+		zdc = t->fEventHeader_fZdcCoincidenceRate;
 		//if(zdc<5500) {	
 		if(zdc<ZDChigh[0]&&zdc>ZDClow[0]) {	
 			//cout<<"btof = "<<Nbtofmatchtracks<<"\tbemc = "<<Nbemcmatchtracks<<"\tboth = "<<Nbothmatchtracks<<endl;
