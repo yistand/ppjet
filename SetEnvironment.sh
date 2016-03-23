@@ -6,7 +6,7 @@
 
 
 # CHANGE the following to suit your environment
-declare -x BASEDIR=/home/hep/caines/ly247/Software
+declare -x BASEDIR=/home/fas/caines/ly247/Software
 
 #### ROOT
 #declare -x ROOTSYS=/home/hep/share/app/root	# already set up in ~/.barshrc
@@ -15,7 +15,7 @@ declare -x BASEDIR=/home/hep/caines/ly247/Software
 declare -x FASTJETDIR=${BASEDIR}/fastjet-install
 
 ### PYTHIA8
-declare -x PYTHIA8DIR=${BASEDIR}/pythia8205
+declare -x PYTHIA8DIR=${BASEDIR}/pythia8215
 declare -x PYTHIA8DATA=${PYTHIA8DIR}/share/Pythia8/xmldoc
 
 ### TStarJetPicoDst structure
@@ -59,15 +59,13 @@ declare -x DYLD_LIBRARY_PATH=${ROOTSYS}/lib:${FASTJETDIR}/lib:${STARPICOPATH}:${
 
 echo ''
 #echo 'Setup ROOT, ktJet (including FastJet)'
-echo 'Setup Pythia, ktJet, STARJetPico (including FastJet)'
+echo 'Setup ktJet, STARJetPico (including FastJet)'
 echo '====================================='
 echo ''
 echo "<I>---------------Info--------------------<I>"
 echo "Setting up the following environments: "
 echo "ROOT: " $ROOTSYS
-echo "PYTHIA8: " $PYTHIA8DIR
 echo "FastJet: " $FASTJETDIR
 echo "STARPICOPATH: " $STARPICOPATH
-echo "RooUnfold: " $RooUnfold
 echo "<I>---------------Info--------------------<I>"
 echo ""

@@ -398,7 +398,10 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	JetAnalyzer& JA = *pJA;
 	JAResult = fastjet::sorted_by_pt( sjet ( JA.inclusive_jets() ) ); // NO background subtraction
 	
-	if ( JAResult.size() < 1 )                 {     return 0; }
+	if ( JAResult.size() < 1 )                 {   
+		//std::cout<<"SKIP EVENT: Nojet!!!"<<std::endl;  
+		return 0; 
+	}
 	if ( JAResult.at(0).pt() > 10 )            { Has10Gev=true; }
 
 
@@ -406,9 +409,9 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	JetAnalyzer *nosjetJA = new JetAnalyzer( Jconstituents, jet_def);
 	std::vector<fastjet::PseudoJet> nosjetJAResult = fastjet::sorted_by_pt(nosjetJA->inclusive_jets());
 	if(nosjetJAResult.size()>0&&JAResult.size()>0&&nosjetJAResult.at(0).delta_R(JAResult.at(0))>R) {
-		//std::cout<<"jet pt = "<<nosjetJAResult.at(0).pt()<<" phi = "<<nosjetJAResult.at(0).phi()<<" eta = "<<nosjetJAResult.at(0).eta()<<" outside jet eta coverage"<<std::endl;	// testly
-		//std::cout<<"inside jet pt = "<<JAResult.at(0).pt()<<" phi = "<<JAResult.at(0).phi()<<" eta = "<<JAResult.at(0).eta()<<" outside jet eta coverage"<<std::endl;	// testly
-		return 0;	// testly
+		//std::cout<<"SKIP EVENt: hardest jet pt = "<<nosjetJAResult.at(0).pt()<<" phi = "<<nosjetJAResult.at(0).phi()<<" eta = "<<nosjetJAResult.at(0).eta()<<" outside jet eta coverage\t";	
+		//std::cout<<"inside jet pt = "<<JAResult.at(0).pt()<<" phi = "<<JAResult.at(0).phi()<<" eta = "<<JAResult.at(0).eta()<<" inside jet eta coverage"<<std::endl;	
+		return 0;
 	}
 	
 	// WITH subtract background 
@@ -422,7 +425,8 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	// back to back? Answer this question with a selector
 	// ---------------------------------------------------
 	DiJets = SelectorDijets( dPhiCut ) ( JAResult );
-	if(DiJets.size()==2) HasDijet=true;
+	if(DiJets.size()==2 && (nosjetJAResult.size()>1&&JAResult.size()>1&&nosjetJAResult.at(1).delta_R(JAResult.at(1))>R)) HasDijet=true;		// has the dijet and the away-side jet is also the second hardest jet in the event.
+	//if(DiJets.size()==2) HasDijet=true;		// has the dijet and the away-side jet is also the second hardest jet in the event.
 	//if ( DiJets.size() == 0 ) {
 	// std::cout << " NO dijet found" << std::endl;
 	// return 0;
@@ -441,7 +445,10 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 				break;
 			}
 		}
-		if(flagtrigmatch==0) return 0;
+		if(flagtrigmatch==0) {
+			//std::cout<<"SKIP EVENT: No Match to Trig"<<std::endl;
+			return 0;
+		}
 	}
 	//if ( !IsMatched( DiJets, *ToMatch, R ) ) return 0;
 
@@ -587,7 +594,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	double DiJetEta; 
 
 	if(mUseDijetAngle && !(HasDijet) ) { 
-		//std::cout<<"No Dijet for angle"<<std::endl;
+		//std::cout<<"SKIP EVENT: No Dijet for angle"<<std::endl;
 		return 0;
 	}
 	if(mUseDijetAngle && HasDijet ) {

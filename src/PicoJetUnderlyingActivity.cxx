@@ -303,7 +303,9 @@ int main ( int argc, const char** argv ) {
 	TStarJetPicoReader reader = SetupReader( chain, TriggerName, RefMultCut );			// #ly note: Events & Tracks & Towers cuts are set here
 	//reader.SetTrackPileUpCut(kTRUE);		// #ly	tpc track matching to bemc or tof
 	reader.SetTrackPileUpCut(2);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
-	//reader.SetTrackPileUpCut(0);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching	// test
+	if( OutFileName.Contains ("NoTofMatch") ) {
+	  reader.SetTrackPileUpCut(0);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
+	}
 	TStarJetPicoDefinitions::SetDebugLevel(0);
 
 	// Initialize analysis class
