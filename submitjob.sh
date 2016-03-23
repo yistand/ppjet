@@ -34,7 +34,7 @@ source /home/fas/caines/ly247/code/ppjet/SetEnvironment.sh
 
 
 echo ./bin/PicoJetUnderlyingActivity "/home/fas/caines/ly247/Scratch/pp200Y12_jetunderlying/${tag}${jcharge}_${tcharge}_${match}pp${filetag}${jobid}.root" "pp${trg}" "/home/fas/caines/ly247/Scratch/run12ppQA/pp200Y12Pico${filetag}sum${jobid}.root" "0" "0"  # &> /home/fas/caines/ly247/Scratch/pp200Y12_jetunderlying/log/_${match}${trg}Pico${jcharge}${tcharge}_${jobid}.log
-./bin/PicoJetUnderlyingActivity "/home/fas/caines/ly247/Scratch/pp200Y12_jetunderlying/tryold${tag}${jcharge}_${tcharge}_${match}pp${filetag}${jobid}.root" "pp${trg}" "/home/fas/caines/ly247/Scratch/run12ppQA/pp200Y12Pico${filetag}sum${jobid}.root" "0" "0" &> /home/fas/caines/ly247/Scratch/pp200Y12_jetunderlying/log/${tag}${match}${trg}Pico${jcharge}${tcharge}_${jobid}_tryold.log
+./bin/PicoJetUnderlyingActivity "/home/fas/caines/ly247/Scratch/pp200Y12_jetunderlying/${tag}${jcharge}_${tcharge}_${match}pp${filetag}${jobid}.root" "pp${trg}" "/home/fas/caines/ly247/Scratch/run12ppQA/pp200Y12Pico${filetag}sum${jobid}.root" "0" "0" &> /home/fas/caines/ly247/Scratch/pp200Y12_jetunderlying/log/${tag}${match}${trg}Pico${jcharge}${tcharge}_${jobid}.log
 
 
 wait
