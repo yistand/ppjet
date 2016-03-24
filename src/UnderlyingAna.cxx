@@ -414,7 +414,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		return 0;
 	}
 	
-	// WITH subtract background 
+	// WITH subtract background for rho estimation
 	pJA_bkgsub = new JetAnalyzer( Jconstituents, jet_def , area_def, selector_bkgd);
 	JetAnalyzer& JA_bkgsub = *pJA_bkgsub;
 	fastjet::Subtractor* BackgroundSubtractor =  JA_bkgsub.GetBackgroundSubtractor();
