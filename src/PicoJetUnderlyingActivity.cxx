@@ -306,7 +306,13 @@ int main ( int argc, const char** argv ) {
 	if( OutFileName.Contains ("NoTofMatch") ) {
 	  reader.SetTrackPileUpCut(0);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
 	}
-	TStarJetPicoDefinitions::SetDebugLevel(0);
+	if( OutFileName.Contains ("BemcOrTofMatch") ) {
+	  reader.SetTrackPileUpCut(1);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
+	}
+	if( OutFileName.Contains ("BemcMatch") ) {
+	  reader.SetTrackPileUpCut(3);		// #ly	3: tpc track matching to bemc.		1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
+	}
+	TStarJetPicoDefinitions::SetDebugLevel(10);
 
 	// Initialize analysis class
 	// -------------------------
@@ -473,6 +479,7 @@ int main ( int argc, const char** argv ) {
 					reader.GetEvent()->GetHeader()->GetEventId(),
 					reader.GetEvent()->GetHeader()->GetRunId(),
 					reader.GetEvent()->GetHeader()->GetGReferenceMultiplicity(),
+					reader.GetEvent()->GetHeader()->GetPrimaryVertexZ(),
 					TrigLoc2Match
 			);
 
