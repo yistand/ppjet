@@ -17,6 +17,13 @@
 //		TransPt and TransNtrk now are the average of TransMax and TranMin, Previously it was the sum of these two
 //
 //
+//
+//		2016.07.11	Li Yi
+//		change sumleadntrk, sumsubntrk, sumtranmaxntrk, sumtranminntrk to float from int:
+//		Previously, TOF matching or TPC efficiency is only corrected for pT, Sum pT, but not for multiplicity. After changing the Ntrk to float type, we can also apply correction for those. 
+//		Note: for jet pT, we didn't apply any correction. Currently, because jet pT dependence is not large, we neglect it.. But in principle, we can unfolding those together in later steps.
+
+//
 //==================================================================================================================================
 
 
@@ -31,6 +38,7 @@
 #include "TLatex.h"
 #include "TString.h"
 #include "TF1.h"
+#include "TMath.h"
 
 #include <iostream>
 #include <algorithm>    // std::max, std::max_element
@@ -59,6 +67,22 @@ void MaxOrMin(int &max, int &min) {		// switch max or min
 	min = tmp;
 }
 
+
+float foldphi(float phi) {
+
+	int npi = floor(fabs(phi)/(2*TMath::Pi()));
+
+	if(phi>0) phi = phi-npi*2*TMath::Pi();
+	if(phi<0) phi = phi+(npi+1)*2*TMath::Pi();
+
+	if(phi>TMath::Pi()) phi = 2*TMath::Pi()-phi;
+
+	return phi;
+}
+
+
+
+
 float getweight(float pt, int charge=1, int MC=0) {		// tpc and tof efficiency only apply to charged particle. set 'charge' to 0 if bemc neutral particles are used.
 	
 	if(MC>0) return 1;					// pythia data, no correction needed
@@ -81,7 +105,7 @@ float getweight(float pt, int charge=1, int MC=0) {		// tpc and tof efficiency o
 	
 }
 
-float inveff_tof(float pt, int charge=1, int MC=0) {		// pion embedding
+float inveff_tof(float pt, int charge=1, int MC=0) {		// real data 2000<zdc<3000 
 	//return 1;			// test
 
 	if(MC>0) return 1;					// pythia data, no correction needed
@@ -126,8 +150,50 @@ float inveff_tpc(float pt, int charge=1, int MC=0) {		// pion embedding
 	else return 0;
 }
 
-void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp200Y12_jetunderlying/", TString filetag = "underlyingevent_MB_R06_LeadJetAngle_FullJetFraclt90_160116", double jetptmin = 10, double jetptmax= 200) {
+
+double etafun_tpc(double *x, double *par) {
+
+	double eta = x[0];
+	double y = 0; 
+		
+	double turnpoint = 0.5;
+	double maxeta = 5.3;
+	double p0 = par[0];
+	double p1 = par[1];
+	double p2 = par[2];
+	double p3 = par[3];
+	double p4 = par[4];
+	double p5 = par[5];
+	if(eta<-turnpoint&&eta>=-1) {
+		y = p0*exp(-pow(p1/(eta+maxeta),p2));
+	}
+	if(fabs(eta)<=turnpoint) {
+		double k = ((p3*exp(-pow(p4/(maxeta-fabs(turnpoint)),p5)))-(p0*exp(-pow(p1/(-fabs(turnpoint)+maxeta),p2))))/(fabs(turnpoint)*2.);
+		double b = ((p3*exp(-pow(p4/(maxeta-fabs(turnpoint)),p5)))+(p0*exp(-pow(p1/(-fabs(turnpoint)+maxeta),p2))))/2.;
+		y = k*eta+b;
+	}
+	if(eta>turnpoint&&eta<=1) {
+		y = p3*exp(-pow(p4/(maxeta-eta),p5));
+	}
+
+	return y;
+
+}
+
+double eta_weight_tpc(double eta) {	// efficiency eta dependence (integral as 1, since its value has been included in the pT eff one)
+
+	TF1 *f = new TF1("f",etafun_tpc,-1,1,6); 
+	f->SetParameters(1.00723e+00,4.18242e+00,8.10867e+01,1.00394e+00,4.20742e+00,9.46997e+01);
+
+	return f->Eval(eta);			 
+}
+
+void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp200Y12_jetunderlying/", TString filetag = "underlyingevent_MB_R06_LeadJetAngle_FullJetFraclt90_160116", double jetptmin = 10, double jetptmax= 200, int ExclusiveEta = 0) {
 // what2fill: refmult, leadjetpt, multiplicity, transntrk	(no space)
+// ExclusiveEta: 
+// 		==1: jet and underlying event in seperate eta region. for example: jet in [-0.6, 0), then undelrying event [0.6,1)
+// 		==0: no requirement for underlying event and jet eta
+
 	if( (!what2fill.EqualTo("refmult",TString::kIgnoreCase)) && (!what2fill.EqualTo("leadjetpt",TString::kIgnoreCase)) && (!what2fill.EqualTo("multiplicity",TString::kIgnoreCase)) && (!(what2fill.EqualTo("transntrk",TString::kIgnoreCase)||(what2fill.EqualTo("tranntrk",TString::kIgnoreCase)))) ) {
   	  cout<<"ERR!! call plotTree2Histo(TString what2fill, TString filepath): what2fill should be \"refmult\", \"leadjetpt\", \"multiplicity\", \"transntrk\" or \"tranntrk\"."<<endl;
   	  return;
@@ -146,6 +212,12 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	if(chargeflag==1&&MCflag==0) cout<<"Apply TPC tracking & TOF matching efficiency"<<endl;
 	cout<<endl;
 
+	// TOFMATCH:
+	// 		==1: tracks matched to TOF and the matching efficiency will be corrected
+	// 		==0: No TOF matching efficiency correction
+	int TOFMATCH = 1;		// default one: do the TOF Matching and correction needed.
+	if(filetag.Contains("NoTofMatch",TString::kIgnoreCase)) TOFMATCH=0;
+
 	int savefig = 0;
 	int saveroot = 1; 
 
@@ -160,7 +232,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	TTree *t = (TTree*)f->Get("ResultTree");
 	if(!t) { cout<<"Cannot find Tree"<<endl; return; }
 
-	float jpt, jeta, leadpt, subpt, tranmaxpt,tranminpt, tranpt;
+	float jpt, jeta, jphi, jaspt, jaseta, leadpt, subpt, tranmaxpt,tranminpt, tranpt;
 	int leadntrk, subntrk, tranmaxntrk, tranminntrk, tranntrk;
 	double refmult;
 	int runid;
@@ -169,11 +241,17 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 
 	const int MAXARRAY = 1000;
 	float pt_min[MAXARRAY], pt_max[MAXARRAY], pt_jet[MAXARRAY], pt_sub[MAXARRAY];
+	float eta_min[MAXARRAY], eta_max[MAXARRAY], eta_jet[MAXARRAY], eta_sub[MAXARRAY];
+	float phi_min[MAXARRAY], phi_max[MAXARRAY], phi_jet[MAXARRAY], phi_sub[MAXARRAY];
 
 	t->SetBranchAddress("runid",&runid);
 	t->SetBranchAddress("refmult",&refmult);
 	t->SetBranchAddress("j1pt",&jpt);
+	//t->SetBranchAddress("j1r1pt",&jpt);		// same jet with R=1
 	t->SetBranchAddress("j1eta",&jeta);
+	t->SetBranchAddress("j1phi",&jphi);
+	t->SetBranchAddress("jaspt",&jaspt);
+	t->SetBranchAddress("jaseta",&jaseta);
 	t->SetBranchAddress("LeadAreaPtSum",&leadpt);
         t->SetBranchAddress("SubLeadAreaPtSum",&subpt);
         t->SetBranchAddress("TranPtSum",&tranpt);
@@ -188,6 +266,14 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
         t->SetBranchAddress("TrkSubAreaPt",pt_sub);
         t->SetBranchAddress("TrkTranMaxPt",pt_max);
         t->SetBranchAddress("TrkTranMinPt",pt_min);
+        t->SetBranchAddress("TrkLeadAreaEta",eta_jet);
+        t->SetBranchAddress("TrkSubAreaEta",eta_sub);
+        t->SetBranchAddress("TrkTranMaxEta",eta_max);
+        t->SetBranchAddress("TrkTranMinEta",eta_min);
+        t->SetBranchAddress("TrkLeadAreaPhi",phi_jet);
+        t->SetBranchAddress("TrkSubAreaPhi",phi_sub);
+        t->SetBranchAddress("TrkTranMaxPhi",phi_max);
+        t->SetBranchAddress("TrkTranMinPhi",phi_min);
 
 	t->SetBranchAddress("j1neutralfrac",&j1neutralfrac);
 	
@@ -209,70 +295,82 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 		xvariablename = "Transverse multiplicity";
 	}
 
-	TH1D *leadjetpt = new TH1D(what2fill,xvariablename,nbinning,0,maxpt);
-	leadjetpt->Sumw2();
+	TH1D *xaxis = new TH1D(what2fill,xvariablename,nbinning,0,maxpt);
+	xaxis->Sumw2();
 
-        TProfile *leadjetntrkvsleadjetpt = new TProfile("leadjetareantrkvs"+what2fill,"Leading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *subjetntrkvsleadjetpt = new TProfile("subjetareantrkvs"+what2fill,"SubLeading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranmaxntrkvsleadjetpt = new TProfile("tranmaxntrkvs"+what2fill,"Transverse Max Ntrk vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranminntrkvsleadjetpt = new TProfile("tranminntrkvs"+what2fill,"Transverse Min Ntrk vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranntrkvsleadjetpt = new TProfile("tranntrkvs"+what2fill,"Transverse Ntrk vs "+xvariablename,nbinning,0,maxpt);
+	TH2D *hetaphi = new TH2D("hetaphi","#Delta#eta-#Delta#phi",100,0,TMath::Pi(),100,-2,2);
+	hetaphi->Sumw2();
 
-        TProfile *leadjetptsumvsleadjetpt = new TProfile("leadjetareaptsumvs"+what2fill,"Leading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *subjetptsumvsleadjetpt = new TProfile("subjetareaptsumvs"+what2fill,"SubLeading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranmaxptsumvsleadjetpt = new TProfile("tranmaxptsumvs"+what2fill,"Transverse Max Sum Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranminptsumvsleadjetpt = new TProfile("tranminptsumvs"+what2fill,"Transverse Min Sum Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranptsumvsleadjetpt = new TProfile("tranptsumvs"+what2fill,"Transverse Sum Pt vs "+xvariablename,nbinning,0,maxpt);
+	TProfile *j1ptvsxaxis = new TProfile("j1ptvs"+what2fill,"Leading Jet p_{T} vs "+xvariablename,nbinning,0,maxpt);
+	TProfile *jasptvsxaxis = new TProfile("jasptvs"+what2fill,"Leading Jet p_{T} vs "+xvariablename,nbinning,0,maxpt);
 
-        TProfile *leadjetptavevsleadjetpt = new TProfile("leadjetareaptavevs"+what2fill,"Leading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *subjetptavevsleadjetpt = new TProfile("subjetareaptavevs"+what2fill,"SubLeading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranmaxptavevsleadjetpt = new TProfile("tranmaxptavevs"+what2fill,"Transverse Max Average Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranminptavevsleadjetpt = new TProfile("tranminptavevs"+what2fill,"Transverse Min Average Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranptavevsleadjetpt = new TProfile("tranptavevs"+what2fill,"Transverse Average Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *leadjetntrkvsxaxis = new TProfile("leadjetareantrkvs"+what2fill,"Leading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *subjetntrkvsxaxis = new TProfile("subjetareantrkvs"+what2fill,"SubLeading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *tranmaxntrkvsxaxis = new TProfile("tranmaxntrkvs"+what2fill,"Transverse Max Ntrk vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *tranminntrkvsxaxis = new TProfile("tranminntrkvs"+what2fill,"Transverse Min Ntrk vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *tranntrkvsxaxis = new TProfile("tranntrkvs"+what2fill,"Transverse Ntrk vs "+xvariablename,nbinning,0,maxpt);
 
-	TProfile *maxtranptvsleadjetpt = new TProfile("maxtranptvs"+what2fill,"Maximum Transverse Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *leadjetptsumvsxaxis = new TProfile("leadjetareaptsumvs"+what2fill,"Leading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *subjetptsumvsxaxis = new TProfile("subjetareaptsumvs"+what2fill,"SubLeading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *tranmaxptsumvsxaxis = new TProfile("tranmaxptsumvs"+what2fill,"Transverse Max Sum Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *tranminptsumvsxaxis = new TProfile("tranminptsumvs"+what2fill,"Transverse Min Sum Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *tranptsumvsxaxis = new TProfile("tranptsumvs"+what2fill,"Transverse Sum Pt vs "+xvariablename,nbinning,0,maxpt);
+
+        TProfile *leadjetptavevsxaxis = new TProfile("leadjetareaptavevs"+what2fill,"Leading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *subjetptavevsxaxis = new TProfile("subjetareaptavevs"+what2fill,"SubLeading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *tranmaxptavevsxaxis = new TProfile("tranmaxptavevs"+what2fill,"Transverse Max Average Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *tranminptavevsxaxis = new TProfile("tranminptavevs"+what2fill,"Transverse Min Average Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *tranptavevsxaxis = new TProfile("tranptavevs"+what2fill,"Transverse Average Pt vs "+xvariablename,nbinning,0,maxpt);
+
+	TProfile *maxtranptvsxaxis = new TProfile("maxtranptvs"+what2fill,"Maximum Transverse Pt vs "+xvariablename,nbinning,0,maxpt);
 	
 	int nbinning_tpt = 1000;
 	double max_tpt = 50;
-        TH2D *hleadjetntrkvsleadjetpt = new TH2D("hleadjetareantrkvs"+what2fill,"Leading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *hsubjetntrkvsleadjetpt = new TH2D("hsubjetareantrkvs"+what2fill,"SubLeading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranmaxntrkvsleadjetpt = new TH2D("htranmaxntrkvs"+what2fill,"Transverse Max Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranminntrkvsleadjetpt = new TH2D("htranminntrkvs"+what2fill,"Transverse Min Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranntrkvsleadjetpt = new TH2D("htranntrkvs"+what2fill,"Transverse Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+	TH2D *hj1ptvsxaxis = new TH2D("hj1ptvs"+what2fill,"Leading Jet p_{T} vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+	TH2D *hjasptvsxaxis = new TH2D("hjasptvs"+what2fill,"Leading Jet p_{T} vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+	
+        TH2D *hleadjetntrkvsxaxis = new TH2D("hleadjetareantrkvs"+what2fill,"Leading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *hsubjetntrkvsxaxis = new TH2D("hsubjetareantrkvs"+what2fill,"SubLeading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htranmaxntrkvsxaxis = new TH2D("htranmaxntrkvs"+what2fill,"Transverse Max Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htranminntrkvsxaxis = new TH2D("htranminntrkvs"+what2fill,"Transverse Min Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htranntrkvsxaxis = new TH2D("htranntrkvs"+what2fill,"Transverse Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
 
-        TH2D *hleadjetptsumvsleadjetpt = new TH2D("hleadjetareaptsumvs"+what2fill,"Leading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *hsubjetptsumvsleadjetpt = new TH2D("hsubjetareaptsumvs"+what2fill,"SubLeading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranmaxptsumvsleadjetpt = new TH2D("htranmaxptsumvs"+what2fill,"Transverse Max Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranminptsumvsleadjetpt = new TH2D("htranminptsumvs"+what2fill,"Transverse Min Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranptsumvsleadjetpt = new TH2D("htranptsumvs"+what2fill,"Transverse Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *hleadjetptsumvsxaxis = new TH2D("hleadjetareaptsumvs"+what2fill,"Leading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *hsubjetptsumvsxaxis = new TH2D("hsubjetareaptsumvs"+what2fill,"SubLeading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htranmaxptsumvsxaxis = new TH2D("htranmaxptsumvs"+what2fill,"Transverse Max Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htranminptsumvsxaxis = new TH2D("htranminptsumvs"+what2fill,"Transverse Min Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htranptsumvsxaxis = new TH2D("htranptsumvs"+what2fill,"Transverse Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
 
-        TH2D *hleadjetptavevsleadjetpt = new TH2D("hleadjetareaptavevs"+what2fill,"Leading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *hsubjetptavevsleadjetpt = new TH2D("hsubjetareaptavevs"+what2fill,"SubLeading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranmaxptavevsleadjetpt = new TH2D("htranmaxptavevs"+what2fill,"Transverse Max Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranminptavevsleadjetpt = new TH2D("htranminptavevs"+what2fill,"Transverse Min Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranptavevsleadjetpt = new TH2D("htranptavevs"+what2fill,"Transverse Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *hleadjetptavevsxaxis = new TH2D("hleadjetareaptavevs"+what2fill,"Leading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *hsubjetptavevsxaxis = new TH2D("hsubjetareaptavevs"+what2fill,"SubLeading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htranmaxptavevsxaxis = new TH2D("htranmaxptavevs"+what2fill,"Transverse Max Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htranminptavevsxaxis = new TH2D("htranminptavevs"+what2fill,"Transverse Min Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htranptavevsxaxis = new TH2D("htranptavevs"+what2fill,"Transverse Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
 
-        TH2D *hmaxtranptvsleadjetpt = new TH2D("hmaxtranptvs"+what2fill,"Maximum Transverse Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *hmaxtranptvsxaxis = new TH2D("hmaxtranptvs"+what2fill,"Maximum Transverse Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
 
-        hleadjetntrkvsleadjetpt->Sumw2();
-        hsubjetntrkvsleadjetpt->Sumw2();
-        htranmaxntrkvsleadjetpt->Sumw2();
-        htranminntrkvsleadjetpt->Sumw2();
-        htranntrkvsleadjetpt->Sumw2();
+	hj1ptvsxaxis->Sumw2();
+	hjasptvsxaxis->Sumw2();
+	
+        hleadjetntrkvsxaxis->Sumw2();
+        hsubjetntrkvsxaxis->Sumw2();
+        htranmaxntrkvsxaxis->Sumw2();
+        htranminntrkvsxaxis->Sumw2();
+        htranntrkvsxaxis->Sumw2();
 
-        hleadjetptsumvsleadjetpt->Sumw2();
-        hsubjetptsumvsleadjetpt->Sumw2();
-        htranmaxptsumvsleadjetpt->Sumw2();
-        htranminptsumvsleadjetpt->Sumw2();
-        htranptsumvsleadjetpt->Sumw2();
+        hleadjetptsumvsxaxis->Sumw2();
+        hsubjetptsumvsxaxis->Sumw2();
+        htranmaxptsumvsxaxis->Sumw2();
+        htranminptsumvsxaxis->Sumw2();
+        htranptsumvsxaxis->Sumw2();
 
-        hleadjetptavevsleadjetpt->Sumw2();
-        hsubjetptavevsleadjetpt->Sumw2();
-        htranmaxptavevsleadjetpt->Sumw2();
-        htranminptavevsleadjetpt->Sumw2();
-        htranptavevsleadjetpt->Sumw2();
+        hleadjetptavevsxaxis->Sumw2();
+        hsubjetptavevsxaxis->Sumw2();
+        htranmaxptavevsxaxis->Sumw2();
+        htranminptavevsxaxis->Sumw2();
+        htranptavevsxaxis->Sumw2();
 
-	hmaxtranptvsleadjetpt->Sumw2();
+	hmaxtranptvsxaxis->Sumw2();
 
 
 	// problematic runs, need future investigation		--> already exclude in ttree production code
@@ -286,8 +384,13 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 		t->GetEntry(ievt);
 
 		if(j1neutralfrac>0.9) continue;			// jet neutral pT fraction < 90%
+		//if(filetag.Contains("MB") && j1neutralfrac>0.75) continue;			// jet neutral pT fraction < 75% for MB data (there is a hot area for MB > 75%) -- UPDATE: It is due to the hot stripe in dataset at the begining of the run, shall mark as bad run
+		if(runid<=13046029) continue;		// hot BEMC stripe in MB dataset
 		
 		if(fabs(jeta)>0.6) continue;			// I miss this cut in jet finding selector
+
+		//if(fabs(jaspt)<5) continue;			
+		//if(fabs(jpt-jaspt)>0.05*jpt) continue;		// dijet balanced
 
 		//if(runid>=13058000&& runid<13061000) continue;		// a dip in TPC primary tracks. problematic runs, need future investigation		--> already exclude in ttree production code
 		//test if(runid>13052000&& runid<13060000) continue;		// problematic runs, need future investigation
@@ -315,213 +418,284 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 			xvariable = refmult;
 		}
 
-		leadjetpt->Fill(xvariable);	
+		xaxis->Fill(xvariable);	
+
+		j1ptvsxaxis->Fill(xvariable,jpt);
+		jasptvsxaxis->Fill(xvariable,jaspt);
 		
-        	leadjetntrkvsleadjetpt->Fill(xvariable,leadntrk);
-        	subjetntrkvsleadjetpt->Fill(xvariable,subntrk);
-        	tranntrkvsleadjetpt->Fill(xvariable,(tranmaxntrk+tranminntrk)/2.);		// do not use tranntrk directly because it is int type and it is the sum divided by 2 
-		MaxOrMin(tranmaxntrk,tranminntrk);
-        	tranmaxntrkvsleadjetpt->Fill(xvariable,tranmaxntrk);
-        	tranminntrkvsleadjetpt->Fill(xvariable,tranminntrk);
+		hj1ptvsxaxis->Fill(xvariable,jpt);
+		hjasptvsxaxis->Fill(xvariable,jaspt);
 
 		float maxtranspt = max(*max_element(pt_min,pt_min+tranminntrk),*max_element(pt_max,pt_max+tranmaxntrk));	
-		maxtranptvsleadjetpt->Fill(xvariable,maxtranspt);
+		maxtranptvsxaxis->Fill(xvariable,maxtranspt);
 
-        	hleadjetntrkvsleadjetpt->Fill(xvariable,leadntrk);
-        	hsubjetntrkvsleadjetpt->Fill(xvariable,subntrk);
-        	htranntrkvsleadjetpt->Fill(xvariable,(tranmaxntrk+tranminntrk)/2.);
-		MaxOrMin(tranmaxntrk,tranminntrk);
-        	htranmaxntrkvsleadjetpt->Fill(xvariable,tranmaxntrk);
-        	htranminntrkvsleadjetpt->Fill(xvariable,tranminntrk);
+		hmaxtranptvsxaxis->Fill(xvariable,maxtranspt);
 
-		hmaxtranptvsleadjetpt->Fill(xvariable,maxtranspt);
 
-        	//leadjetptsumvsleadjetpt->Fill(xvariable,leadpt);
-        	//subjetptsumvsleadjetpt->Fill(xvariable,subpt);
-        	//tranmaxptsumvsleadjetpt->Fill(xvariable,tranmaxpt);
-        	//tranminptsumvsleadjetpt->Fill(xvariable,tranminpt);
-        	//tranptsumvsleadjetpt->Fill(xvariable,tranpt);
+		int etaflag = 0;
+		if( ExclusiveEta>0 && jeta>0 )	etaflag = -1;
+		if( ExclusiveEta>0 && jeta<0 )	etaflag = 1;
+
+		//if( jeta>0 && jaseta<0 ) 	continue;		// requirement dijet on the same side	testly
+		//if( jeta<=0 && jaseta>=0 ) 	continue;		// requirement dijet on the same side	testly
+
 
 		float sumleadpt = 0, sumsubpt = 0, sumtranmaxpt = 0, sumtranminpt = 0, sumtranpt = 0;
+		float sumleadntrk = 0, sumsubntrk = 0, sumtranmaxntrk = 0, sumtranminntrk = 0;
 		//cout<<"tranmaxntrk = "<<tranmaxntrk<<"\ttranminntrk = "<<tranminntrk<<"\tleadntrk = "<<leadntrk<<"\tsubntrk = "<<subntrk<<endl;
 		float w;
 		for(int it = 0; it<tranmaxntrk; it++) {
 			//cout<<"pt_max["<<it<<"] = "<<pt_max[it];
-			w = getweight(pt_max[it],chargeflag,MCflag);
-			//w = inveff_tpc(pt_max[it],chargeflag,MCflag);
-			//cout<<" w = "<<w<<endl;
-			tranmaxptavevsleadjetpt->Fill(xvariable,pt_max[it],w);
-			tranptavevsleadjetpt->Fill(xvariable,pt_max[it],w);
+			if(etaflag==1&&eta_max[it]<0.6) continue;
+			if(etaflag==-1&&eta_max[it]>-0.6) continue;
 
-			htranmaxptavevsleadjetpt->Fill(xvariable,pt_max[it],w);
-			htranptavevsleadjetpt->Fill(xvariable,pt_max[it],w);
+			if(TOFMATCH) {
+				w = getweight(pt_max[it],chargeflag,MCflag);		// If TOF matched
+			}
+			else {
+				w = inveff_tpc(pt_max[it],chargeflag,MCflag);		// if NO TOF match
+			}
+			//cout<<" w = "<<w<<endl;
+			tranmaxptavevsxaxis->Fill(xvariable,pt_max[it],w);
+			tranptavevsxaxis->Fill(xvariable,pt_max[it],w);
+
+			htranmaxptavevsxaxis->Fill(xvariable,pt_max[it],w);
+			htranptavevsxaxis->Fill(xvariable,pt_max[it],w);
+
+			hetaphi->Fill(foldphi(phi_max[it]-jphi),eta_max[it]-jeta);
 
 			sumtranmaxpt+=pt_max[it]*w;		// will be w tracks effectively ..
 			sumtranpt+=pt_max[it]*w;		// will be w tracks effectively ..
+
+			sumtranmaxntrk+=w;
 		}
 		for(int it = 0; it<tranminntrk; it++) {
 			//cout<<"pt_min["<<it<<"] = "<<pt_min[it];
-			w = getweight(pt_min[it],chargeflag,MCflag);
-			//w = inveff_tpc(pt_min[it],chargeflag,MCflag);
-			//cout<<" w = "<<w<<endl;
-			tranminptavevsleadjetpt->Fill(xvariable,pt_min[it],w);
-			tranptavevsleadjetpt->Fill(xvariable,pt_min[it],w);
+			if(etaflag==1&&eta_min[it]<0.6) continue;
+			if(etaflag==-1&&eta_min[it]>-0.6) continue;
 
-			htranminptavevsleadjetpt->Fill(xvariable,pt_min[it],w);
-			htranptavevsleadjetpt->Fill(xvariable,pt_min[it],w);
+			if(TOFMATCH) {
+				w = getweight(pt_min[it],chargeflag,MCflag);
+			}
+			else {
+				w = inveff_tpc(pt_min[it],chargeflag,MCflag);
+			}
+			//cout<<" w = "<<w<<endl;
+			tranminptavevsxaxis->Fill(xvariable,pt_min[it],w);
+			tranptavevsxaxis->Fill(xvariable,pt_min[it],w);
+
+			htranminptavevsxaxis->Fill(xvariable,pt_min[it],w);
+			htranptavevsxaxis->Fill(xvariable,pt_min[it],w);
+
+			hetaphi->Fill(foldphi(phi_min[it]-jphi),eta_min[it]-jeta);
 
 			sumtranminpt+=pt_min[it]*w;		// will be w tracks effectively ..
 			sumtranpt+=pt_min[it]*w;		// will be w tracks effectively ..
+
+			sumtranminntrk+=w;
 		}
 		for(int it = 0; it<leadntrk; it++) {
 			//cout<<"pt_jet["<<it<<"] = "<<pt_jet[it];
-			w = getweight(pt_jet[it],chargeflag,MCflag);
-			//w = inveff_tpc(pt_jet[it],chargeflag,MCflag);
-			//cout<<" w = "<<w<<endl;
-			leadjetptavevsleadjetpt->Fill(xvariable,pt_jet[it],w);
+			if(etaflag==1&&eta_jet[it]<0.6) continue;
+			if(etaflag==-1&&eta_jet[it]>-0.6) continue;
 
-			hleadjetptavevsleadjetpt->Fill(xvariable,pt_jet[it],w);
+			if(TOFMATCH) {
+				w = getweight(pt_jet[it],chargeflag,MCflag);
+			}
+			else {
+				w = inveff_tpc(pt_jet[it],chargeflag,MCflag);
+			}
+			//cout<<" w = "<<w<<endl;
+			leadjetptavevsxaxis->Fill(xvariable,pt_jet[it],w);
+
+			hleadjetptavevsxaxis->Fill(xvariable,pt_jet[it],w);
+			
+			hetaphi->Fill(foldphi(phi_jet[it]-jphi),eta_jet[it]-jeta);
 
 			sumleadpt+=pt_jet[it]*w;		// will be w tracks effectively ..
+
+			sumleadntrk+=w;
 		}
 		for(int it = 0; it<subntrk; it++) {
 			//cout<<"pt_sub["<<it<<"] = "<<pt_sub[it];
-			w = getweight(pt_sub[it],chargeflag,MCflag);
-			//w = inveff_tpc(pt_sub[it],chargeflag,MCflag);
-			//cout<<" w = "<<w<<endl;
-			subjetptavevsleadjetpt->Fill(xvariable,pt_sub[it],w);
+			if(etaflag==1&&eta_sub[it]<0.6) continue;
+			if(etaflag==-1&&eta_sub[it]>-0.6) continue;
 
-			hsubjetptavevsleadjetpt->Fill(xvariable,pt_sub[it],w);
+			if(TOFMATCH) {
+				w = getweight(pt_sub[it],chargeflag,MCflag);
+			}
+			else {
+				w = inveff_tpc(pt_sub[it],chargeflag,MCflag);
+			}
+			//cout<<" w = "<<w<<endl;
+			subjetptavevsxaxis->Fill(xvariable,pt_sub[it],w);
+
+			hsubjetptavevsxaxis->Fill(xvariable,pt_sub[it],w);
+
+			hetaphi->Fill(foldphi(phi_sub[it]-jphi),eta_sub[it]-jeta);
 
 			sumsubpt+=pt_sub[it]*w;		// will be w tracks effectively ..
+
+			sumsubntrk+=w;
 		}
 
-		sumtranpt=sumtranpt/2.;		// take the average 
-        	leadjetptsumvsleadjetpt->Fill(xvariable,sumleadpt);
-        	subjetptsumvsleadjetpt->Fill(xvariable,sumsubpt);
-        	tranptsumvsleadjetpt->Fill(xvariable,sumtranpt);
-		MaxOrMin(sumtranmaxpt,sumtranminpt);
-        	tranmaxptsumvsleadjetpt->Fill(xvariable,sumtranmaxpt);
-        	tranminptsumvsleadjetpt->Fill(xvariable,sumtranminpt);
+        	leadjetntrkvsxaxis->Fill(xvariable,sumleadntrk);
+        	hleadjetntrkvsxaxis->Fill(xvariable,sumleadntrk);
+        	subjetntrkvsxaxis->Fill(xvariable,sumsubntrk);
+        	hsubjetntrkvsxaxis->Fill(xvariable,sumsubntrk);
+        	tranntrkvsxaxis->Fill(xvariable,(sumtranmaxntrk+sumtranminntrk)/2.);		// do not use tranntrk directly because it is int type and it is the sum divided by 2 
+        	htranntrkvsxaxis->Fill(xvariable,(sumtranmaxntrk+sumtranminntrk)/2.);
 
-        	hleadjetptsumvsleadjetpt->Fill(xvariable,sumleadpt);
-        	hsubjetptsumvsleadjetpt->Fill(xvariable,sumsubpt);
-        	htranptsumvsleadjetpt->Fill(xvariable,sumtranpt);
+		MaxOrMin(sumtranmaxntrk,sumtranminntrk);
+        	tranmaxntrkvsxaxis->Fill(xvariable,sumtranmaxntrk);
+        	htranmaxntrkvsxaxis->Fill(xvariable,sumtranmaxntrk);
+        	tranminntrkvsxaxis->Fill(xvariable,sumtranminntrk);
+        	htranminntrkvsxaxis->Fill(xvariable,sumtranminntrk);
+
+
+		sumtranpt=sumtranpt/2.;		// take the average 
+        	leadjetptsumvsxaxis->Fill(xvariable,sumleadpt);
+        	subjetptsumvsxaxis->Fill(xvariable,sumsubpt);
+        	tranptsumvsxaxis->Fill(xvariable,sumtranpt);
+        	hleadjetptsumvsxaxis->Fill(xvariable,sumleadpt);
+        	hsubjetptsumvsxaxis->Fill(xvariable,sumsubpt);
+        	htranptsumvsxaxis->Fill(xvariable,sumtranpt);
+
 		MaxOrMin(sumtranmaxpt,sumtranminpt);
-        	htranmaxptsumvsleadjetpt->Fill(xvariable,sumtranmaxpt);
-        	htranminptsumvsleadjetpt->Fill(xvariable,sumtranminpt);
+        	tranmaxptsumvsxaxis->Fill(xvariable,sumtranmaxpt);
+        	tranminptsumvsxaxis->Fill(xvariable,sumtranminpt);
+        	htranmaxptsumvsxaxis->Fill(xvariable,sumtranmaxpt);
+        	htranminptsumvsxaxis->Fill(xvariable,sumtranminpt);
 
 		processedevent++;
 	}
 	cout<<"Total processed # of event "<<processedevent<<endl;
 
 	// set histogram draw properties
-	leadjetpt->GetXaxis()->SetTitle(xvariablename);
-	leadjetpt->GetYaxis()->SetTitle("events");
-	leadjetpt->SetLineColor(1);
-	//leadjetpt->SetMarkerStyle(8);
-	//leadjetpt->SetMarkerColor(1);
+	xaxis->GetXaxis()->SetTitle(xvariablename);
+	xaxis->GetYaxis()->SetTitle("events");
+	xaxis->SetLineColor(1);
+	//xaxis->SetMarkerStyle(8);
+	//xaxis->SetMarkerColor(1);
 	
 	int clead = 1, csub = 9, cmax = 2, cmin = 8, ctran = 28;
 	int slead = 20, ssub = 25, smax = 24, smin = 20, stran = 21;
 
-        leadjetntrkvsleadjetpt->GetXaxis()->SetTitle(xvariablename);
-	leadjetntrkvsleadjetpt->GetYaxis()->SetTitle("Leading Jet Area Multiplicity");
-	leadjetntrkvsleadjetpt->SetLineColor(clead);
-	leadjetntrkvsleadjetpt->SetMarkerStyle(slead);
-	leadjetntrkvsleadjetpt->SetMarkerColor(clead);
+        j1ptvsxaxis->GetXaxis()->SetTitle(xvariablename);
+	j1ptvsxaxis->GetYaxis()->SetTitle("Leading Jet p_{T}");
+	j1ptvsxaxis->SetLineColor(clead);
+	j1ptvsxaxis->SetMarkerStyle(slead);
+	j1ptvsxaxis->SetMarkerColor(clead);
 
-        subjetntrkvsleadjetpt->GetXaxis()->SetTitle(xvariablename);
-	subjetntrkvsleadjetpt->GetYaxis()->SetTitle("Away Side Area Multiplicity");
-	subjetntrkvsleadjetpt->SetLineColor(csub);
-	subjetntrkvsleadjetpt->SetMarkerStyle(ssub);
-	subjetntrkvsleadjetpt->SetMarkerColor(csub);
+        jasptvsxaxis->GetXaxis()->SetTitle(xvariablename);
+	jasptvsxaxis->GetYaxis()->SetTitle("Recoil Jet p_{T}");
+	jasptvsxaxis->SetLineColor(clead);
+	jasptvsxaxis->SetMarkerStyle(slead);
+	jasptvsxaxis->SetMarkerColor(clead);
 
-        tranmaxntrkvsleadjetpt->GetXaxis()->SetTitle(xvariablename);
-	tranmaxntrkvsleadjetpt->GetYaxis()->SetTitle("Transverse Max Area Multiplicity");
-	tranmaxntrkvsleadjetpt->SetLineColor(cmax);
-	tranmaxntrkvsleadjetpt->SetMarkerStyle(smax);
-	tranmaxntrkvsleadjetpt->SetMarkerColor(cmax);
+	hetaphi->GetXaxis()->SetTitle("#Delta#phi");
+	hetaphi->GetYaxis()->SetTitle("#Delta#eta");
+	hetaphi->SetLineColor(clead);
+	hetaphi->SetMarkerStyle(slead);
+	hetaphi->SetMarkerColor(clead);
 
-        tranminntrkvsleadjetpt->GetXaxis()->SetTitle(xvariablename);
-	tranminntrkvsleadjetpt->GetYaxis()->SetTitle("Transverse Min Area Multiplicity");
-	tranminntrkvsleadjetpt->SetLineColor(cmin);
-	tranminntrkvsleadjetpt->SetMarkerStyle(smin);
-	tranminntrkvsleadjetpt->SetMarkerColor(cmin);
+        leadjetntrkvsxaxis->GetXaxis()->SetTitle(xvariablename);
+	leadjetntrkvsxaxis->GetYaxis()->SetTitle("Leading Jet Area Multiplicity");
+	leadjetntrkvsxaxis->SetLineColor(clead);
+	leadjetntrkvsxaxis->SetMarkerStyle(slead);
+	leadjetntrkvsxaxis->SetMarkerColor(clead);
 
-        tranntrkvsleadjetpt->GetXaxis()->SetTitle(xvariablename);
-	tranntrkvsleadjetpt->GetYaxis()->SetTitle("Transverse Area Multiplicity");
-	tranntrkvsleadjetpt->SetLineColor(ctran);
-	tranntrkvsleadjetpt->SetMarkerStyle(stran);
-	tranntrkvsleadjetpt->SetMarkerColor(ctran);
+        subjetntrkvsxaxis->GetXaxis()->SetTitle(xvariablename);
+	subjetntrkvsxaxis->GetYaxis()->SetTitle("Away Side Area Multiplicity");
+	subjetntrkvsxaxis->SetLineColor(csub);
+	subjetntrkvsxaxis->SetMarkerStyle(ssub);
+	subjetntrkvsxaxis->SetMarkerColor(csub);
 
+        tranmaxntrkvsxaxis->GetXaxis()->SetTitle(xvariablename);
+	tranmaxntrkvsxaxis->GetYaxis()->SetTitle("Transverse Max Area Multiplicity");
+	tranmaxntrkvsxaxis->SetLineColor(cmax);
+	tranmaxntrkvsxaxis->SetMarkerStyle(smax);
+	tranmaxntrkvsxaxis->SetMarkerColor(cmax);
 
-        leadjetptsumvsleadjetpt->GetXaxis()->SetTitle(xvariablename);
-	leadjetptsumvsleadjetpt->GetYaxis()->SetTitle("Lead Jet Area Sum Pt");
-	leadjetptsumvsleadjetpt->SetLineColor(clead);
-	leadjetptsumvsleadjetpt->SetMarkerStyle(slead);
-	leadjetptsumvsleadjetpt->SetMarkerColor(clead);
+        tranminntrkvsxaxis->GetXaxis()->SetTitle(xvariablename);
+	tranminntrkvsxaxis->GetYaxis()->SetTitle("Transverse Min Area Multiplicity");
+	tranminntrkvsxaxis->SetLineColor(cmin);
+	tranminntrkvsxaxis->SetMarkerStyle(smin);
+	tranminntrkvsxaxis->SetMarkerColor(cmin);
 
-        subjetptsumvsleadjetpt->GetXaxis()->SetTitle(xvariablename);
-	subjetptsumvsleadjetpt->GetYaxis()->SetTitle("Away Side Are Sum Pt");
-	subjetptsumvsleadjetpt->SetLineColor(csub);
-	subjetptsumvsleadjetpt->SetMarkerStyle(ssub);
-	subjetptsumvsleadjetpt->SetMarkerColor(csub);
-
-        tranmaxptsumvsleadjetpt->GetXaxis()->SetTitle(xvariablename);
-	tranmaxptsumvsleadjetpt->GetYaxis()->SetTitle("Transverse Max Area Sum Pt");
-	tranmaxptsumvsleadjetpt->SetLineColor(cmax);
-	tranmaxptsumvsleadjetpt->SetMarkerStyle(smax);
-	tranmaxptsumvsleadjetpt->SetMarkerColor(cmax);
-
-        tranminptsumvsleadjetpt->GetXaxis()->SetTitle(xvariablename);
-	tranminptsumvsleadjetpt->GetYaxis()->SetTitle("Transverse Min Area Sum Pt");
-	tranminptsumvsleadjetpt->SetLineColor(cmin);
-	tranminptsumvsleadjetpt->SetMarkerStyle(smin);
-	tranminptsumvsleadjetpt->SetMarkerColor(cmin);
-
-        tranptsumvsleadjetpt->GetXaxis()->SetTitle(xvariablename);
-	tranptsumvsleadjetpt->GetYaxis()->SetTitle("Transverse Area Sum Pt");
-	tranptsumvsleadjetpt->SetLineColor(ctran);
-	tranptsumvsleadjetpt->SetMarkerStyle(stran);
-	tranptsumvsleadjetpt->SetMarkerColor(ctran);
+        tranntrkvsxaxis->GetXaxis()->SetTitle(xvariablename);
+	tranntrkvsxaxis->GetYaxis()->SetTitle("Transverse Area Multiplicity");
+	tranntrkvsxaxis->SetLineColor(ctran);
+	tranntrkvsxaxis->SetMarkerStyle(stran);
+	tranntrkvsxaxis->SetMarkerColor(ctran);
 
 
-        leadjetptavevsleadjetpt->GetXaxis()->SetTitle(xvariablename);
-	leadjetptavevsleadjetpt->GetYaxis()->SetTitle("Leading Area Average Track Pt");
-	leadjetptavevsleadjetpt->SetLineColor(clead);
-	leadjetptavevsleadjetpt->SetMarkerStyle(slead);
-	leadjetptavevsleadjetpt->SetMarkerColor(clead);
+        leadjetptsumvsxaxis->GetXaxis()->SetTitle(xvariablename);
+	leadjetptsumvsxaxis->GetYaxis()->SetTitle("Lead Jet Area Sum Pt");
+	leadjetptsumvsxaxis->SetLineColor(clead);
+	leadjetptsumvsxaxis->SetMarkerStyle(slead);
+	leadjetptsumvsxaxis->SetMarkerColor(clead);
 
-        subjetptavevsleadjetpt->GetXaxis()->SetTitle(xvariablename);
-	subjetptavevsleadjetpt->GetYaxis()->SetTitle("Away side Area Average Track Pt");
-	subjetptavevsleadjetpt->SetLineColor(csub);
-	subjetptavevsleadjetpt->SetMarkerStyle(ssub);
-	subjetptavevsleadjetpt->SetMarkerColor(csub);
+        subjetptsumvsxaxis->GetXaxis()->SetTitle(xvariablename);
+	subjetptsumvsxaxis->GetYaxis()->SetTitle("Away Side Are Sum Pt");
+	subjetptsumvsxaxis->SetLineColor(csub);
+	subjetptsumvsxaxis->SetMarkerStyle(ssub);
+	subjetptsumvsxaxis->SetMarkerColor(csub);
 
-        tranmaxptavevsleadjetpt->GetXaxis()->SetTitle(xvariablename);
-	tranmaxptavevsleadjetpt->GetYaxis()->SetTitle("Transverse Max Area Average Track Pt");
-	tranmaxptavevsleadjetpt->SetLineColor(cmax);
-	tranmaxptavevsleadjetpt->SetMarkerStyle(smax);
-	tranmaxptavevsleadjetpt->SetMarkerColor(cmax);
+        tranmaxptsumvsxaxis->GetXaxis()->SetTitle(xvariablename);
+	tranmaxptsumvsxaxis->GetYaxis()->SetTitle("Transverse Max Area Sum Pt");
+	tranmaxptsumvsxaxis->SetLineColor(cmax);
+	tranmaxptsumvsxaxis->SetMarkerStyle(smax);
+	tranmaxptsumvsxaxis->SetMarkerColor(cmax);
 
-        tranminptavevsleadjetpt->GetXaxis()->SetTitle(xvariablename);
-	tranminptavevsleadjetpt->GetYaxis()->SetTitle("Transverse Min Area Average Track Pt");
-	tranminptavevsleadjetpt->SetLineColor(cmin);
-	tranminptavevsleadjetpt->SetMarkerStyle(smin);
-	tranminptavevsleadjetpt->SetMarkerColor(cmin);
+        tranminptsumvsxaxis->GetXaxis()->SetTitle(xvariablename);
+	tranminptsumvsxaxis->GetYaxis()->SetTitle("Transverse Min Area Sum Pt");
+	tranminptsumvsxaxis->SetLineColor(cmin);
+	tranminptsumvsxaxis->SetMarkerStyle(smin);
+	tranminptsumvsxaxis->SetMarkerColor(cmin);
 
-        tranptavevsleadjetpt->GetXaxis()->SetTitle(xvariablename);
-	tranptavevsleadjetpt->GetYaxis()->SetTitle("Transverse Area Average Track Pt");
-	tranptavevsleadjetpt->SetLineColor(ctran);
-	tranptavevsleadjetpt->SetMarkerStyle(stran);
-	tranptavevsleadjetpt->SetMarkerColor(ctran);
+        tranptsumvsxaxis->GetXaxis()->SetTitle(xvariablename);
+	tranptsumvsxaxis->GetYaxis()->SetTitle("Transverse Area Sum Pt");
+	tranptsumvsxaxis->SetLineColor(ctran);
+	tranptsumvsxaxis->SetMarkerStyle(stran);
+	tranptsumvsxaxis->SetMarkerColor(ctran);
 
-        maxtranptvsleadjetpt->GetXaxis()->SetTitle(xvariablename);
-	maxtranptvsleadjetpt->GetYaxis()->SetTitle("Maximum Transverse Pt");
-	maxtranptvsleadjetpt->SetLineColor(ctran);
-	maxtranptvsleadjetpt->SetMarkerStyle(stran);
-	maxtranptvsleadjetpt->SetMarkerColor(ctran);
+
+        leadjetptavevsxaxis->GetXaxis()->SetTitle(xvariablename);
+	leadjetptavevsxaxis->GetYaxis()->SetTitle("Leading Area Average Track Pt");
+	leadjetptavevsxaxis->SetLineColor(clead);
+	leadjetptavevsxaxis->SetMarkerStyle(slead);
+	leadjetptavevsxaxis->SetMarkerColor(clead);
+
+        subjetptavevsxaxis->GetXaxis()->SetTitle(xvariablename);
+	subjetptavevsxaxis->GetYaxis()->SetTitle("Away side Area Average Track Pt");
+	subjetptavevsxaxis->SetLineColor(csub);
+	subjetptavevsxaxis->SetMarkerStyle(ssub);
+	subjetptavevsxaxis->SetMarkerColor(csub);
+
+        tranmaxptavevsxaxis->GetXaxis()->SetTitle(xvariablename);
+	tranmaxptavevsxaxis->GetYaxis()->SetTitle("Transverse Max Area Average Track Pt");
+	tranmaxptavevsxaxis->SetLineColor(cmax);
+	tranmaxptavevsxaxis->SetMarkerStyle(smax);
+	tranmaxptavevsxaxis->SetMarkerColor(cmax);
+
+        tranminptavevsxaxis->GetXaxis()->SetTitle(xvariablename);
+	tranminptavevsxaxis->GetYaxis()->SetTitle("Transverse Min Area Average Track Pt");
+	tranminptavevsxaxis->SetLineColor(cmin);
+	tranminptavevsxaxis->SetMarkerStyle(smin);
+	tranminptavevsxaxis->SetMarkerColor(cmin);
+
+        tranptavevsxaxis->GetXaxis()->SetTitle(xvariablename);
+	tranptavevsxaxis->GetYaxis()->SetTitle("Transverse Area Average Track Pt");
+	tranptavevsxaxis->SetLineColor(ctran);
+	tranptavevsxaxis->SetMarkerStyle(stran);
+	tranptavevsxaxis->SetMarkerColor(ctran);
+
+        maxtranptvsxaxis->GetXaxis()->SetTitle(xvariablename);
+	maxtranptvsxaxis->GetYaxis()->SetTitle("Maximum Transverse Pt");
+	maxtranptvsxaxis->SetLineColor(ctran);
+	maxtranptvsxaxis->SetMarkerStyle(stran);
+	maxtranptvsxaxis->SetMarkerColor(ctran);
 
 
 	// Drawing
@@ -536,15 +710,15 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	
 	c[0]->cd();
 	c[0]->SetLogy(1);
-	leadjetpt->Draw();
-	if(savefig) c[0]->SaveAs(Form("figs/%sVs%s_%s.png",leadjetpt->GetName(),what2fill.Data(),filetag.Data()));
+	xaxis->Draw();
+	if(savefig) c[0]->SaveAs(Form("figs/%sVs%s_%s.png",xaxis->GetName(),what2fill.Data(),filetag.Data()));
 	
 	TLegend *leg = new TLegend(0.16,0.6,0.35,0.86);
-	leg->AddEntry(leadjetntrkvsleadjetpt,"Toward","pl");
-	leg->AddEntry(subjetntrkvsleadjetpt,"Away","pl");
-	leg->AddEntry(tranmaxntrkvsleadjetpt,"TransMax","pl");
-	leg->AddEntry(tranminntrkvsleadjetpt,"TransMin","pl");
-	leg->AddEntry(tranntrkvsleadjetpt,"Trans","pl");
+	leg->AddEntry(leadjetntrkvsxaxis,"Toward","pl");
+	leg->AddEntry(subjetntrkvsxaxis,"Away","pl");
+	leg->AddEntry(tranmaxntrkvsxaxis,"TransMax","pl");
+	leg->AddEntry(tranminntrkvsxaxis,"TransMin","pl");
+	leg->AddEntry(tranntrkvsxaxis,"Trans","pl");
 	leg->SetFillColor(10);
 	leg->SetBorderSize(0);
 	leg->SetTextFont(42);
@@ -561,11 +735,11 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	htmp[1]->GetYaxis()->SetTitle("Event Multiplicity #LTNtrk#GT");
 	htmp[1]->Draw();
 	lat->DrawLatex(0.5,0.94,"Event Multiplicity #LTNtrk#GT");
-	leadjetntrkvsleadjetpt->Draw("same");
-	subjetntrkvsleadjetpt->Draw("same");
-	tranmaxntrkvsleadjetpt->Draw("same");
-	tranminntrkvsleadjetpt->Draw("same");	
-	tranntrkvsleadjetpt->Draw("same");	
+	leadjetntrkvsxaxis->Draw("same");
+	subjetntrkvsxaxis->Draw("same");
+	tranmaxntrkvsxaxis->Draw("same");
+	tranminntrkvsxaxis->Draw("same");	
+	tranntrkvsxaxis->Draw("same");	
 	leg->Draw("same");
 	if(savefig) c[1]->SaveAs(Form("figs/%sVs%s_%s.png","Ntrk",what2fill.Data(),filetag.Data()));
 
@@ -575,11 +749,11 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	htmp[2]->GetYaxis()->SetTitle("Event #LT#sum p_{T}#GT");
 	htmp[2]->Draw();
 	lat->DrawLatex(0.5,0.94,"Event #LT#sum p_{T}#GT");
-	leadjetptsumvsleadjetpt->Draw("same");
-	subjetptsumvsleadjetpt->Draw("same");
-	tranmaxptsumvsleadjetpt->Draw("same");
-	tranminptsumvsleadjetpt->Draw("same");	
-	tranptsumvsleadjetpt->Draw("same");	
+	leadjetptsumvsxaxis->Draw("same");
+	subjetptsumvsxaxis->Draw("same");
+	tranmaxptsumvsxaxis->Draw("same");
+	tranminptsumvsxaxis->Draw("same");	
+	tranptsumvsxaxis->Draw("same");	
 	leg->Draw("same");
 	if(savefig) c[2]->SaveAs(Form("figs/%sVs%s_%s.png","PtSum",what2fill.Data(),filetag.Data()));
 	
@@ -589,11 +763,11 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	htmp[3]->GetYaxis()->SetTitle("Track #LTp_{T}#GT");
 	htmp[3]->Draw();
 	lat->DrawLatex(0.5,0.94,"Track #LTp_{T}#GT");
-	leadjetptavevsleadjetpt->Draw("same");
-	subjetptavevsleadjetpt->Draw("same");
-	tranmaxptavevsleadjetpt->Draw("same");
-	tranminptavevsleadjetpt->Draw("same");	
-	tranptavevsleadjetpt->Draw("same");	
+	leadjetptavevsxaxis->Draw("same");
+	subjetptavevsxaxis->Draw("same");
+	tranmaxptavevsxaxis->Draw("same");
+	tranminptavevsxaxis->Draw("same");	
+	tranptavevsxaxis->Draw("same");	
 	leg->Draw("same");
 	if(savefig) c[3]->SaveAs(Form("figs/%sVs%s_%s.png","PtAve",what2fill.Data(),filetag.Data()));
 
@@ -606,49 +780,65 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 			jettag = Form("_jet%g-%g",jetptmin,jetptmax);	
 		} 
 		TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+".root";
+		//TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_NeutralFrac75.root";
+		//TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_wR1"+".root";
+		//TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_AsJetGt5"+".root";
+		//TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_balance005"+".root";
+		if(ExclusiveEta>0) {
+			outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_EtaExcl"+".root";
+			//outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_EtaExcl_SamesideDijet"+".root";
+		}
 		TFile *fout = new TFile(outfilepath,"RECREATE");
-		leadjetpt->Write();
+		xaxis->Write();
 		
-        	leadjetntrkvsleadjetpt->Write();
-        	subjetntrkvsleadjetpt->Write();
-        	tranmaxntrkvsleadjetpt->Write();
-        	tranminntrkvsleadjetpt->Write();
-        	tranntrkvsleadjetpt->Write();
+		j1ptvsxaxis->Write();
+		jasptvsxaxis->Write();
 
-        	leadjetptsumvsleadjetpt->Write();
-        	subjetptsumvsleadjetpt->Write();
-        	tranmaxptsumvsleadjetpt->Write();
-        	tranminptsumvsleadjetpt->Write();
-        	tranptsumvsleadjetpt->Write();
+		hetaphi->Write();
 
-        	leadjetptavevsleadjetpt->Write();
-        	subjetptavevsleadjetpt->Write();
-        	tranmaxptavevsleadjetpt->Write();
-        	tranminptavevsleadjetpt->Write();
-        	tranptavevsleadjetpt->Write();
+        	leadjetntrkvsxaxis->Write();
+        	subjetntrkvsxaxis->Write();
+        	tranmaxntrkvsxaxis->Write();
+        	tranminntrkvsxaxis->Write();
+        	tranntrkvsxaxis->Write();
 
-		maxtranptvsleadjetpt->Write();
+        	leadjetptsumvsxaxis->Write();
+        	subjetptsumvsxaxis->Write();
+        	tranmaxptsumvsxaxis->Write();
+        	tranminptsumvsxaxis->Write();
+        	tranptsumvsxaxis->Write();
 
+        	leadjetptavevsxaxis->Write();
+        	subjetptavevsxaxis->Write();
+        	tranmaxptavevsxaxis->Write();
+        	tranminptavevsxaxis->Write();
+        	tranptavevsxaxis->Write();
+
+		maxtranptvsxaxis->Write();
+
+
+		hj1ptvsxaxis->Write();
+		hjasptvsxaxis->Write();
 	
-        	hleadjetntrkvsleadjetpt->Write();
-        	hsubjetntrkvsleadjetpt->Write();
-        	htranmaxntrkvsleadjetpt->Write();
-        	htranminntrkvsleadjetpt->Write();
-        	htranntrkvsleadjetpt->Write();
+        	hleadjetntrkvsxaxis->Write();
+        	hsubjetntrkvsxaxis->Write();
+        	htranmaxntrkvsxaxis->Write();
+        	htranminntrkvsxaxis->Write();
+        	htranntrkvsxaxis->Write();
 
-        	hleadjetptsumvsleadjetpt->Write();
-        	hsubjetptsumvsleadjetpt->Write();
-        	htranmaxptsumvsleadjetpt->Write();
-        	htranminptsumvsleadjetpt->Write();
-        	htranptsumvsleadjetpt->Write();
+        	hleadjetptsumvsxaxis->Write();
+        	hsubjetptsumvsxaxis->Write();
+        	htranmaxptsumvsxaxis->Write();
+        	htranminptsumvsxaxis->Write();
+        	htranptsumvsxaxis->Write();
 
-        	hleadjetptavevsleadjetpt->Write();
-        	hsubjetptavevsleadjetpt->Write();
-        	htranmaxptavevsleadjetpt->Write();
-        	htranminptavevsleadjetpt->Write();
-        	htranptavevsleadjetpt->Write();
+        	hleadjetptavevsxaxis->Write();
+        	hsubjetptavevsxaxis->Write();
+        	htranmaxptavevsxaxis->Write();
+        	htranminptavevsxaxis->Write();
+        	htranptavevsxaxis->Write();
 
-		hmaxtranptvsleadjetpt->Write();
+		hmaxtranptvsxaxis->Write();
 			
 		fout->Close();
 	}
