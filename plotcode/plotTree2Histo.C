@@ -199,12 +199,12 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
   	  return;
   	}
 
-	int MCflag=0;
+	int MCflag=0;			// if you don't want to correct for TOF/TPC efficency at this point, for example, do it as part of unfolding procedure, you can just set MCflag=1. Then it will be treated as pure MC (not geant) and no correction will be applied. 
+	// if you are working on embedding (MC + geant), you can apply corrections. 
 	if(filetag.Contains("pythia",TString::kIgnoreCase)) 	{
 		MCflag = 1;
 		cout<<endl<<"INFO: process as MC data: not efficiency correction will be applied"<<endl;
 	}
-
 
 	int chargeflag = 1;
 	if(filetag.Contains("Charge0",TString::kIgnoreCase)||filetag.Contains("TransNeutral",TString::kIgnoreCase)) chargeflag = 0;
