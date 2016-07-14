@@ -132,7 +132,7 @@ bool readinbadrunlist(std::set<int> & badrun, TString csvfile="./include/pp200Y1
 
 // Helper to deal with repetitive stuff
 TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const double RefMultCut ){
-	TStarJetPicoDefinitions::SetDebugLevel(10); // 10 for more output, 0 for less output
+	//TStarJetPicoDefinitions::SetDebugLevel(10); // 10 for more output, 0 for less output
 
 	TStarJetPicoReader reader;
 	reader.SetInputChain (chain);
@@ -312,14 +312,14 @@ int main ( int argc, const char** argv ) {
 	if( OutFileName.Contains ("BemcMatch") ) {
 	  reader.SetTrackPileUpCut(3);		// #ly	3: tpc track matching to bemc.		1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
 	}
-	TStarJetPicoDefinitions::SetDebugLevel(10);
+	TStarJetPicoDefinitions::SetDebugLevel(0);
 
 	// Initialize analysis class
 	// -------------------------
-	//cout<<"initialize analysis"<<endl;		// test
+	//cout<<"initialize analysis"<<endl;		
 
-	//TString OutFileName = "test.root"; //test 
-	//float R = 0.6;	// test
+	//TString OutFileName = "test.root"; 
+	//float R = 0.6;	
 	string jetalgorithm = "antikt";		
 	if(OutFileName.Contains ("kT") && (!(OutFileName.Contains ("AntikT")))) {
 		jetalgorithm = "kt";
@@ -334,7 +334,7 @@ int main ( int argc, const char** argv ) {
 
 
 	// Charge selection for jet and underlying particle
-	int jetchargecode = 2;
+	int jetchargecode = 2;			// default one is to do full jet (charged + neutral) for jet finding
 	if ( OutFileName.Contains ("ChargeJet") ){
 		jetchargecode = 1;
 	}
@@ -345,7 +345,7 @@ int main ( int argc, const char** argv ) {
 		jetchargecode = 2;
 	}
 
-	int underlyingchargecode = 2;
+	int underlyingchargecode = 2;		// default one is takeing both charged + neutral particles for underlying event
 	if ( OutFileName.Contains ("TransCharged") ){
 		underlyingchargecode = 1;
 	}
@@ -435,7 +435,7 @@ int main ( int argc, const char** argv ) {
 
 			// Load event ht/jetpatch trigger objs
 			// ----------
-			//std::cout<<"load trigger objs"<<endl;	//test
+			//std::cout<<"load trigger objs"<<endl;	
 			if(ula->GetToMatchJetTrigger()) {
 				TClonesArray *trigobj = reader.GetEvent()->GetTrigObjs();
 				for(int itrg = 0; itrg<trigobj->GetEntries(); itrg++) {
@@ -465,14 +465,14 @@ int main ( int argc, const char** argv ) {
 				pj=MakePseudoJet( sv );
 				pj.set_user_info ( new JetAnalysisUserInfo( 3*sv->GetCharge(), sv->GetFeatureD(TStarJetVector::_DEDX), sv->GetFeatureD(TStarJetVector::_TOFBETA) ) );
 				pj.set_user_index(ip);		// #ly	link fastjet::PseudoJet to TStarJetVector class	--> NEED TO FIX THIS, NOT SURE WHY USER_INFO IS NOT PASSED TO JAResult.at(0).constituents() in UnderlyingAna.cxx
-				//cout<<"input "<<sv->GetCharge() <<" -> "<<pj.user_info<JetAnalysisUserInfo>().GetQuarkCharge()<<endl;	// test 
+				//cout<<"input "<<sv->GetCharge() <<" -> "<<pj.user_info<JetAnalysisUserInfo>().GetQuarkCharge()<<endl;	 
 
 				particles.push_back ( pj );
 				//}	      
 			}    
 			// Run analysis
 			// ------------
-			//cout<<"analyze and fill"<<endl; 	// test
+			//cout<<"analyze and fill"<<endl; 	
 
 			ula->AnalyzeAndFill( particles, 
 					//*container, 

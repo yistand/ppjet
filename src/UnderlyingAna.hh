@@ -90,6 +90,7 @@ private :
   int eventid;
   int runid;
   double refmult; 
+  double vz;
 
 
   // Jet-finding from fastjet
@@ -276,7 +277,7 @@ public:
   //int AnalyzeAndFill ( std::vector<fastjet::PseudoJet>& particles, std::vector<fastjet::PseudoJet>& ToMatch,
   int AnalyzeAndFill (	const std::vector<fastjet::PseudoJet>& particles, 			
 			//TStarJetVectorContainer<TStarJetVector>& container,
-			int ineventid, int inrunid, double inrefmult,
+			int ineventid, int inrunid, double inrefmult, double invz,
 			//TStarJetPicoReader &reader,
 	 		//Int_t mEffUn,	
 			const std::vector<std::pair<float,float> > &ToMatch
