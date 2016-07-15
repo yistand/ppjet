@@ -427,7 +427,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	// back to back? Answer this question with a selector
 	// ---------------------------------------------------
 	DiJets = SelectorDijets( dPhiCut ) ( JAResult );
-	if(DiJets.size()==2 && (nosjetJAResult.size()>1&&JAResult.size()>1&&nosjetJAResult.at(1).delta_R(JAResult.at(1))>R)) HasDijet=true;		// has the dijet and the away-side jet is also the second hardest jet in the event.
+	if(DiJets.size()==2 && (nosjetJAResult.size()>1&&JAResult.size()>1&&nosjetJAResult.at(1).delta_R(JAResult.at(1))<R)) HasDijet=true;		// has the dijet and the away-side jet is also the second hardest jet in the event.
 	//if(DiJets.size()==2) HasDijet=true;		// has the dijet and the away-side jet is also the second hardest jet in the event.
 	//if ( DiJets.size() == 0 ) {
 	// std::cout << " NO dijet found" << std::endl;
