@@ -442,7 +442,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		int flagtrigmatch = 0;
 		for(unsigned int ito = 0; ito<ToMatch.size() ; ito++) {		// note: if using iteractor for vector, need 'const_iteractor' for const vector
 			//if(IsMatched(JAResult.at(0), ToMatch.at(i), R)) {
-			if(sqrt(pow(JAResult.at(0).eta()-ToMatch.at(ito).first,2)+pow(JetAnalyzer::phimod2pi(JAResult.at(0).phi()-ToMatch.at(ito).second,2)))<R)    {
+			if(sqrt(pow(JAResult.at(0).eta()-ToMatch.at(ito).first,2)+pow(JetAnalyzer::phimod2pi(JAResult.at(0).phi()-ToMatch.at(ito).second),2))<R)    {
 				flagtrigmatch=1;
 				//std::cout<<"Jet at (eta,phi)=("<<JAResult.at(0).eta()<<","<<JAResult.at(0).phi()<<") in R="<<R<<" with ("<<ToMatch.at(ito).first<<","<<ToMatch.at(ito).second<<")"<<std::endl;	
 				break;
