@@ -437,7 +437,8 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 
 	// ---------------------------------------------------------
 	// Do any jets match to the one fired the trigger?
-	if ( mNeedToMatchTrig &&  ToMatch.size()>0 ){
+	if ( mNeedToMatchTrig ){
+		if( ToMatch.size()==0) return 0; 		// event should not be fired 
 		int flagtrigmatch = 0;
 		for(unsigned int ito = 0; ito<ToMatch.size() ; ito++) {		// note: if using iteractor for vector, need 'const_iteractor' for const vector
 			//if(IsMatched(JAResult.at(0), ToMatch.at(i), R)) {
