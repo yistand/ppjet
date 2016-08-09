@@ -184,6 +184,7 @@ int UnderlyingAna::Init() {
 	ResultTree->Branch("eventid",&eventid, "eventid/I");
 	ResultTree->Branch("runid",&runid, "runid/I");
 	ResultTree->Branch("refmult",&refmult, "refmult/D");
+	ResultTree->Branch("vz",&vz, "vz/D");
 	ResultTree->Branch("rho",&rho, "rho/F");
 	ResultTree->Branch("rhoerr",&rhoerr, "rhoerr/F");
 
@@ -290,7 +291,7 @@ int UnderlyingAna::Init() {
 //int UnderlyingAna::AnalyzeAndFill ( std::vector<fastjet::PseudoJet>& particles, std::vector<fastjet::PseudoJet>& ToMatch,
 int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& particles, 
 		//TStarJetVectorContainer<TStarJetVector>& container,
-		int ineventid, int inrunid, double inrefmult,
+		int ineventid, int inrunid, double inrefmult, double invz,
 		//TStarJetPicoReader &reader,
 	 	//Int_t mEffUn,	
 		const std::vector<std::pair<float,float> > &ToMatch
@@ -319,6 +320,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	eventid = ineventid;
 	runid = inrunid;
 	refmult = inrefmult;	
+	vz = invz;
 	//eventid = reader.GetEvent()->GetHeader()->GetEventId();	
 	//runid = reader.GetEvent()->GetHeader()->GetRunId();
 	//refmult = reader.GetEvent()->GetHeader()->GetGReferenceMultiplicity();
@@ -425,7 +427,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	// back to back? Answer this question with a selector
 	// ---------------------------------------------------
 	DiJets = SelectorDijets( dPhiCut ) ( JAResult );
-	if(DiJets.size()==2 && (nosjetJAResult.size()>1&&JAResult.size()>1&&nosjetJAResult.at(1).delta_R(JAResult.at(1))>R)) HasDijet=true;		// has the dijet and the away-side jet is also the second hardest jet in the event.
+	if(DiJets.size()==2 && (nosjetJAResult.size()>1&&JAResult.size()>1&&nosjetJAResult.at(1).delta_R(JAResult.at(1))<R)) HasDijet=true;		// has the dijet and the away-side jet is also the second hardest jet in the event.
 	//if(DiJets.size()==2) HasDijet=true;		// has the dijet and the away-side jet is also the second hardest jet in the event.
 	//if ( DiJets.size() == 0 ) {
 	// std::cout << " NO dijet found" << std::endl;
@@ -435,11 +437,12 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 
 	// ---------------------------------------------------------
 	// Do any jets match to the one fired the trigger?
-	if ( mNeedToMatchTrig &&  ToMatch.size()>0 ){
+	if ( mNeedToMatchTrig ){
+		if( ToMatch.size()==0) return 0; 		// event should not be fired 
 		int flagtrigmatch = 0;
 		for(unsigned int ito = 0; ito<ToMatch.size() ; ito++) {		// note: if using iteractor for vector, need 'const_iteractor' for const vector
 			//if(IsMatched(JAResult.at(0), ToMatch.at(i), R)) {
-			if(sqrt(pow(JAResult.at(0).eta()-ToMatch.at(ito).first,2)+pow(JAResult.at(0).phi()-ToMatch.at(ito).second,2))<R)    {
+			if(sqrt(pow(JAResult.at(0).eta()-ToMatch.at(ito).first,2)+pow(JetAnalyzer::phimod2pi(JAResult.at(0).phi()-ToMatch.at(ito).second),2))<R)    {
 				flagtrigmatch=1;
 				//std::cout<<"Jet at (eta,phi)=("<<JAResult.at(0).eta()<<","<<JAResult.at(0).phi()<<") in R="<<R<<" with ("<<ToMatch.at(ito).first<<","<<ToMatch.at(ito).second<<")"<<std::endl;	
 				break;
@@ -489,7 +492,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		if( j1neutralfrac > AjParameters::JetNeutralPertMax )  {
 		//if( (NeutralPart.perp2()/TotalPart.perp2()) > AjParameters::JetNeutralPertMax )  {
 			//std::cout<<"Neutral Jet .. Pass: "<<frac<<" > "<<AjParameters::JetNeutralPertMax <<std::endl;
-			//test #ly return 0;
+			return 0;
 		}
 		//else std::cout<<":D Passed neutral cut~~~"<<std::endl;
 	}
@@ -506,7 +509,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	j1eta = j1.Eta();
 	j1area = JAResult.at(0).area();
 	j1area_err = JAResult.at(0).area_error();
-	//if(j1pt<10) return 0;	// testly
+	//if(j1pt<10) return 0;	
 
 	// For leading jet, how much is the jet pt if increase R to R = 1
 	// find the jet
@@ -522,10 +525,10 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	}
 	else {
 		j1r1pt =  OtherMatchedToLead.at(0).perp();
-		//std::cout<<"INCEASE R="<<R<<"-> R=1 pt = "<<j1pt<<"->"<<j1r1pt<<" phi = "<<j1phi<<"->"<<OtherMatchedToLead.at(0).phi()<<" eta = "<<j1eta<<"->"<<OtherMatchedToLead.at(0).eta()<<" ";	// testly
+		//std::cout<<"INCEASE R="<<R<<"-> R=1 pt = "<<j1pt<<"->"<<j1r1pt<<" phi = "<<j1phi<<"->"<<OtherMatchedToLead.at(0).phi()<<" eta = "<<j1eta<<"->"<<OtherMatchedToLead.at(0).eta()<<" ";	
 	}
 	delete OtherJA;
-	//std::cout<<j1r1pt<<std::endl;	// testly
+	//std::cout<<j1r1pt<<std::endl;	
 
 
 	if(HasDijet) { 
@@ -606,7 +609,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		DiJetPhi = JetAnalyzer::phimod2pi(JAResult.at(0).phi());	// -pi -> pi
 		DiJetEta = JAResult.at(0).eta();
 	}
-	//std::cout<<"DiJetPhi = ("<<JAResult.at(0).phi()<<"-"<<JAResult.at(1).phi()<<")/2="<<DiJetPhi<<std::endl;		// testly
+	//std::cout<<"DiJetPhi = ("<<JAResult.at(0).phi()<<"-"<<JAResult.at(1).phi()<<")/2="<<DiJetPhi<<std::endl;		
 
 
 
@@ -639,7 +642,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		double ipt = pj->perp();	
 		//int icharge = pj->user_info<JetAnalysisUserInfo>().GetQuarkCharge();	
 		//if(fabs(ieta)>max_const_rap) continue;	// rapidity cut		--> MOVE to sUconst
-		//std::cout<<"pt = "<<ipt<<" "<<"eta = "<<ieta<<" "<<" ";		// testly
+		//std::cout<<"pt = "<<ipt<<" "<<"eta = "<<ieta<<" "<<" ";		
 
 		//std::cout<<"Charge = "<<icharge<<std::endl;
 
@@ -647,7 +650,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		float itofbeta = pj->user_info<JetAnalysisUserInfo>().GettofBeta();
 		
 		//std::cout<<"dEdx = "<<idedx<<"\tTOfBeta = "<<itofbeta<<std::endl;
-		//std::cout<<"phi = "<<DiJetPhi<<"-"<<iphi<<" = "<<JetAnalyzer::phimod2pi(iphi-DiJetPhi)<<std::endl;			// testly
+		//std::cout<<"phi = "<<DiJetPhi<<"-"<<iphi<<" = "<<JetAnalyzer::phimod2pi(iphi-DiJetPhi)<<std::endl;			
 		if(fabs(JetAnalyzer::phimod2pi(iphi-DiJetPhi))<((180.-mTranPhiSize)/2.)/180.*TMath::Pi()) {		// leading		phimod2pi(phi) gives -pi ->pi
 			TrkLeadAreadEdx[ntrklead] = idedx;
 			TrkLeadAreaTofbeta[ntrklead] = itofbeta;
@@ -657,7 +660,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 			ntrklead++;
 			ptlead+=ipt;		// scalar sum
 			Spectrum_LeadJetPtvsLeadJetPt->Fill(Ptleadingjet,ipt);	
-			//std::cout<<"leading"<<std::endl;		// testly
+			//std::cout<<"leading"<<std::endl;		
 		}
 		if(fabs(JetAnalyzer::phimod2pi(iphi-DiJetPhi))>((180.+mTranPhiSize)/2.)/180.*TMath::Pi()) {	//sub-leading
 			TrkSubAreadEdx[ntrksublead] = idedx;
@@ -668,7 +671,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 			ntrksublead++;
 			ptsublead+=ipt;		// scalar sum
 			Spectrum_SubJetPtvsLeadJetPt->Fill(Ptleadingjet,ipt);	
-			//std::cout<<"subleading"<<std::endl;		// testly
+			//std::cout<<"subleading"<<std::endl;		
 		}
 		if(JetAnalyzer::phimod2pi(iphi-DiJetPhi)<=((180.+mTranPhiSize)/2.)/180.*TMath::Pi() && JetAnalyzer::phimod2pi(iphi-DiJetPhi)>=((180.-mTranPhiSize)/2.)/180.*TMath::Pi()) {
 			tmp1dEdx.push_back(idedx);
@@ -680,7 +683,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 			pttranmax+=ipt;		// scalar sum
 			Spectrum_TranPtvsLeadJetPt->Fill(Ptleadingjet,ipt);	
 			htmp1->Fill(Ptleadingjet,ipt);
-			//std::cout<<"transverse"<<std::endl;		// testly
+			//std::cout<<"transverse"<<std::endl;		
 		}
 		if(JetAnalyzer::phimod2pi(iphi-DiJetPhi)>=-((180.+mTranPhiSize)/2.)/180.*TMath::Pi() && JetAnalyzer::phimod2pi(iphi-DiJetPhi)<=-((180.-mTranPhiSize)/2.)/180.*TMath::Pi()) {
 			tmp2dEdx.push_back(idedx);
@@ -692,7 +695,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 			pttranmin+=ipt;		// scalar sum
 			Spectrum_TranPtvsLeadJetPt->Fill(Ptleadingjet,ipt);	
 			htmp2->Fill(Ptleadingjet,ipt);
-			//std::cout<<"transverse"<<std::endl;	// testly
+			//std::cout<<"transverse"<<std::endl;	
 		}
 	}
 
