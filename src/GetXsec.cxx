@@ -44,7 +44,7 @@ int main() {
 
 	for(int i = 0; i<NpT; i++) {
 		string infilename="";
-		infilename+="/home/fas/caines/ly247/Scratch/embedPythia/160719/CrossSectionFiles/pt";
+		infilename+="/home/fas/caines/ly247/Scratch/embedPythia/160726/CrossSectionFiles/pt";
 		infilename+=ptbin[i];
 		infilename+=".xSec.txt";
 		//cout<<"read "<<infilename<<endl;

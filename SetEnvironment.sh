@@ -23,7 +23,7 @@ declare -x STARPICOPATH=${BASEDIR}/PicoCode/eventStructuredAu
 #declare -x STARPICOPATH=/home/hep/caines/ly247/Scratch/pp12Pico_150407/code/StRoot/eventStructure
 
 ### RooUnfold. package to unfold jet spectra 
-declare -x RooUnfold=${BASEDIR}/RooUnfold-1.1.1
+declare -x RooUnfold=${BASEDIR}/RooUnfold
 
 
 ##### On rhic21, you can use

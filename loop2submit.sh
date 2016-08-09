@@ -8,13 +8,13 @@ then
 	match=MatchTrig_
 fi
 
-tag=""			#TranPhi30_  Dijet_ kT_  NoTofMatch_ R0.2
+tag=""			#TranPhi30_  Dijet_ kT_  NoTofMatch_; BemcOrTofMatch_; BemcMatch_ (default one will be match to TOF only)  R0.2
 
 echo $trg $match 
 
-for jetcharge in FullJet ChargeJet 
+for jetcharge in FullJet #ChargeJet 
 do
-	for undercharge in TransCharged TransNeutral  
+	for undercharge in TransCharged #TransNeutral  
 	do 
 		for i in {0..9}
 		do

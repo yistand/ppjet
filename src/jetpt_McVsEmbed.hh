@@ -51,6 +51,8 @@ class jetpt_McVsEmbed
 		bool flagMatch2LeadGood;
 		bool flagMatch2SubGood;	
 
+		bool trigmatch;		
+
 		// For output 
 		TFile *fout;
 		TString OutFileName;

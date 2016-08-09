@@ -114,12 +114,19 @@ lib/libMyJetlib.so	: $(ODIR)/JetAnalyzer.o $(ODIR)/dict.o $(ODIR)/ktTrackEff.o
 
 $(ODIR)/JetAnalyzer.o 		: $(SDIR)/JetAnalyzer.cxx $(INCS)
 $(ODIR)/UnderlyingAna.o 	 	: $(SDIR)/UnderlyingAna.cxx $(INCS) $(SDIR)/UnderlyingAna.hh
+$(ODIR)/jetpt_McVsEmbed.o 	 	: $(SDIR)/jetpt_McVsEmbed.cxx $(INCS) $(SDIR)/jetpt_McVsEmbed.hh
 
+
+
+#underlying event
+$(BDIR)/PicoJetUnderlyingActivity		: $(ODIR)/PicoJetUnderlyingActivity.o		$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so
+$(BDIR)/STARPythiaJetUnderlyingActivity		: $(ODIR)/STARPythiaJetUnderlyingActivity.o	$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so
+$(BDIR)/EmbedPythiaJetUnderlyingActivity		: $(ODIR)/EmbedPythiaJetUnderlyingActivity.o	$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so
+$(BDIR)/PicoJetMcVsEmbed		: $(ODIR)/PicoJetMcVsEmbed.o	$(ODIR)/jetpt_McVsEmbed.o	 	lib/libMyJetlib.so
+$(BDIR)/HCPicoJetMcVsEmbed		: $(ODIR)/HCPicoJetMcVsEmbed.o	$(ODIR)/jetpt_McVsEmbed.o	 	lib/libMyJetlib.so
 
 
 #Aj
-$(BDIR)/PicoJetUnderlyingActivity		: $(ODIR)/PicoJetUnderlyingActivity.o		$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so
-$(BDIR)/STARPythiaJetUnderlyingActivity		: $(ODIR)/STARPythiaJetUnderlyingActivity.o	$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so
 $(BDIR)/ppInAuAuAj 	: $(ODIR)/ppInAuAuAj.o 		$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so
 $(BDIR)/ppInMcAj	: $(ODIR)/ppInMcAj.o		$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so
 $(BDIR)/PythiaAj	: $(ODIR)/PythiaAj.o 		$(ODIR)/UnderlyingAna.o	 	lib/libMyJetlib.so

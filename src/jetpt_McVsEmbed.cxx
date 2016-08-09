@@ -133,6 +133,9 @@ int jetpt_McVsEmbed::Init()
 	ResultTree->Branch("flagMatch2Lead",&flagMatch2Lead, "flagMatch2Lead/O");	// caps letter o for Bool_t
 	ResultTree->Branch("flagMatch2Sub",&flagMatch2Sub, "flagMatch2Sub/O");	// o for Bool_t
 
+	// Match to trig
+	ResultTree->Branch("trigmatch",&trigmatch, "trigmatch/O");   
+
 	// Particle level
 	ResultTree->Branch("Mcrefmult",&Mcrefmult, "Mcrefmult/D");
 	ResultTree->Branch("Mcvz",&Mcvz, "Mcvz/D");
@@ -346,21 +349,25 @@ int jetpt_McVsEmbed::Make (	const std::vector<fastjet::PseudoJet>& Mcparticles,
 	// Do any Reconstructed (Rc) jets match to the one fired the trigger?
 	// ---------------------------------------------------------
 	bool flagtrigmatch = true;		// assuming no need to match. set to 1 for not care. 
-	if ( mNeedToMatchTrig ){
-		flagtrigmatch = false;		// if we want to match
-		if(  ToMatch.size()>0 && flagGoodEtaRcJet ) {
-			for(unsigned int ito = 0; ito<ToMatch.size() ; ito++) {		// note: if using iteractor for vector, need 'const_iteractor' for const vector
-				//if(IsMatched(RcJAResult.at(0), ToMatch.at(i), R)) {
-				if(sqrt(pow(RcJAResult.at(0).eta()-ToMatch.at(ito).first,2)+pow(JetAnalyzer::phimod2pi(RcJAResult.at(0).phi()-ToMatch.at(ito).second),2))<R)    {
-					flagtrigmatch=true;
-					if(mVerbose) std::cout<<"Jet at (eta,phi)=("<<RcJAResult.at(0).eta()<<","<<RcJAResult.at(0).phi()<<") in R="<<R<<" with ("<<ToMatch.at(ito).first<<","<<ToMatch.at(ito).second<<")"<<std::endl;	
-					break;
-				}
+	trigmatch = false;			// this one is the real value for matching to record in ResultTree 
+
+	std::cout<<std::endl<<"eventid = "<<eventid<<" Vz = "<<Rcvz<<std::endl;		//test 
+	if(RcnosjetJAResult.size()>0) std::cout<<"nosjet jet pt "<<RcnosjetJAResult.at(0).pt()<<"at (eta,phi)=("<<RcnosjetJAResult.at(0).eta()<<","<<RcnosjetJAResult.at(0).phi()<<")"<<std::endl;
+	if(  ToMatch.size()>0 && flagGoodEtaRcJet ) {
+		for(unsigned int ito = 0; ito<ToMatch.size() ; ito++) {		// note: if using iteractor for vector, need 'const_iteractor' for const vector
+			if(sqrt(pow(RcJAResult.at(0).eta()-ToMatch.at(ito).first,2)+pow(JetAnalyzer::phimod2pi(RcJAResult.at(0).phi()-ToMatch.at(ito).second),2))<R)    {
+				trigmatch=true;
+				if(mVerbose) std::cout<<"Jet pt "<<RcJAResult.at(0).pt()<<" at (eta,phi)=("<<RcJAResult.at(0).eta()<<","<<RcJAResult.at(0).phi()<<") in R="<<R<<" matched to trigger ("<<ToMatch.at(ito).first<<","<<ToMatch.at(ito).second<<")"<<std::endl;	
+				break;
 			}
+			else if(mVerbose) std::cout<<"not for "<<ToMatch.at(ito).first<<","<<ToMatch.at(ito).second<<std::endl;
 		}
-		if(!flagtrigmatch) {
-			if(mVerbose) std::cout<<"No Match for Jet at (eta,phi)=("<<RcJAResult.at(0).eta()<<","<<RcJAResult.at(0).phi()<<") "<<std::endl;	
-		}
+	}
+
+
+	if ( mNeedToMatchTrig && flagGoodEtaRcJet && !trigmatch){
+		flagtrigmatch = false;		
+		if(mVerbose) std::cout<<"No Match for Jet at (eta,phi)=("<<RcJAResult.at(0).eta()<<","<<RcJAResult.at(0).phi()<<") "<<std::endl;	
 	}
 
 	// Neutral fraction cut?

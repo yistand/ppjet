@@ -7,6 +7,10 @@
 //	2016.07.20	Li YI
 //	Need to do it for each simulated parton pt bin. Then weigthed by cross section/generated events
 //
+//
+//	2016.07.30	Li YI
+//	check Helen Caines's run 6 pp pythia throught GEANT
+//
 //==============================================================================================================
 
 
@@ -74,7 +78,7 @@ float CorrectBemcVzEta(float geoEta, float PrimVertexZ, float radius = 224){	// 
 	return corrEta;
 
 }
-
+/*
 bool readinbadrunlist(std::set<int> & badrun, TString csvfile="./include/pp200Y12_badrun.list") {
 	
 	// open infile
@@ -107,7 +111,7 @@ bool readinbadrunlist(std::set<int> & badrun, TString csvfile="./include/pp200Y1
 	return true;
 }
 
-
+*/
 
 // Helper to deal with repetitive stuff
 // Reader for Rc (reconstructed)
@@ -120,8 +124,8 @@ TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const dou
 	// Event and track selection
 	// -------------------------
 	TStarJetPicoEventCuts* evCuts = reader.GetEventCuts();
-	evCuts->SetTriggerSelection( TriggerString ); //All, MB, HT, pp, ppHT, ppJP
-	//evCuts->SetTriggerSelection( "All" ); //All, MB, HT, pp, ppHT, ppJP	// test
+	//evCuts->SetTriggerSelection( TriggerString ); //All, MB, HT, pp, ppHT, ppJP
+	evCuts->SetTriggerSelection( "All" ); //All, MB, HT, pp, ppHT, ppJP	// test
 	// Additional cuts 
 	evCuts->SetVertexZCut (AjParameters::VzCut);
 	evCuts->SetRefMultCut ( RefMultCut );
@@ -130,7 +134,7 @@ TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const dou
 	evCuts->SetMaxEventPtCut ( AjParameters::MaxEventPtCut );
 	evCuts->SetMaxEventEtCut ( AjParameters::MaxEventEtCut );
 
-	evCuts->SetPVRankingCut ( 0 );		// Vertex ranking > 0. Use SetPVRankingCutOff() to turn off vertex ranking cut.  default is OFF
+	//test evCuts->SetPVRankingCut ( 0 );		// Vertex ranking > 0. Use SetPVRankingCutOff() to turn off vertex ranking cut.  default is OFF
 
 	std::cout << "Exclude event with track > " << evCuts->GetMaxEventPtCut() << std::endl;
 	std::cout << "Exclude event with tower > " << evCuts->GetMaxEventEtCut() << std::endl;
@@ -151,7 +155,8 @@ TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const dou
 	// Towers
 	TStarJetPicoTowerCuts* towerCuts = reader.GetTowerCuts();
 	towerCuts->SetMaxEtCut(AjParameters::MaxEtCut);
-	towerCuts->AddBadTowers("./include/pp200Y12_badtower.list");		// #LY CHECK where is the bad tower list
+	// no bad tower list for run 6
+	//towerCuts->AddBadTowers("./include/pp200Y12_badtower.list");		// #LY CHECK where is the bad tower list
 
 	// Tower energy correction (subtract associated charged particle deposit energy). By default, it is MIP correction (comment out the following 3 lines)
 	reader.SetApplyFractionHadronicCorrection(kTRUE);
@@ -185,7 +190,8 @@ TStarJetPicoReader SetupMcReader ( TChain* chain){
 	evCuts->SetRefMultCut (0);
 	evCuts->SetVertexZDiffCut(999999);
 
-	evCuts->SetMaxEventPtCut (99999);
+	//test evCuts->SetMaxEventPtCut (99999);
+	evCuts->SetMaxEventPtCut ( AjParameters::MaxEventPtCut );	//test 
 	evCuts->SetMaxEventEtCut (99999);
 
 	evCuts->SetPVRankingCutOff();		//  Use SetPVRankingCutOff() to turn off vertex ranking cut.  default is OFF
@@ -215,8 +221,7 @@ TStarJetPicoReader SetupMcReader ( TChain* chain){
 
 int main ( int argc, const char** argv ) {
 
-	const char *defaults[] = {"PicoJetMcVsEmbed","/home/fas/caines/ly247/Scratch/embedPythia/pt2_3_JetMcVsEmbedMatchTrig.root","ppJP2","/home/fas/caines/ly247/Scratch/embedPythia/160726/pt2_3*.root"};
-	//const char *defaults[] = {"PicoJetMcVsEmbed","test.root","ppJP2","~/Scratch/embedPythia/160726/pp12Pico_pt35_-1*.root"};
+	const char *defaults[] = {"HCPicoJetMcVsEmbed","HCpt11_15_JetMcVsEmbedMatchTrig.root","ppJP2","/scratch/fas/caines/hlc7/pp2006PythiaBBC/11_15/picoDst_11_15_*root"};
 
 
 	if ( argc==1 ) {
@@ -260,7 +265,8 @@ int main ( int argc, const char** argv ) {
 	TString TriggerName = arguments.at(1);
 
 	int TrigFlagId = 0;
-	if(TriggerName.EqualTo("ppJP2")) TrigFlagId = 1236;		//// JP2               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
+	//run12 if(TriggerName.EqualTo("ppJP2")) TrigFlagId = 1236;		//// JP2               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
+	if(TriggerName.EqualTo("ppJP2")) TrigFlagId = 2;		//// JP2               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND	// run 6
 
 
 	cout<<"Chain data: "<<arguments.at(2).data()<<" for "<<RcChainName<<" and "<<McChainName<<endl;
@@ -287,7 +293,7 @@ int main ( int argc, const char** argv ) {
 	  reader.SetTrackPileUpCut(3);		// #ly	3: tpc track matching to bemc.		1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
 	}
 
-	TStarJetPicoDefinitions::SetDebugLevel(10);
+	TStarJetPicoDefinitions::SetDebugLevel(0);
 
 	TStarJetPicoReader Mcreader = SetupMcReader( Mcchain); 
 
@@ -336,7 +342,7 @@ int main ( int argc, const char** argv ) {
 
 	//readinbadrunlist(badrun);        
 
-	jme->SetVerbose(10);
+	jme->SetVerbose(0);
 
 	Long64_t nEvents=-1; // -1 for all
 	//nEvents=1000;	// test
@@ -419,7 +425,7 @@ int main ( int argc, const char** argv ) {
 				// Load event ht/jetpatch trigger objs
 				// ----------
 				//std::cout<<"load trigger objs"<<endl;	
-				//test if(jme->GetToMatchJetTrigger()) {
+				//if(jme->GetToMatchJetTrigger()) {		// record trig obj no matter require to match or not
 					TClonesArray *trigobj = reader.GetEvent()->GetTrigObjs();
 					for(int itrg = 0; itrg<trigobj->GetEntries(); itrg++) {
 						if( ((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetTriggerFlag()==TrigFlagId )	 { 
@@ -427,7 +433,7 @@ int main ( int argc, const char** argv ) {
 							TrigLoc2Match.push_back(itrigloc);
 						}
 					}
-				//test }
+				//}
 
 
 				// Load event particles
@@ -443,7 +449,8 @@ int main ( int argc, const char** argv ) {
 
 					//if (sv->GetCharge()==0 ) (*sv) *= fTowScale; // for systematics
 					pj=MakePseudoJet( sv );
-					pj.set_user_info ( new JetAnalysisUserInfo( 3*sv->GetCharge(), sv->GetFeatureD(TStarJetVector::_DEDX), sv->GetFeatureD(TStarJetVector::_TOFBETA) ) );
+					//run 12 pj.set_user_info ( new JetAnalysisUserInfo( 3*sv->GetCharge(), sv->GetFeatureD(TStarJetVector::_DEDX), sv->GetFeatureD(TStarJetVector::_TOFBETA) ) );
+					pj.set_user_info ( new JetAnalysisUserInfo( 3*sv->GetCharge() ) );	// run 6
 					pj.set_user_index(ip);		// #ly	link fastjet::PseudoJet to TStarJetVector class	--> NEED TO FIX THIS, NOT SURE WHY USER_INFO IS NOT PASSED TO JAResult.at(0).constituents() in UnderlyingAna.cxx
 					//cout<<"input "<<sv->GetCharge() <<" -> "<<pj.user_info<JetAnalysisUserInfo>().GetQuarkCharge()<<endl;	 
 
