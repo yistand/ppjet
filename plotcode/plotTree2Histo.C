@@ -199,24 +199,25 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
   	  return;
   	}
 
-	int MCflag=0;			// if you don't want to correct for TOF/TPC efficency at this point, for example, do it as part of unfolding procedure, you can just set MCflag=1. Then it will be treated as pure MC (not geant) and no correction will be applied. 
+	int MCflag=1;			// if you don't want to correct for TOF/TPC efficency at this point, for example, do it as part of unfolding procedure, you can just set MCflag=1. Then it will be treated as pure MC (not geant) and no correction will be applied. 
 	// if you are working on embedding (MC + geant), you can apply corrections. 
 	if(filetag.Contains("pythia",TString::kIgnoreCase)) 	{
 		MCflag = 1;
-		cout<<endl<<"INFO: process as MC data: not efficiency correction will be applied"<<endl;
+		cout<<endl<<"INFO: process as MC data: no efficiency correction will be applied"<<endl;
 	}
 
 	int chargeflag = 1;
 	if(filetag.Contains("Charge0",TString::kIgnoreCase)||filetag.Contains("TransNeutral",TString::kIgnoreCase)) chargeflag = 0;
 	cout<<endl<<"INFO: underlying event chargeflag == "<<chargeflag<<endl;
-	if(chargeflag==1&&MCflag==0) cout<<"Apply TPC tracking & TOF matching efficiency"<<endl;
-	cout<<endl;
+	if(chargeflag==1&&MCflag==0) cout<<"Apply TPC tracking efficiency"<<endl;
 
 	// TOFMATCH:
 	// 		==1: tracks matched to TOF and the matching efficiency will be corrected
 	// 		==0: No TOF matching efficiency correction
 	int TOFMATCH = 1;		// default one: do the TOF Matching and correction needed.
 	if(filetag.Contains("NoTofMatch",TString::kIgnoreCase)) TOFMATCH=0;
+	if(chargeflag==1&&MCflag==0&&TOFMATCH==1) cout<<"Apply TOF matching efficiency"<<endl;
+	cout<<endl;
 
 	int savefig = 0;
 	int saveroot = 1; 
@@ -779,7 +780,10 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 		if( ((what2fill.Contains("refmult",TString::kIgnoreCase))||(what2fill.Contains("multiplicity",TString::kIgnoreCase))||(what2fill.Contains("transntrk",TString::kIgnoreCase))||(what2fill.Contains("tranntrk",TString::kIgnoreCase))) && (fabs(jetptmin-10)>1e-6||fabs(jetptmax-200)>1e-6)) {
 			jettag = Form("_jet%g-%g",jetptmin,jetptmax);	
 		} 
-		TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+".root";
+		if(MCflag==1) {
+			jettag+="_NoEffCorr";
+		}
+		TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_160712.root";
 		//TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_NeutralFrac75.root";
 		//TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_wR1"+".root";
 		//TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_AsJetGt5"+".root";
