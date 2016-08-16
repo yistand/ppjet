@@ -94,8 +94,8 @@ jetpt_McVsEmbed::jetpt_McVsEmbed (	double R,
 	ResultTree = NULL;				// event will be filled if there is >=1 Mc jet found
 
 	// Histogram
-	McMatchedLeadJetPt = NULL;			// Mc Jet, when Detector Leading and Particle level Leading or subleading Jet geometrical matched, take the leading Mc/Particle-level jet
-	McMatchedLeadOrSubJetPt = NULL;			// Mc Jet, when Detector Leading and Particle level Leading or subleading Jet geometrical matched, take the matched leading or subleading Mc/Particle-level jet
+	McMatchedLeadJetPt = NULL;			// Mc Jet, when Detector Leading and Particle level Leading Jet geometrical matched, take the leading Mc/Particle-level jet
+	McMatchedLeadOrSubJetPt = NULL;			// Mc Jet, when Detector Leading and Particle level Leading or subleading Jet geometrical matched, take the leading Mc/Particle-level jet
 	CovMcMatchedLeadJetVsRcJet = NULL;
 	CovMcMatchedLeadOrSubJetVsRcJet = NULL;
 	McLeadJetPt = NULL;				// Mc Leading Jet, no matter whether there is a detector level jet matched to it or not
