@@ -30,6 +30,7 @@ using std::endl;
 #include "RooUnfoldBayes.h"
 //#include "RooUnfoldSvd.h"
 //#include "RooUnfoldTUnfold.h"
+//#include "RooUnfoldBinByBin.h"
 #endif
 
 void UseAnotherPrior(TH1D *truth, TH2D *cov, TH1D *measured, TH1D *modtruth, TH2D *modcov, TH1D *modmeasured, float par=0.01) {
@@ -58,6 +59,7 @@ void UseAnotherPrior(TH1D *truth, TH2D *cov, TH1D *measured, TH1D *modtruth, TH2
 
 TH2D *Rebin2DHisto(TH2D *old, int Nx, double *xbins, int Ny, double *ybins){
 	TH2D *h = new TH2D(Form("Rebin%s",Form("Rebin%s",old->GetName())),old->GetTitle(),Nx,xbins,Ny,ybins);	
+	h->Sumw2();
 	TAxis *xaxis = old->GetXaxis();
 	TAxis *yaxis = old->GetYaxis();
 	for (int j=1; j<=yaxis->GetNbins();j++) {
@@ -71,21 +73,36 @@ TH2D *Rebin2DHisto(TH2D *old, int Nx, double *xbins, int Ny, double *ybins){
 
 
 //========================================= MAIN ===========================================
-void UnfoldJetpT() {
+void UnfoldJetpT(int par=4) {
 
 	gStyle->SetOptStat(0);
 	gStyle->SetOptTitle(0);
 
 	cout << "==================================== TRAIN ====================================" << endl;
-	TFile *fin = new TFile("UnfoldMatrxLead.root");
+	TFile *fin = new TFile("UnfoldMatrxLead_Online_nobbc.root");
 	TH1D *measured = (TH1D*)fin->Get("Rc");
 	TH1D *truth = (TH1D*)fin->Get("Mc");
 	TH2D *cov = (TH2D*)fin->Get("CovMatrix");
+	measured->Sumw2();
+	truth->Sumw2();
+	cov->Sumw2();
+
+	TH1D *measured_save = (TH1D*)measured->Clone("Rc");
+	TH1D *truth_save = (TH1D*)truth->Clone("Mc");
+	TH2D *cov_save = (TH2D*)cov->Clone("CovMatrix");
 
 	RooUnfoldResponse response (measured, truth, cov);
+	//RooUnfoldResponse response (measured, cov->ProjectionY(), cov); // test
+	//RooUnfoldResponse response (cov->ProjectionX(),truth, cov); // test
+	//RooUnfoldResponse response (cov->ProjectionX(), cov->ProjectionY(), cov); // test
+
+	int iter = par;			// for RooUnfoldBayes		// default 4
+	int kterm = par;			// for RooUnfoldSvd	// default 4
 
 	cout << "==================================== self TEST =====================================" << endl;
-	RooUnfoldBayes   unfold (&response, measured, 4);  
+	RooUnfoldBayes   unfold (&response, measured, iter);  
+	//RooUnfoldSvd   unfold (&response, measured, kterm);  
+	//RooUnfoldBinByBin unfold(&response, measured);
 	TH1D* reco= (TH1D*) unfold.Hreco();
 
 	//#define CHANGE_PRIOR
@@ -102,15 +119,19 @@ void UnfoldJetpT() {
 	modcov->Reset();
 	UseAnotherPrior(truth, cov, measured, modtruth, modcov, modmeasured, -0.1);
 	RooUnfoldResponse modresponse (modmeasured, modtruth, modcov);
-	RooUnfoldBayes   modunfold (&modresponse, measured, 4);  
+	RooUnfoldBayes   modunfold (&modresponse, measured, iter);  
+	//RooUnfoldSvd   modunfold (&modresponse, measured, kterm);  
+	//RooUnfoldBinByBin modunfold(&modresponse, measured);
 	reco= (TH1D*) modunfold.Hreco();
 	#endif
+
+	reco->SetName("unfold_train");
 
 	TCanvas *c1 = new TCanvas("ctest");
 	c1->SetLogy();
 	reco->SetLineColor(1);
 	reco->GetXaxis()->SetTitle("Leading Jet p_{T}");
-	reco->GetYaxis()->SetTitle("Cross Section");
+	reco->GetYaxis()->SetTitle("d(Number of events)/dp_{T}");
 	reco->DrawClone("h");
 	measured->SetLineColor(kOrange);
 	measured->SetLineWidth(2);
@@ -145,17 +166,55 @@ void UnfoldJetpT() {
 	cout << "==================================== UNFOLDING  =====================================" << endl;
 	TFile *freal = new TFile("/home/fas/caines/ly247/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_TransCharged_MatchTrig_ppJP2_151030_P12id.root");
 	TH1D *LeadJetPt_data = (TH1D*)freal->Get("LeadingJetPt");
+	TH1D *LeadJetPt_data_save = (TH1D*)LeadJetPt_data->Clone("LeadJetPt_data");
 
 	//#define CUT_HIGH_PT
+	//#define CUT_LOW_PT
+	
+	double cutoffhigh=50;
+	double cutofflow=7;
 
 	#ifdef CUT_HIGH_PT
 	cout << "INFO: CUT off high pT in Rc jet " << endl;
 	for(int i = 0; i<LeadJetPt_data->GetNbinsX(); i++) {
-		if(LeadJetPt_data->GetBinCenter(i+1)>50) {
+		if(LeadJetPt_data->GetBinCenter(i+1)>cutoffhigh) {
 			LeadJetPt_data->SetBinContent(i+1,0);	
 			LeadJetPt_data->SetBinError(i+1,0);	
 		}
 	}
+	#endif
+
+	#ifdef CUT_LOW_PT
+	cout << "INFO: CUT off low pT in Rc jet " << endl;
+	for(int i = 0; i<LeadJetPt_data->GetNbinsX(); i++) {
+		if(LeadJetPt_data->GetBinCenter(i+1)<cutofflow) {
+			LeadJetPt_data->SetBinContent(i+1,0);	
+			LeadJetPt_data->SetBinError(i+1,0);	
+		}
+	}
+	#endif
+
+	#if defined(CUT_HIGH_PT) && defined(CUT_LOW_PT) 
+	for(int i = 0; i<measured->GetNbinsX(); i++) {
+                if((measured->GetBinCenter(i+1)>cutoffhigh) || (measured->GetBinCenter(i+1)<cutofflow)) {
+                        measured->SetBinContent(i+1,0);
+                        measured->SetBinError(i+1,0);
+                }
+        }
+	for(int i = 0; i<truth->GetNbinsX(); i++) {
+                if((truth->GetBinCenter(i+1)>cutoffhigh) || (truth->GetBinCenter(i+1)<cutofflow)) {
+                        truth->SetBinContent(i+1,0);
+                        truth->SetBinError(i+1,0);
+                }
+        }
+	for(int i = 0; i<cov->GetNbinsX(); i++) {
+		for(int j = 0; j<cov->GetNbinsY(); j++) {
+                	if((cov->GetXaxis()->GetBinCenter(i+1)>cutoffhigh) || (cov->GetXaxis()->GetBinCenter(i+1)<cutofflow) || (cov->GetYaxis()->GetBinCenter(j+1)>cutoffhigh) || (cov->GetYaxis()->GetBinCenter(j+1)<cutofflow)) {
+                	        cov->SetBinContent(i+1,j+1,0);
+                	        cov->SetBinError(i+1,j+1,0);
+                	}
+		}
+        }
 	#endif
 
 
@@ -170,18 +229,28 @@ void UnfoldJetpT() {
 	TH1D *Wtruth = (TH1D*)truth->Rebin(WNbins,"Wtruth",Wptbins);
 	RooUnfoldResponse Wresponse (Wmeasured, Wtruth, Wcov);
 	TH1D *WLeadJetPt_data = (TH1D*)LeadJetPt_data->Rebin(WNbins,"WLeadJetPt_data",Wptbins);
+
+	TH1D *Wtruth_save = (TH1D*)Wtruth->Clone("Wtruth");
+	TH1D *Wmeasured_save = (TH1D*)Wmeasured->Clone("Wmeasured");
+	TH2D *Wcov_save = (TH2D*)Wcov->Clone("Wcov");
 	#endif
 
 
 	#if !defined(CHANGE_PRIOR) && !defined(WIDEBIN)
-	RooUnfoldBayes   unfold_data (&response, LeadJetPt_data , 4);
+	RooUnfoldBayes   unfold_data (&response, LeadJetPt_data , iter);
+	//RooUnfoldSvd   unfold_data (&response, LeadJetPt_data , kterm);
+	//RooUnfoldBinByBin unfold_data(&response, LeadJetPt_data);
 
 	#elif !defined(CHANGE_PRIOR) && defined(WIDEBIN)
-	RooUnfoldBayes   unfold_data (&Wresponse, WLeadJetPt_data , 4);
+	RooUnfoldBayes   unfold_data (&Wresponse, WLeadJetPt_data , iter);
+	//RooUnfoldSvd   unfold_data (&Wresponse, WLeadJetPt_data , kterm);
+	//RooUnfoldBinByBin unfold_data(&Wresponse, WLeadJetPt_data);
 
 	#elif defined(CHANGE_PRIOR) && !defined(WIDEBIN) 
 	cout << "INFO: Use the modified prior " << endl;
-	RooUnfoldBayes   unfold_data (&modresponse, LeadJetPt_data , 4);
+	RooUnfoldBayes   unfold_data (&modresponse, LeadJetPt_data , iter);
+	//RooUnfoldSvd   unfold_data (&modresponse, LeadJetPt_data , kterm);
+	//RooUnfoldBinByBin unfold_data(&modresponse, LeadJetPt_data);
 
 	#elif defined(CHANGE_PRIOR) && defined(WIDEBIN) 
 	cout << "INFO: Use the modified prior " << endl;
@@ -189,15 +258,24 @@ void UnfoldJetpT() {
 	TH1D *Wmodmeasured = (TH1D*)modmeasured->Rebin(WNbins,"Wmodmeasured",Wptbins);
 	TH1D *Wmodtruth = (TH1D*)modtruth->Rebin(WNbins,"Wmodtruth",Wptbins);
 	RooUnfoldResponse Wmodresponse (Wmodmeasured, Wmodtruth, Wmodcov);
-	RooUnfoldBayes   unfold_data (&Wmodresponse, WLeadJetPt_data , 4);
+	RooUnfoldBayes   unfold_data (&Wmodresponse, WLeadJetPt_data , iter);
+	//RooUnfoldSvd   unfold_data (&Wmodresponse, WLeadJetPt_data , kterm);
+	//RooUnfoldBinByBin unfold_data(&Wmodresponse, WLeadJetPt_data);
 
 	#endif
 
 	TH1D *UnfoldedLeadJetPt_data = (TH1D*)unfold_data.Hreco();
 	UnfoldedLeadJetPt_data->SetName("UnfoldedLeadJetPt_data");
+
+	//unfold_data.Print();		// print detailed bin-to-bin information
+
+	cout << "Get nFake = "<<unfold_data.GetMeasureFake()<< endl;
 	
-	float ptmin = 10; // 12;
-	float ptmax = 50; // 40;
+	TH1D *UnfoldedLeadJetPt_data_save  = (TH1D*)UnfoldedLeadJetPt_data->Clone("unfold");
+
+
+	float ptmin = 15; // 12; 10;
+	float ptmax = 40; // 40; 50;
 	int ixmin=truth->FindBin(ptmin);
 	int ixmax=truth->FindBin(ptmax);
 	int Uxmin=UnfoldedLeadJetPt_data->FindBin(ptmin);
@@ -283,6 +361,8 @@ void UnfoldJetpT() {
 	hrcr->GetXaxis()->SetTitle("Leading Jet p_{T}");
 	hrcr->GetYaxis()->SetTitle("Ratio");
 	hmcr->SetMarkerSize(1.5);
+	hrcr->SetMaximum(2);
+	hrcr->SetMinimum(0);
 	hrcr->DrawClone();
 	hmcr->DrawClone("same");
 	TLine *line = new TLine(0,1,hrcr->GetBinLowEdge(hrcr->GetNbinsX()+1),1);
@@ -294,6 +374,29 @@ void UnfoldJetpT() {
 	leg2->AddEntry(hmcr,"data/MC particle-level","pl");
 	leg2->DrawClone("same");
 
+
+	if(0) {
+		TFile *fout = new TFile(Form("testBayes%d_W.root",iter),"RECREATE");
+		//if(Wmodtruth) Wmodtruth->Write();
+		reco->Write();
+
+		hrcr->Write();
+		UnfoldedLeadJetPt_data_save->Write();
+		
+		#ifdef WIDEBIN
+		Wcov_save->Write();
+		Wmeasured_save->Write();
+		Wtruth_save->Write();
+		WLeadJetPt_data->Write();
+		#else
+		cov_save->Write();
+		measured_save->Write();
+		truth_save->Write();
+		LeadJetPt_data_save->Write();
+		#endif
+
+		fout->Close();
+	}
 
 
 }
