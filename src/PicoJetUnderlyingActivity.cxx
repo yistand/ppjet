@@ -314,7 +314,7 @@ int main ( int argc, const char** argv ) {
 	if( OutFileName.Contains ("BemcMatch") ) {
 	  reader.SetTrackPileUpCut(3);		// #ly	3: tpc track matching to bemc.		1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
 	}
-	TStarJetPicoDefinitions::SetDebugLevel(10);
+	TStarJetPicoDefinitions::SetDebugLevel(0);
 
 	// Initialize analysis class
 	// -------------------------
