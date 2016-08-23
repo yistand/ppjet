@@ -246,6 +246,8 @@ int main ( int argc, const char** argv ) {
 
 	int TrigFlagId = 0;
 	if(TriggerName.EqualTo("ppJP2")) TrigFlagId = 1236;		//// JP2               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
+	if(TriggerName.EqualTo("ppJP1")) TrigFlagId = 1228;		//// JP1               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
+	if(TriggerName.EqualTo("ppJP0")) TrigFlagId = 1220;		//// JP1               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
 
 
 	cout<<"Chain data: "<<arguments.at(2).data()<<" for "<<ChainName<<endl;
@@ -312,7 +314,7 @@ int main ( int argc, const char** argv ) {
 	if( OutFileName.Contains ("BemcMatch") ) {
 	  reader.SetTrackPileUpCut(3);		// #ly	3: tpc track matching to bemc.		1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
 	}
-	TStarJetPicoDefinitions::SetDebugLevel(0);
+	TStarJetPicoDefinitions::SetDebugLevel(10);
 
 	// Initialize analysis class
 	// -------------------------
@@ -436,6 +438,7 @@ int main ( int argc, const char** argv ) {
 			// Load event ht/jetpatch trigger objs
 			// ----------
 			//std::cout<<"load trigger objs"<<endl;	
+			TrigLoc2Match.clear();
 			if(ula->GetToMatchJetTrigger()) {
 				TClonesArray *trigobj = reader.GetEvent()->GetTrigObjs();
 				for(int itrg = 0; itrg<trigobj->GetEntries(); itrg++) {
@@ -454,7 +457,6 @@ int main ( int argc, const char** argv ) {
 			// Make particle vector
 			// --------------------
 			particles.clear();
-			TrigLoc2Match.clear();
 
 			for (int ip = 0; ip<container->GetEntries() ; ++ip ){
 				sv = container->Get(ip);  // Note that TStarJetVector contains more info, such as charge;
