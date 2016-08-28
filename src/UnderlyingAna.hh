@@ -198,6 +198,9 @@ private :
   fastjet::Selector select_jet_pt_max;     ///< jet p<SUB>T</SUB> selector
   fastjet::Selector sjet;                  ///< compound jet selector
 
+// Selector pseudojet not ghost
+  fastjet::Selector NoGhosts;		///< non-ghost jet  
+
   fastjet::GhostedAreaSpec area_spec;      ///< ghosted area specification
   fastjet::AreaDefinition area_def;        ///< jet area definition
 

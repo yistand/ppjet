@@ -63,6 +63,10 @@ UnderlyingAna::UnderlyingAna ( double R,
 	select_jet_rap     = fastjet::SelectorAbsRapMax(max_rap);
 	sjet = select_jet_rap ;
 
+	// Non-ghost selector
+	// -----------------------
+	NoGhosts = !fastjet::SelectorIsPureGhost();
+
 	// Choose a jet and area definition
 	// --------------------------------
 	//jet_def = fastjet::JetDefinition(fastjet::antikt_algorithm, R);
@@ -398,7 +402,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	// NO background subtraction
 	pJA = new JetAnalyzer( Jconstituents, jet_def, area_def);		// still need area def
 	JetAnalyzer& JA = *pJA;
-	JAResult = fastjet::sorted_by_pt( sjet ( JA.inclusive_jets() ) ); // NO background subtraction
+	JAResult = fastjet::sorted_by_pt( NoGhosts( sjet ( JA.inclusive_jets() ) ) ); // NO background subtraction, with jet eta requirement
 	
 	if ( JAResult.size() < 1 )                 {   
 		//std::cout<<"SKIP EVENT: Nojet!!!"<<std::endl;  
@@ -407,7 +411,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	if ( JAResult.at(0).pt() > 10 )            { Has10Gev=true; }
 
 
-	// NO background subtraction && NO jet eta subtraction. This is used for --> when the hardest jet outside jet eta coverage, but inside underlying event study eta coverage, it could end up in any toward, away, transverse regions and disturb the study by selecting different regions. Therefore it is better to not use these events.
+	// NO background subtraction && NO jet eta requirement. This is used for --> when the hardest jet outside jet eta coverage, but inside underlying event study eta coverage, it could end up in any toward, away, transverse regions and disturb the study by selecting different regions. Therefore it is better to not use these events.
 	JetAnalyzer *nosjetJA = new JetAnalyzer( Jconstituents, jet_def);
 	std::vector<fastjet::PseudoJet> nosjetJAResult = fastjet::sorted_by_pt(nosjetJA->inclusive_jets());
 	if(nosjetJAResult.size()>0&&JAResult.size()>0&&nosjetJAResult.at(0).delta_R(JAResult.at(0))>R) {
@@ -466,7 +470,6 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		//std::cout<<"Neutral/Total Pt of Jet < 90%"<<std::endl;	
 		fastjet::PseudoJet NeutralPart  = fastjet::PseudoJet();
 		fastjet::PseudoJet TotalPart  = fastjet::PseudoJet();	
-		fastjet::Selector NoGhosts = !fastjet::SelectorIsPureGhost();
 		std::vector<fastjet::PseudoJet> constituents = NoGhosts(JAResult.at(0).constituents());
 		int charge=-99;
 		for(unsigned int jco = 0; jco<constituents.size(); jco++) {
