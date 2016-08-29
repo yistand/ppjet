@@ -364,7 +364,7 @@ int main ( int argc, const char** argv ) {
 	// initial ttree & histograms in ula
 	ula->Init();
 
-	if(OutFileName.Contains ("MatchTrig")&&TriggerName.EqualTo("ppJP2") ) ula->SetToMatchJetTrigger(true);			// whether match jet found with fastjet with the location which fired the trigger, NEED TO CHECK TrigFlagId
+	if(OutFileName.Contains ("MatchTrig")&&TriggerName.Contains("ppJP") ) ula->SetToMatchJetTrigger(true);			// whether match jet found with fastjet with the location which fired the trigger, NEED TO CHECK TrigFlagId
 	else ula->SetToMatchJetTrigger(false);
 
 	if(jetchargecode==2) ula->SetNetraulJetFracCut(true);			// whether apply neutral energy fraction in jet cut
@@ -470,6 +470,7 @@ int main ( int argc, const char** argv ) {
 				//cout<<"input "<<sv->GetCharge() <<" -> "<<pj.user_info<JetAnalysisUserInfo>().GetQuarkCharge()<<endl;	 
 
 				particles.push_back ( pj );
+
 				//}	      
 			}    
 			// Run analysis
