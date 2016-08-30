@@ -24,6 +24,10 @@
 //		Note: for jet pT, we didn't apply any correction. Currently, because jet pT dependence is not large, we neglect it.. But in principle, we can unfolding those together in later steps.
 
 //
+//
+//		2016.08.30	Li Yi
+//		Add option to use max pT track's phi as region reference instead of leading jet phi
+//
 //==================================================================================================================================
 
 
@@ -427,7 +431,9 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	// if you are working on embedding (MC + geant), you can apply corrections. 
 	if(filetag.Contains("pythia",TString::kIgnoreCase)) 	{
 		MCflag = 1;
-		cout<<endl<<"INFO: process as MC data: no efficiency correction will be applied"<<endl;
+	}
+	if(MCflag==1) {
+		cout<<endl<<"INFO: process as MC data: No efficiency correction will be applied"<<endl;
 	}
 
 	int chargeflag = 1;
@@ -444,7 +450,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	cout<<endl;
 
 	int savefig = 0;
-	int saveroot = 1; 
+	int saveroot = 0; 
 
 	// reader
 	//TFile *f = new TFile("~/Scratch/pp200Y12_jetunderlying/underlyingevent_JP2_R06_LeadJetAngle_MatchTrig_151110.root");
@@ -467,6 +473,8 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	float pt_min[MAXARRAY], pt_max[MAXARRAY], pt_jet[MAXARRAY], pt_sub[MAXARRAY];
 	float eta_min[MAXARRAY], eta_max[MAXARRAY], eta_jet[MAXARRAY], eta_sub[MAXARRAY];
 	float phi_min[MAXARRAY], phi_max[MAXARRAY], phi_jet[MAXARRAY], phi_sub[MAXARRAY];
+
+	float maxtrackpt, maxtrackphi, maxtracketa;		// if Max pt track is used 
 
 	t->SetBranchAddress("runid",&runid);
 	t->SetBranchAddress("refmult",&refmult);
@@ -501,6 +509,14 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 
 	t->SetBranchAddress("j1neutralfrac",&j1neutralfrac);
 	
+	if(what2fill.Contains("trackpt",TString::kIgnoreCase)||what2fill.Contains("maxtrack",TString::kIgnoreCase)) {
+		t->SetBranchAddress("maxpt",&maxtrackpt);
+		t->SetBranchAddress("maxphi",&maxtrackphi);
+		t->SetBranchAddress("maxeta",&maxtracketa);
+	}
+
+
+
 	// define histograms
 	double maxpt = 50; // for refmult range
 	int nbinning = 50; // for refmult range
@@ -508,7 +524,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 		maxpt = 100;
 		nbinning = 100;
 	}  
-	else if(what2fill.Contains("trackpt",TString::kIgnoreCase)) {
+	else if(what2fill.Contains("trackpt",TString::kIgnoreCase)||what2fill.Contains("maxtrack",TString::kIgnoreCase)) {
 		maxpt = 25;			// max track pt cut is 20 
 		nbinning = 25;
 	}
@@ -516,7 +532,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	if(what2fill.Contains("jetpt",TString::kIgnoreCase)) {
 		xvariablename = "Leading Jet p_{T}";
 	}
-	else if(what2fill.Contains("trackpt",TString::kIgnoreCase)) {
+	else if(what2fill.Contains("trackpt",TString::kIgnoreCase)||what2fill.Contains("maxtrack",TString::kIgnoreCase)) {
 		xvariablename = "Max Track p_{T}";
 	}
 	else if(what2fill.Contains("multiplicity",TString::kIgnoreCase)) {
@@ -607,9 +623,6 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	TH2D *hphidiffVsJetpT = new TH2D("hphidiffVsJetpT","|Max pt Track phi - Jet phi| vs jet pt",100,0,100,100,0,3.15); // for xvariable is maxtrackpt case. 
 	TH2D *hphidiffVsMaxTrackpT = new TH2D("hphidiffVsMaxTrackpT","|Max pt Track phi - Jet phi| vs Max Track pt",20,0,20,100,0,3.15); // for xvariable is maxtrackpt case. 
 
-	// problematic runs, need future investigation		--> already exclude in ttree production code
-	//const int NoBadRun = 186;
-	//int badrun[NoBadRun] = {13044118, 13044123, 13044124, 13044125, 13045001, 13045003, 13045005, 13045006, 13045007, 13045012, 13045029, 13046002, 13046008, 13046010, 13046029, 13046118, 13046119, 13046120, 13047004, 13047014, 13047018, 13047036, 13047037, 13047039, 13047040, 13047041, 13047042, 13047043, 13047044, 13047045, 13047046, 13047047, 13047048, 13047049, 13047050, 13047051, 13047052, 13047053, 13047054, 13047055, 13048007, 13048022, 13048046, 13049004, 13049005, 13049050, 13049052, 13049075, 13049086, 13049087, 13049088, 13049089, 13050007, 13050025, 13050026, 13050027, 13050033, 13050039, 13050043, 13050044, 13050046, 13050047, 13050049, 13050050, 13051068, 13051080, 13051088, 13051095, 13051102, 13052021, 13052022, 13052054, 13052063, 13052068, 13053010, 13053021, 13054004, 13054005, 13054006, 13054007, 13054008, 13054009, 13054011, 13054012, 13054013, 13054014, 13054015, 13054016, 13054017, 13054018, 13054019, 13054020, 13054022, 13054042, 13054045, 13054046, 13054057, 13055015, 13055072, 13055081, 13055082, 13055086, 13055087, 13055088, 13055089, 13055090, 13056011, 13056012, 13056034, 13056035, 13056037, 13056038, 13056039, 13057038, 13057039, 13058019, 13058030, 13058047, 13058048, 13059003, 13059004, 13059005, 13059006, 13059007, 13059008, 13059009, 13059010, 13059019, 13059035, 13059082, 13059083, 13059084, 13059085, 13059086, 13059087, 13060001, 13060002, 13060003, 13060009, 13060012, 13061026, 13063033, 13064030, 13064057, 13064059, 13064074, 13066035, 13066036, 13066101, 13066102, 13066104, 13066109, 13066110, 13067001, 13067002, 13067003, 13067004, 13067005, 13067006, 13067007, 13067008, 13067009, 13067010, 13067011, 13067012, 13067013, 13067014, 13067015, 13067017, 13068017, 13068022, 13068027, 13068029, 13068034, 13068036, 13068037, 13069006, 13069009, 13069029, 13070030, 13070056, 13071034, 13071037, 13071038, 13071040};
 
 	// loop over events
 	cout<<"Total # of Events: "<<t->GetEntries()<<endl;
@@ -618,72 +631,79 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 		t->GetEntry(ievt);
 		//if(ievt>1000) break;		// test
 
-		if(j1neutralfrac>0.9) continue;			// jet neutral pT fraction < 90%
-		//if(filetag.Contains("MB") && j1neutralfrac>0.75) continue;			// jet neutral pT fraction < 75% for MB data (there is a hot area for MB > 75%) -- UPDATE: It is due to the hot stripe in dataset at the begining of the run, shall mark as bad run
-		if(runid<=13046029) continue;		// hot BEMC stripe in MB dataset
-		
-		if(fabs(jeta)>0.6) continue;			// I miss this cut in jet finding selector
-		
-		if(jpt<=0) continue;				// no jet. 2016.08.28 I didn't require non-ghost in jet finding selector: there were some events with jet pt 0, I suspected that is the reason. but anyway remove zero jet events for futher calculation
+		if( !(what2fill.Contains("trackpt",TString::kIgnoreCase)&&filetag.Contains("MaxTrack",TString::kIgnoreCase)) ) {	//  apply the following cut if we are not using the max track pt files
+			if(j1neutralfrac>0.9) continue;			// jet neutral pT fraction < 90%
+			if(runid<=13046029) continue;		// hot BEMC stripe in MB dataset
+			
+			if(fabs(jeta)>0.6) continue;			// I miss this cut in jet finding selector in old files
+			
+			if(jpt<=0) continue;				// no jet. 2016.08.28 I didn't require non-ghost in jet finding selector: there were some events with jet pt 0, I suspected that is the reason. but anyway remove zero jet events for futher calculation
 
-		//if(fabs(jaspt)<5) continue;			
-		//if(fabs(jpt-jaspt)>0.05*jpt) continue;		// dijet balanced
+			//if(fabs(jaspt)<5) continue;			
+			//if(fabs(jpt-jaspt)>0.05*jpt) continue;		// dijet balanced
 
-		//if(runid>=13058000&& runid<13061000) continue;		// a dip in TPC primary tracks. problematic runs, need future investigation		--> already exclude in ttree production code
-		//test if(runid>13052000&& runid<13060000) continue;		// problematic runs, need future investigation
-		//for(int i = 0; i<NoBadRun; i++) {
-		//	if(runid==badrun[i]) continue;
-		//}
+		}
 
-		//if(((what2fill.Contains("refmult",TString::kIgnoreCase))||(what2fill.Contains("multiplicity",TString::kIgnoreCase)))&&((jpt<10)||(jpt>40))) continue;		// when studying multiplicity dependence, exclude jet pT<10GeV/c to ensure the real jet found + jet pT<40GeV/c there is some unphysics structure seen from Ntrk, SumPt, pT vs leadjetpt distribution(solved -> due to hot tower missed in QA, now excluded)
-		//if(((what2fill.Contains("refmult",TString::kIgnoreCase))||(what2fill.Contains("multiplicity",TString::kIgnoreCase)))&&(jpt<10)) continue;		// when studying multiplicity dependence, exclude jet pT<10GeV/c to ensure the real jet found 
-		if(((what2fill.Contains("refmult",TString::kIgnoreCase))||(what2fill.Contains("multiplicity",TString::kIgnoreCase))||(what2fill.Contains("transntrk",TString::kIgnoreCase))||(what2fill.Contains("tranntrk",TString::kIgnoreCase)))&&(jpt<jetptmin||jpt>=jetptmax)) continue;	
+		if(((what2fill.Contains("refmult",TString::kIgnoreCase))||(what2fill.Contains("multiplicity",TString::kIgnoreCase))||(what2fill.Contains("transntrk",TString::kIgnoreCase))||(what2fill.Contains("tranntrk",TString::kIgnoreCase)))&&(jpt<jetptmin||jpt>=jetptmax)) continue;	// when studying multiplicity dependence, exclude low pT jet to ensure the real jet found 
 
 		if(ievt%1000000==0) cout<<"event "<<ievt<<endl;
 
 		double xvariable = 0;
-		float highesttrackphi = -999;	// for xvariable is maxtrackpt case. need to reassign the regions
+		float highesttrackphi = -999;	// for xvariable is maxtrackpt case and the file uses jetpt need to reassign the regions
 		if(what2fill.Contains("jetpt",TString::kIgnoreCase)) {
 			xvariable = jpt;
 		}
 		else if(what2fill.Contains("trackpt",TString::kIgnoreCase)) {	// max track pt
-			// locate the max pt track 
-			int LocMaxjettrackpt = TMath::LocMax(leadntrk,pt_jet);
-			int LocMaxsubtrackpt = TMath::LocMax(subntrk,pt_sub);
-			int LocMaxtranmaxtrackpt = TMath::LocMax(tranmaxntrk,pt_max);
-			int LocMaxtranmintrackpt = TMath::LocMax(tranminntrk,pt_min);
-			//cout<<"ntrk: "<<leadntrk<<" "<<subntrk<<" "<<tranmaxntrk<<" "<<tranminntrk<<endl;
-			//cout<<"LocMax: "<<LocMaxjettrackpt<<" "<<LocMaxsubtrackpt<<" "<<LocMaxtranmaxtrackpt<<" "<<LocMaxtranmintrackpt<<endl;
-			//cout<<"LocMaxPt: "<<(LocMaxjettrackpt>=0?pt_jet[LocMaxjettrackpt]:0)<<" "<< (LocMaxsubtrackpt>=0?pt_sub[LocMaxsubtrackpt]:0)<<" "<< (LocMaxtranmaxtrackpt>=0?pt_max[LocMaxtranmaxtrackpt]:0)<<" "<< (LocMaxtranmintrackpt>=0?pt_min[LocMaxtranmintrackpt]:0)<<endl;
-			float tmp[4] = {LocMaxjettrackpt>=0?pt_jet[LocMaxjettrackpt]:0, LocMaxsubtrackpt>=0?pt_sub[LocMaxsubtrackpt]:0, LocMaxtranmaxtrackpt>=0?pt_max[LocMaxtranmaxtrackpt]:0, LocMaxtranmintrackpt>=0?pt_min[LocMaxtranmintrackpt]:0}; 
-			int LocMaxalltrack = TMath::LocMax(4,tmp);
-			if(LocMaxalltrack==0) {//if(LocMaxjettrackpt==-1) {//cout<<"jet pt="<<jpt<<" phi="<<jphi<<" eta="<<jeta<<endl;printAll(leadntrk,pt_jet,phi_jet,eta_jet); printAll(subntrk,pt_sub,phi_sub,eta_sub);printAll(tranmaxntrk, pt_max, phi_max, eta_max);printAll(tranminntrk, pt_min, phi_min, eta_min);} 
-				xvariable = pt_jet[LocMaxjettrackpt]; highesttrackphi = phi_jet[LocMaxjettrackpt]; 
+			if(filetag.Contains("MaxTrack",TString::kIgnoreCase)) {
+				xvariable = maxtrackpt;
+				highesttrackphi = maxtrackphi;
 			}
-			else if(LocMaxalltrack==1) {xvariable = pt_sub[LocMaxsubtrackpt]; highesttrackphi = phi_sub[LocMaxsubtrackpt]; }
-			else if(LocMaxalltrack==2) {
-				xvariable = pt_max[LocMaxtranmaxtrackpt]; highesttrackphi = phi_max[LocMaxtranmaxtrackpt]; //cout<<"Caution!!! Highest Transverse track/tower pT in TransMax "<<"pt="<<xvariable<<" phi = "<<phi_max[LocMaxtranmaxtrackpt]<<endl;cout<<"jetpt = "<<jpt<<" jetphi = "<<jphi<<endl;printAll(leadntrk,pt_jet,phi_jet,eta_jet);
-			}
-			else if(LocMaxalltrack==3) {
-				xvariable = pt_min[LocMaxtranmintrackpt]; highesttrackphi = phi_min[LocMaxtranmintrackpt]; //cout<<"Highest Transverse track/tower pT in TransMin "<<"pt="<<xvariable<<endl;
-			}
-			else {
-				cout<<"Something is not right here to find the max pt tracks"<<endl;
-				break;
-			}
+			else {	// which means we are try to use track phi with max pt as reference, but we are reading from a file with tree using jet phi as reference. so some work needed to redistribute the regions
+				// locate the max pt track 
+				int LocMaxjettrackpt = TMath::LocMax(leadntrk,pt_jet);
+				int LocMaxsubtrackpt = TMath::LocMax(subntrk,pt_sub);
+				int LocMaxtranmaxtrackpt = TMath::LocMax(tranmaxntrk,pt_max);
+				int LocMaxtranmintrackpt = TMath::LocMax(tranminntrk,pt_min);
+				//cout<<"ntrk: "<<leadntrk<<" "<<subntrk<<" "<<tranmaxntrk<<" "<<tranminntrk<<endl;
+				//cout<<"LocMax: "<<LocMaxjettrackpt<<" "<<LocMaxsubtrackpt<<" "<<LocMaxtranmaxtrackpt<<" "<<LocMaxtranmintrackpt<<endl;
+				//cout<<"LocMaxPt: "<<(LocMaxjettrackpt>=0?pt_jet[LocMaxjettrackpt]:0)<<" "<< (LocMaxsubtrackpt>=0?pt_sub[LocMaxsubtrackpt]:0)<<" "<< (LocMaxtranmaxtrackpt>=0?pt_max[LocMaxtranmaxtrackpt]:0)<<" "<< (LocMaxtranmintrackpt>=0?pt_min[LocMaxtranmintrackpt]:0)<<endl;
+				float tmp[4] = {LocMaxjettrackpt>=0?pt_jet[LocMaxjettrackpt]:0, LocMaxsubtrackpt>=0?pt_sub[LocMaxsubtrackpt]:0, LocMaxtranmaxtrackpt>=0?pt_max[LocMaxtranmaxtrackpt]:0, LocMaxtranmintrackpt>=0?pt_min[LocMaxtranmintrackpt]:0}; 
+				int LocMaxalltrack = TMath::LocMax(4,tmp);
+				if(LocMaxalltrack==0) {//if(LocMaxjettrackpt==-1) {//cout<<"jet pt="<<jpt<<" phi="<<jphi<<" eta="<<jeta<<endl;printAll(leadntrk,pt_jet,phi_jet,eta_jet); printAll(subntrk,pt_sub,phi_sub,eta_sub);printAll(tranmaxntrk, pt_max, phi_max, eta_max);printAll(tranminntrk, pt_min, phi_min, eta_min);} 
+					xvariable = pt_jet[LocMaxjettrackpt]; highesttrackphi = phi_jet[LocMaxjettrackpt]; 
+				}
+				else if(LocMaxalltrack==1) {xvariable = pt_sub[LocMaxsubtrackpt]; highesttrackphi = phi_sub[LocMaxsubtrackpt]; }
+				else if(LocMaxalltrack==2) {
+					xvariable = pt_max[LocMaxtranmaxtrackpt]; highesttrackphi = phi_max[LocMaxtranmaxtrackpt]; //cout<<"Caution!!! Highest Transverse track/tower pT in TransMax "<<"pt="<<xvariable<<" phi = "<<phi_max[LocMaxtranmaxtrackpt]<<endl;cout<<"jetpt = "<<jpt<<" jetphi = "<<jphi<<endl;printAll(leadntrk,pt_jet,phi_jet,eta_jet);
+				}
+				else if(LocMaxalltrack==3) {
+					xvariable = pt_min[LocMaxtranmintrackpt]; highesttrackphi = phi_min[LocMaxtranmintrackpt]; //cout<<"Highest Transverse track/tower pT in TransMin "<<"pt="<<xvariable<<endl;
+				}
+				else {
+					cout<<"Something is not right here to find the max pt tracks"<<endl;
+					break;
+				}
 
-			//cout<<"Max track pt = "<<xvariable<<" at phi = "<<highesttrackphi<<endl;
-			// redistribution jet, sub, tranmax, tranmin according to new phi direction defined by max track pt 
-			// Caution, this will rewrite the old region difintion. Don't expect to go back to the old one/call one array after this.
-			float transize = 60; 
-			if(filetag.Contains("TranPhi30_",TString::kIgnoreCase)) transize = 30;
-			RedistriRegions(highesttrackphi, transize, leadntrk, subntrk, tranmaxntrk, tranminntrk, pt_jet, pt_sub, pt_max, pt_min, phi_jet, phi_sub, phi_max, phi_min, eta_jet, eta_sub, eta_max, eta_min);
+				//cout<<"Max track pt = "<<xvariable<<" at phi = "<<highesttrackphi<<endl;
+				// redistribution jet, sub, tranmax, tranmin according to new phi direction defined by max track pt 
+				// Caution, this will rewrite the old region difintion. Don't expect to go back to the old one/call one array after this.
+				float transize = 60; 
+				if(filetag.Contains("TranPhi30_",TString::kIgnoreCase)) transize = 30;
+				RedistriRegions(highesttrackphi, transize, leadntrk, subntrk, tranmaxntrk, tranminntrk, pt_jet, pt_sub, pt_max, pt_min, phi_jet, phi_sub, phi_max, phi_min, eta_jet, eta_sub, eta_max, eta_min);
+
+			}
 				
 			float diffphi = foldphi(highesttrackphi-jphi);
-			hphidiff->Fill(diffphi);
-			hphidiffVsJetpT->Fill(jpt, diffphi);
-			hphidiffVsMaxTrackpT->Fill(xvariable, diffphi);
-			
+			if(jphi>-999) {			// leading jet exists
+				hphidiff->Fill(diffphi);
+				hphidiffVsJetpT->Fill(jpt, diffphi);
+				hphidiffVsMaxTrackpT->Fill(xvariable, diffphi);
+			}
+			else {
+				hphidiff->Fill(-999.);			// put an entry in overflow bin
+				hphidiffVsJetpT->Fill(0.,-999.);		// put an entry in overflow bin
+				hphidiffVsMaxTrackpT->Fill(xvariable,-999.);	// put an entry in overflow bin
+			}
 		}
 		else if(what2fill.Contains("multiplicity",TString::kIgnoreCase)) {	// total mulitplicity
 			xvariable = leadntrk+subntrk+tranmaxntrk+tranminntrk;
@@ -1013,6 +1033,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	
 	c[1]->cd();
 	float drawxmax = 50;
+	if(what2fill.Contains("trackpt",TString::kIgnoreCase)||what2fill.Contains("maxtrack",TString::kIgnoreCase))  drawxmax=21;
 	htmp[1] = new TH2D("htmp1","",1000,0,drawxmax,1000,0,10);//5);
 	htmp[1]->GetXaxis()->SetTitle(xvariablename);
 	htmp[1]->GetYaxis()->SetTitle("Event Multiplicity #LTNtrk#GT");
@@ -1023,11 +1044,11 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	tranmaxntrkvsxaxis->Draw("same");
 	tranminntrkvsxaxis->Draw("same");	
 	tranntrkvsxaxis->Draw("same");	
-	leg->Draw("same");
+	leg->DrawClone("same");
 	if(savefig) c[1]->SaveAs(Form("figs/%sVs%s_%s.png","Ntrk",what2fill.Data(),filetag.Data()));
 
 	c[2]->cd();
-	htmp[2] = new TH2D("htmp2","",1000,0,drawxmax,1000,0,20);
+	htmp[2] = new TH2D("htmp2","",1000,0,drawxmax,1000,0,30);//20);
 	htmp[2]->GetXaxis()->SetTitle(xvariablename);
 	htmp[2]->GetYaxis()->SetTitle("Event #LT#sum p_{T}#GT");
 	htmp[2]->Draw();
@@ -1037,7 +1058,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	tranmaxptsumvsxaxis->Draw("same");
 	tranminptsumvsxaxis->Draw("same");	
 	tranptsumvsxaxis->Draw("same");	
-	leg->Draw("same");
+	leg->DrawClone("same");
 	if(savefig) c[2]->SaveAs(Form("figs/%sVs%s_%s.png","PtSum",what2fill.Data(),filetag.Data()));
 	
 	c[3]->cd();
@@ -1051,7 +1072,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	tranmaxptavevsxaxis->Draw("same");
 	tranminptavevsxaxis->Draw("same");	
 	tranptavevsxaxis->Draw("same");	
-	leg->Draw("same");
+	leg->DrawClone("same");
 	if(savefig) c[3]->SaveAs(Form("figs/%sVs%s_%s.png","PtAve",what2fill.Data(),filetag.Data()));
 
 
@@ -1065,7 +1086,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 		if(MCflag==1) {
 			jettag+="_NoEffCorr";
 		}
-		TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_160823.root";
+		TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+".root";
 		//TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_NeutralFrac75.root";
 		//TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_wR1"+".root";
 		//TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_AsJetGt5"+".root";
@@ -1126,7 +1147,7 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 
 		hmaxtranptvsxaxis->Write();
 
-		if(what2fill.Contains("trackpt",TString::kIgnoreCase)) {
+		if(what2fill.Contains("trackpt",TString::kIgnoreCase)||what2fill.Contains("maxtrack",TString::kIgnoreCase)) {
 			hphidiff->Write();
 			hphidiffVsJetpT->Write();
 			hphidiffVsMaxTrackpT->Write();
