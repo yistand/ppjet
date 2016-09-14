@@ -52,7 +52,8 @@ jetpt_McVsEmbed::jetpt_McVsEmbed (	double R,
 	// Jet candidate selectors
 	// ---------------------
 	select_jet_rap     = fastjet::SelectorAbsRapMax(max_rap);			// select objects with |rap| <= absrapmax 
-	sjet = select_jet_rap ;
+	sjet = select_jet_rap;
+	NoGhosts = !fastjet::SelectorIsPureGhost();
 
 	// Choose a jet and area definition
 	// --------------------------------
@@ -95,7 +96,7 @@ jetpt_McVsEmbed::jetpt_McVsEmbed (	double R,
 
 	// Histogram
 	McMatchedLeadJetPt = NULL;			// Mc Jet, when Detector Leading and Particle level Leading Jet geometrical matched, take the leading Mc/Particle-level jet
-	McMatchedLeadOrSubJetPt = NULL;			// Mc Jet, when Detector Leading and Particle level Leading or subleading Jet geometrical matched, take the leading Mc/Particle-level jet
+	McMatchedLeadOrSubJetPt = NULL;			// Mc Jet, when Detector Leading and Particle level Leading or subleading Jet geometrical matched, take the leading Mc/Particle-level jet (Leading particle-level jet is required to be inside good acceptance, subleading is not as long as it matched to detector-level)
 	CovMcMatchedLeadJetVsRcJet = NULL;
 	CovMcMatchedLeadOrSubJetVsRcJet = NULL;
 	McLeadJetPt = NULL;				// Mc Leading Jet, no matter whether there is a detector level jet matched to it or not
@@ -132,6 +133,7 @@ int jetpt_McVsEmbed::Init()
 	// Match flag
 	ResultTree->Branch("flagMatch2Lead",&flagMatch2Lead, "flagMatch2Lead/O");	// caps letter o for Bool_t
 	ResultTree->Branch("flagMatch2Sub",&flagMatch2Sub, "flagMatch2Sub/O");	// o for Bool_t
+	ResultTree->Branch("flagMatch2McJet",&flagMatch2McJet, "flagMatch2McJet/O");	// o for Bool_t
 
 	// Match to trig
 	ResultTree->Branch("trigmatch",&trigmatch, "trigmatch/O");   
@@ -201,6 +203,12 @@ int jetpt_McVsEmbed::Init()
 	ResultTree->Branch("Rcj4phi",&Rcj4phi, "Rcj4phi/F");
 	ResultTree->Branch("Rcj3eta",&Rcj3eta, "Rcj3eta/F");
 	ResultTree->Branch("Rcj4eta",&Rcj4eta, "Rcj4eta/F");
+
+	// Particle-level jet matched to leading Detector-level jet
+	ResultTree->Branch("MatchedNthMcj",&MatchedNthMcj, "MatchedNthMcj/I");
+	ResultTree->Branch("MatchedMcjpt",&MatchedMcjpt, "MatchedMcjpt/F");
+	ResultTree->Branch("MatchedMcjphi",&MatchedMcjphi, "MatchedMcjphi/F");
+	ResultTree->Branch("MatchedMcjeta",&MatchedMcjeta, "MatchedMcjeta/F");
 
 
 	// set up histograms
@@ -274,7 +282,7 @@ int jetpt_McVsEmbed::Make (	const std::vector<fastjet::PseudoJet>& Mcparticles,
 	Rcj3phi=-999, Rcj4phi=-999;
 	Rcj3eta=-999, Rcj4eta=-999;
 
-
+	MatchedNthMcj=-1, MatchedMcjpt=0, MatchedMcjphi=-999, MatchedMcjeta=-999;
 
 	// Select particles to perform analysis on
 	// ---------------------------------------
@@ -292,7 +300,9 @@ int jetpt_McVsEmbed::Make (	const std::vector<fastjet::PseudoJet>& Mcparticles,
 	// -----------------------------
 	// NO background subtraction && NO jet eta constrain 
 	McnosjetJA = new JetAnalyzer( McJconstituents, jet_def, area_def);
-	McnosjetJAResult = fastjet::sorted_by_pt(McnosjetJA->inclusive_jets());
+	McnosjetJAResult = fastjet::sorted_by_pt(NoGhosts(McnosjetJA->inclusive_jets()));
+
+
 	flagGoodEtaMcJet = false; 
 	if(McnosjetJAResult.size()>=1 && fabs(McnosjetJAResult.at(0).eta())<=max_rap) { // Mc leading jet inside good eta acceptance
 		flagGoodEtaMcJet = true; 	
@@ -315,7 +325,7 @@ int jetpt_McVsEmbed::Make (	const std::vector<fastjet::PseudoJet>& Mcparticles,
 
 
 	RcnosjetJA = new JetAnalyzer( RcJconstituents, jet_def, area_def);			// no jet eta selection. but constituents still have eta cut (TPC acceptance) 
-	RcnosjetJAResult = fastjet::sorted_by_pt(RcnosjetJA->inclusive_jets());
+	RcnosjetJAResult = fastjet::sorted_by_pt(NoGhosts(RcnosjetJA->inclusive_jets()));
 	flagGoodEtaRcJet = false;	// whether Rc jet the hardest one is inside jet eta cut
 	if(RcnosjetJAResult.size()>=1 && fabs(RcnosjetJAResult.at(0).eta())<=max_rap) { 
 		flagGoodEtaRcJet = true;
@@ -340,10 +350,36 @@ int jetpt_McVsEmbed::Make (	const std::vector<fastjet::PseudoJet>& Mcparticles,
 	// ---------------------
 	flagMatch2Lead = false;
 	flagMatch2Sub = false;
+	flagMatch2McJet = false;
+	MatchedNthMcj = -1;
 
 	if(flagGoodEtaMcJet && flagGoodEtaRcJet) {			// only matching Rc and Mc both in good eta acceptance
-		if(RcJAResult.at(0).delta_R(McJAResult.at(0))<R) flagMatch2Lead = true;		// Matched to leading one
-		else if(McnosjetJAResult.size()>=2 && fabs(McnosjetJAResult.at(1).eta())<=max_rap && RcJAResult.at(0).delta_R(McJAResult.at(1))<R) flagMatch2Sub = true;		// Matched to the subleading one who also inside good eta acceptance
+		if(RcJAResult.at(0).delta_R(McJAResult.at(0))<R) {		// Matched to leading one
+			flagMatch2Lead = true;
+			flagMatch2McJet = true;
+			MatchedNthMcj = 0;	// the first hardest matched
+		}
+		//else if(McnosjetJAResult.size()>=2 && fabs(McnosjetJAResult.at(1).eta())<=max_rap && RcJAResult.at(0).delta_R(McnosjetJAResult.at(1))<R) {		// Matched to the subleading one who also inside good eta acceptance
+		else if(McnosjetJAResult.size()>=2 && RcJAResult.at(0).delta_R(McnosjetJAResult.at(1))<R) {		// Matched to the subleading one No need to be inside good eta acceptance
+			flagMatch2Sub = true;
+			flagMatch2McJet = true;
+			MatchedNthMcj = 1;	// the second hardest matched
+		}
+
+	}
+	else if(flagGoodEtaRcJet){		// check whether Rc jet has any matched Mc jet, no need to be in good acceptance. This is for QA purpose
+		for(int ijet = 0; ijet<McnosjetJAResult.size(); ijet++) {
+			if(RcJAResult.at(0).delta_R(McnosjetJAResult.at(ijet))<R ) {		// match to any jet? 
+				flagMatch2McJet = true;
+				MatchedNthMcj = ijet;
+			}
+		}
+	}
+
+	if(flagMatch2McJet) {
+		MatchedMcjpt = McnosjetJAResult.at(MatchedNthMcj).pt();
+		MatchedMcjeta = McnosjetJAResult.at(MatchedNthMcj).eta();
+		MatchedMcjphi = McnosjetJAResult.at(MatchedNthMcj).phi();
 	}
 
 	// Do any Reconstructed (Rc) jets match to the one fired the trigger?
@@ -351,8 +387,8 @@ int jetpt_McVsEmbed::Make (	const std::vector<fastjet::PseudoJet>& Mcparticles,
 	bool flagtrigmatch = true;		// assuming no need to match. set to 1 for not care. 
 	trigmatch = false;			// this one is the real value for matching to record in ResultTree 
 
-	std::cout<<std::endl<<"eventid = "<<eventid<<" Vz = "<<Rcvz<<std::endl;		//test 
-	if(RcnosjetJAResult.size()>0) std::cout<<"nosjet jet pt "<<RcnosjetJAResult.at(0).pt()<<"at (eta,phi)=("<<RcnosjetJAResult.at(0).eta()<<","<<RcnosjetJAResult.at(0).phi()<<")"<<std::endl;
+	//std::cout<<std::endl<<"eventid = "<<eventid<<" Vz = "<<Rcvz<<std::endl;	
+	//if(RcnosjetJAResult.size()>0) std::cout<<"nosjet jet pt "<<RcnosjetJAResult.at(0).pt()<<"at (eta,phi)=("<<RcnosjetJAResult.at(0).eta()<<","<<RcnosjetJAResult.at(0).phi()<<")"<<std::endl;
 	if(  ToMatch.size()>0 && flagGoodEtaRcJet ) {
 		for(unsigned int ito = 0; ito<ToMatch.size() ; ito++) {		// note: if using iteractor for vector, need 'const_iteractor' for const vector
 			if(sqrt(pow(RcJAResult.at(0).eta()-ToMatch.at(ito).first,2)+pow(JetAnalyzer::phimod2pi(RcJAResult.at(0).phi()-ToMatch.at(ito).second),2))<R)    {
@@ -377,7 +413,7 @@ int jetpt_McVsEmbed::Make (	const std::vector<fastjet::PseudoJet>& Mcparticles,
 		//std::cout<<"Neutral/Total Pt of Jet < 90%"<<std::endl;	
 		fastjet::PseudoJet NeutralPart  = fastjet::PseudoJet();
 		fastjet::PseudoJet TotalPart  = fastjet::PseudoJet();	
-		fastjet::Selector NoGhosts = !fastjet::SelectorIsPureGhost();
+		//fastjet::Selector NoGhosts = !fastjet::SelectorIsPureGhost();
 		std::vector<fastjet::PseudoJet> constituents = NoGhosts(RcJAResult.at(0).constituents());
 		int charge=-99;
 		for(unsigned int jco = 0; jco<constituents.size(); jco++) {
