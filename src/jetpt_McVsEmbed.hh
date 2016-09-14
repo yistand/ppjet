@@ -47,6 +47,7 @@ class jetpt_McVsEmbed
 
 		bool flagMatch2Lead;
 		bool flagMatch2Sub;
+		bool flagMatch2McJet;		// any Mc jet, including 1st, 2nd ... hardest jet
 
 		bool flagMatch2LeadGood;
 		bool flagMatch2SubGood;	
@@ -112,6 +113,10 @@ class jetpt_McVsEmbed
 		float Rcj3phi, Rcj4phi;
 		float Rcj3eta, Rcj4eta;
 
+		// any Mc level jet matched with Rcj1: the n-th hardest matched, pt, phi, eta of the matched MC jet
+		int MatchedNthMcj;
+		float MatchedMcjpt, MatchedMcjphi, MatchedMcjeta; 	
+
 
 		// for jet finding
 		// --------------------
@@ -139,6 +144,7 @@ class jetpt_McVsEmbed
 		fastjet::Selector select_jet_pt_min;     ///< jet p<SUB>T</SUB> selector
 		fastjet::Selector select_jet_pt_max;     ///< jet p<SUB>T</SUB> selector
 		fastjet::Selector sjet;                  ///< compound jet selector
+		fastjet::Selector NoGhosts;              ///< compound jet selector
 
 		fastjet::GhostedAreaSpec area_spec;      ///< ghosted area specification
 		fastjet::AreaDefinition area_def;        ///< jet area definition
