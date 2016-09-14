@@ -287,7 +287,7 @@ int main ( int argc, const char** argv ) {
 	  reader.SetTrackPileUpCut(3);		// #ly	3: tpc track matching to bemc.		1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
 	}
 
-	TStarJetPicoDefinitions::SetDebugLevel(10);
+	TStarJetPicoDefinitions::SetDebugLevel(0);
 
 	TStarJetPicoReader Mcreader = SetupMcReader( Mcchain); 
 
@@ -336,7 +336,7 @@ int main ( int argc, const char** argv ) {
 
 	//readinbadrunlist(badrun);        
 
-	jme->SetVerbose(10);
+	jme->SetVerbose(0);
 
 	Long64_t nEvents=-1; // -1 for all
 	//nEvents=1000;	// test
@@ -368,6 +368,7 @@ int main ( int argc, const char** argv ) {
 			int Mceventid   = Mcheader->GetEventId();
 			//cout<<"Mc runid="<<Mcrunid<<" Mceventid="<<Mceventid<<endl;		
 
+
 			// Load event particles
 			// ----------
 			Mccontainer = Mcreader.GetOutputContainer();
@@ -384,7 +385,6 @@ int main ( int argc, const char** argv ) {
 				//cout<<"input "<<Mcsv->GetCharge() <<" -> "<<Mcpj.user_info<JetAnalysisUserInfo>().GetQuarkCharge()<<endl;	 
 
 				Mcparticles.push_back ( Mcpj );
-				//}	      
 			}    
 
 
@@ -394,10 +394,13 @@ int main ( int argc, const char** argv ) {
 			if(reader.ReadEvent(Mcreader.GetNOfCurrentEvent())) { 	// try to load the same event as Mc one
 				// If Rc event passed the cuts:
 				// Need to check whether the same event. It SHOULD!
-				TStarJetPicoEventHeader* header = Mcreader.GetEvent()->GetHeader();
+				TStarJetPicoEventHeader* header = reader.GetEvent()->GetHeader();
 				int runid   = header->GetRunId();
 				int eventid   = header->GetEventId();
-				if(runid!=Mcrunid || eventid!=Mceventid) {
+
+
+				//test #ly somehow McEvent doesnot have correct runid. they are all 0... if(runid!=Mcrunid || eventid!=Mceventid) {
+				if(eventid!=Mceventid) {	// test #ly only check eventid for now
 					cout<<"ERROR!!!!!!!!!!!!!!!!!! MC and RC not consistent!!!!!!!"<<endl;
 					cout<<"runid Rc = "<<runid<<" VS  Mc = "<<Mcrunid<<endl;
 					cout<<"eventid Rc = "<<eventid<<" VS  Mc = "<<Mceventid<<endl;
