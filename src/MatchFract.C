@@ -32,7 +32,7 @@ void MatchFract() {
 		//f1 = new TFile(Form("~/Scratch/embedPythia/HCpt%s_JetMcVsEmbedMatchTrig.root",PTBINS[i]));
 		h1 = (TH1D*)f1->Get(histname);	
 
-		f2 = new TFile(Form("~/Scratch/embedPythia/pt%s_JetMcVsEmbedJP2_nobbc.root",PTBINS[i]));
+		f2 = new TFile(Form("~/Scratch/embedPythia/pt%s_JetMcVsEmbed_nobbc.root",PTBINS[i]));
 		//f2 = new TFile(Form("~/Scratch/embedPythia/pt%s_JetMcVsEmbedJP2.root",PTBINS[i]));
 		//f2 = new TFile(Form("~/Scratch/embedPythia/pt%s_JetMcVsEmbed.root",PTBINS[i]));
 		//f2 = new TFile(Form("~/Scratch/embedPythia/HCpt%s_JetMcVsEmbed.root",PTBINS[i]));
@@ -56,7 +56,7 @@ void MatchFract() {
 		else h1->Draw("same");
 	} 
 
-	c->SaveAs(Form("HCMatchRatiopt%s.png","2_-1"));
+	//c->SaveAs(Form("HCMatchRatiopt%s.png","2_-1"));
 	//c->SaveAs(Form("MatchRatioInJP2pt%s.png","2_-1"));
 	//c->SaveAs(Form("MatchRatiopt%s.png","2_-1"));
 	//c->SaveAs(Form("JP2Ratiopt%s.png","2_-1"));
