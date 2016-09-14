@@ -330,7 +330,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	//refmult = reader.GetEvent()->GetHeader()->GetGReferenceMultiplicity();
 
 	j1pt=0, jaspt=0, j2pt=0;
-	j1phi=-999, jaspt=-999, j2phi=-999;
+	j1phi=-999, jasphi=-999, j2phi=-999;
 	j1eta=-999, jaseta=-999, j2eta=-999;
 	j1area=0, jasarea=0, j2area=0;
 	j1area_err=0, jasarea_err=0, j2area_err=0;
@@ -440,7 +440,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	//assert ( DiJets.size() == 2 && "SelectorDijets returned impossible number of Dijets." );  
 
 	// ---------------------------------------------------------
-	// Do any jets match to the one fired the trigger?
+	// Do leading jets match to the one fired the trigger?
 	if ( mNeedToMatchTrig ){
 		if( ToMatch.size()==0) return 0; 		// event should not be fired 
 		int flagtrigmatch = 0;
