@@ -47,7 +47,7 @@ namespace AjParameters{
   
   // EVENT rejection cuts
   const double MaxEventPtCut=20;       ///< track pT cut for event
-  const double MaxEventEtCut=50;       ///< tower ET cut for event
+  const double MaxEventEtCut=20;       ///< tower ET cut for event		// 16.11.13	#ly change from 50 to 20
 
   
   // // TO REPRODUCE JOERN:
