@@ -247,7 +247,7 @@ int main ( int argc, const char** argv ) {
 	int TrigFlagId = 0;
 	if(TriggerName.EqualTo("ppJP2")) TrigFlagId = 1236;		//// JP2               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
 	if(TriggerName.EqualTo("ppJP1")) TrigFlagId = 1228;		//// JP1               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
-	if(TriggerName.EqualTo("ppJP0")) TrigFlagId = 1220;		//// JP1               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
+	if(TriggerName.EqualTo("ppJP0")) TrigFlagId = 1220;		//// JP0               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
 
 
 	cout<<"Chain data: "<<arguments.at(2).data()<<" for "<<ChainName<<endl;

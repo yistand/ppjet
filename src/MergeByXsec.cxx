@@ -28,7 +28,7 @@
 
 int main() {
 
-	TString flagLeadSub="Lead"; // "Lead", "LeadOrSub"
+	TString flagLeadSub="LeadOrSub"; // "Lead", "LeadOrSub"
 
 	TH2D *Cov;			// When Rc matched Leading or SubLeading Mc Jet  (x: Rc; Y: Mc);
 	TH1D *Mc;			// Mc Leading jet distribution no matter matched or not
@@ -57,7 +57,7 @@ int main() {
 
 	TFile *fin;
 	for(int i = 0; i<NpT ; i++) {
-		TString ifilename = TString("~/Scratch/embedPythia/pt")+TString(PTBINS[i])+TString("_JetMcVsEmbedMatchTrig_nobbc.root");
+		TString ifilename = TString("~/Scratch/embedPythia/pt")+TString(PTBINS[i])+TString("_JetMcVsEmbedMatchTrig_Online_nobbc.root");
 		//TString ifilename = TString("~/Scratch/embedPythia/pt")+TString(PTBINS[i])+TString("_JetMcVsEmbedMatchTrig.root");
 		//TString ifilename = TString("~/Scratch/embedPythia/pt")+TString(PTBINS[i])+TString("_JetMcVsEmbed.root");
 		//TString ifilename = TString("~/Scratch/embedPythia/HCpt")+TString(PTBINS[i])+TString("_JetMcVsEmbedMatchTrig.root");
@@ -83,6 +83,13 @@ int main() {
 				Rc->Scale(XSEC[0]/NUMBEROFEVENT[0]);
 				std::cout<<PTBINS[i]<<" Mc integral="<<tmpmc->Integral()<<"\tRc integral="<<tmprc->Integral()<<"\tratio="<<1.*tmpmc->Integral()/tmprc->Integral()<<std::endl;
 				std::cout<<"Mc integral="<<Mc->Integral()<<"\tRc integral="<<Rc->Integral()<<std::endl;
+
+
+				Cov->GetXaxis()->SetTitle("Detector-level Leading Jet p_{T}");
+				Cov->GetYaxis()->SetTitle("Particle-level Leading Jet p_{T}");
+				Mc->GetXaxis()->SetTitle("Particle-level Leading Jet p_{T}");
+				Rc->GetXaxis()->SetTitle("Detector-level Leading Jet p_{T}");
+
 
 				summc = (TH1D*)tmpmc->Clone("summc");
 				summc->Sumw2();
@@ -153,7 +160,7 @@ int main() {
 	//fin->Delete();		// if delete, the last histogram is lost..
 
 
-	TFile *fout = new TFile("UnfoldMatrx"+flagLeadSub+".root","RECREATE");
+	TFile *fout = new TFile("UnfoldMatrx"+flagLeadSub+"_Online_nobbc.root","RECREATE");
 	//TFile *fout = new TFile("HCUnfoldMatrx"+flagLeadSub+".root","RECREATE");
 	std::cout<<"Write to "<<fout->GetName()<<std::endl;
 	fout->cd();

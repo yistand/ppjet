@@ -11,8 +11,9 @@
 
 
 
-#include "jetpt_McVsEmbed.hh"
+#include "underlying_McVsEmbed.hh"
 #include "AjParameters.hh"
+#include "CrossSectionPerpT.h"
 
 #include <TH1.h>
 #include <TH2.h>
@@ -215,8 +216,7 @@ TStarJetPicoReader SetupMcReader ( TChain* chain){
 
 int main ( int argc, const char** argv ) {
 
-	const char *defaults[] = {"PicoJetMcVsEmbed","/home/fas/caines/ly247/Scratch/embedPythia/pt2_3_JetMcVsEmbedMatchTrig.root","ppJP2","/home/fas/caines/ly247/Scratch/embedPythia/160726/pt2_3*.root"};
-	//const char *defaults[] = {"PicoJetMcVsEmbed","test.root","ppJP2","~/Scratch/embedPythia/160726/pp12Pico_pt35_-1*.root"};
+	const char *defaults[] = {"PicoUnderMcVsEmbed","/home/fas/caines/ly247/Scratch/embedPythia/pt2_3_JetMcVsEmbedMatchTrig.root","ppJP2","/home/fas/caines/ly247/Scratch/embedPythia/160808/pt2_3*.root"};		// IMPORTNANT: for input file, should always run one pt bin at each time for proper cross section weight later on
 
 
 	if ( argc==1 ) {
@@ -261,33 +261,65 @@ int main ( int argc, const char** argv ) {
 
 	int TrigFlagId = 0;
 	if(TriggerName.EqualTo("ppJP2")) TrigFlagId = 1236;		//// JP2               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
+	if(TriggerName.EqualTo("ppJP1")) TrigFlagId = 1228;		//// JP1               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
+	if(TriggerName.EqualTo("ppJP0")) TrigFlagId = 1220;		//// JP1               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
 
 
 	cout<<"Chain data: "<<arguments.at(2).data()<<" for "<<RcChainName<<" and "<<McChainName<<endl;
 	TChain* chain = new TChain( RcChainName );
-	chain->Add( arguments.at(2).data() );
 	TChain* Mcchain = new TChain( McChainName );
-	Mcchain->Add( arguments.at(2).data() );
+	if(arguments.at(2).find(".list")!=std::string::npos) {		// if input is a file list
+		std::ifstream txtin(arguments.at(2).data());
+		if(!txtin.good()) {
+			std::cout<<"Can't open "<<arguments.at(2)<<std::endl;
+			return -1;
+		}
+		std::string txtline;
+		while(std::getline(txtin,txtline)) {
+			if(txtline.size()==0) continue;
+			//cout<<"Add "<<txtline.data()<<endl;
+			chain->Add(txtline.data());
+			Mcchain->Add(txtline.data());
+		}
+	} else {		// else treat as root file
+		chain->Add( arguments.at(2).data() );
+		Mcchain->Add( arguments.at(2).data() );
+	}
 
 
+	//double weightbyXsec = 0;	
+	//for(int i = 0; i<NUMBEROFPT; i++ ) {
+	//	std::cout<<"PTBINS["<<i<<"] = "<<PTBINS[i]<<" "<<arguments.at(2).find(PTBINS[i])<<std::endl;
+	//	if(arguments.at(2).find(PTBINS[i])!=std::string::npos) {
+	//		weightbyXsec = XSEC[i]/NUMBEROFEVENT[i];
+	//		break;
+	//	}
+	//}
+	//std::cout<<"weightbyXsec = "<<weightbyXsec<<std::endl;
 
 
+	TStarJetPicoDefinitions::SetDebugLevel(0);
 
 	cout<<"SetupReader for RcPico"<<endl;
 	double RefMultCut = 0;
-	TStarJetPicoReader reader = SetupReader( chain, TriggerName,RefMultCut );			// #ly note: Events & Tracks & Towers cuts are set here
-	reader.SetTrackPileUpCut(0);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
-	if( OutFileName.Contains ("NoTofMatch") ) {
-	  reader.SetTrackPileUpCut(0);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
-	}
-	if( OutFileName.Contains ("BemcOrTofMatch") ) {		// NOT IMPLEMMENTED YET!!!!!!!!!!!!!!!!!!
-	  reader.SetTrackPileUpCut(1);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
-	}
-	if( OutFileName.Contains ("BemcMatch") ) {
-	  reader.SetTrackPileUpCut(3);		// #ly	3: tpc track matching to bemc.		1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
-	}
+	//TStarJetPicoReader reader = SetupReader( chain, TriggerName,RefMultCut );			// #ly note: Events & Tracks & Towers cuts are set here
+	TStarJetPicoReader reader = SetupReader( chain, "All" ,RefMultCut );			// #ly note: Events & Tracks & Towers cuts are set here. To assess the trigger efficiency, we move the trigger information into tree production, variable is_trigger
+	reader.SetTrackPileUpCut(0);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching for Embedding data
+	//if( OutFileName.Contains ("NoTofMatch") ) {
+	//  reader.SetTrackPileUpCut(0);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
+	//}
+	//if( OutFileName.Contains ("BemcOrTofMatch") ) {		// NOT IMPLEMMENTED YET!!!!!!!!!!!!!!!!!!
+	//  reader.SetTrackPileUpCut(1);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
+	//}
+	//if( OutFileName.Contains ("BemcMatch") ) {
+	//  reader.SetTrackPileUpCut(3);		// #ly	3: tpc track matching to bemc.		1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
+	//}
 
-	TStarJetPicoDefinitions::SetDebugLevel(0);
+	// we are not selecting on triggerred events, but just record this information in output tree
+	TStarJetPicoEventCuts *eventcut = new TStarJetPicoEventCuts();
+	eventcut->SetTriggerSelection(TriggerName);
+
+
 
 	TStarJetPicoReader Mcreader = SetupMcReader( Mcchain); 
 
@@ -301,21 +333,64 @@ int main ( int argc, const char** argv ) {
 
 	std::cout<<"OutFileName="<<OutFileName<<std::endl;
 
-	jetpt_McVsEmbed *jme = new jetpt_McVsEmbed(	R,
+	underlying_McVsEmbed *jme = new underlying_McVsEmbed(	R,
 							AjParameters::max_track_rap,	
-							0.2,                    // pt min for const.
+							0.2,                    // pt min for Rc const.
 							jetalgorithm,
 							OutFileName
 						  );
 
+
+	// Charge selection for jet and underlying particle
+	int jetchargecode = 2;			// default one is to do full jet (charged + neutral) for jet finding
+	if ( OutFileName.Contains ("ChargeJet") ){
+		jetchargecode = 1;
+	}
+	else if ( OutFileName.Contains ("NeutralJet") ){
+		jetchargecode = 0;
+	}
+	else if ( OutFileName.Contains ("FullJet") ){
+		jetchargecode = 2;
+	}
+
+	int underlyingchargecode = 2;		// default one is takeing both charged + neutral particles for underlying event
+	if ( OutFileName.Contains ("TransCharged") ){
+		underlyingchargecode = 1;
+	}
+	else if ( OutFileName.Contains ("TransNeutral") ){
+		underlyingchargecode = 0;
+	}
+
+	cout << " ################################################### " << endl;
+	cout << " jetchargecode = " << jetchargecode <<endl; 
+	cout << " underlyingchargecode = " << underlyingchargecode <<endl; 
+	cout << " ################################################### " << endl;
+
+
+
+
 	// initial ttree & histograms in jme
 	jme->Init();
 
-	if(OutFileName.Contains ("pt2_3")) jme->SetOutlierMcpTCut(20);	// No event with Mc pT > 20 for 2<pt<3 bin
+
+	// do the settting after Init()
+	
+	if(OutFileName.Contains ("pt2_3")) {
+			jme->SetOutlierMcpTCut(20);	// Require no event with Mc pT > 20 for 2<pt<3 bin
+			jme->SetOutlierRcpTCut(20);	// Require no event with Rc pT > 20 for 2<pt<3 bin
+	}
 
 	
-	if(OutFileName.Contains ("MatchTrig")&&TriggerName.EqualTo("ppJP2") ) jme->SetToMatchJetTrigger(true);			// whether match jet found with fastjet with the location which fired the trigger, NEED TO CHECK TrigFlagId
+	if(OutFileName.Contains ("MatchTrig")&&TriggerName.Contains("ppJP") ) jme->SetToMatchJetTrigger(true);			// whether match jet found with fastjet with the location which fired the trigger, NEED TO CHECK TrigFlagId
 	else jme->SetToMatchJetTrigger(false);
+
+
+	if(jetchargecode==2) jme->SetNetraulJetFracCut(true);			// whether apply neutral energy fraction in jet cut
+	else jme->SetNetraulJetFracCut(false);
+
+	jme->SetJetCharge(jetchargecode);			// Jet charge
+
+	jme->SetUnderlyingParticleCharge(underlyingchargecode);			// underlying event charge: 0 for netural, 1 for charged, 2 for all
 
 
 	// Cycle through events
@@ -422,15 +497,13 @@ int main ( int argc, const char** argv ) {
 				// Load event ht/jetpatch trigger objs
 				// ----------
 				//std::cout<<"load trigger objs"<<endl;	
-				//test if(jme->GetToMatchJetTrigger()) {
-					TClonesArray *trigobj = reader.GetEvent()->GetTrigObjs();
-					for(int itrg = 0; itrg<trigobj->GetEntries(); itrg++) {
-						if( ((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetTriggerFlag()==TrigFlagId )	 { 
-							EtaPhiPair itrigloc =std::make_pair(CorrectBemcVzEta(((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetEta(),header->GetPrimaryVertexZ()), ((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetPhi()) ;
-							TrigLoc2Match.push_back(itrigloc);
-						}
+				TClonesArray *trigobj = reader.GetEvent()->GetTrigObjs();
+				for(int itrg = 0; itrg<trigobj->GetEntries(); itrg++) {
+					if( ((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetTriggerFlag()==TrigFlagId )	 { 
+						EtaPhiPair itrigloc =std::make_pair(CorrectBemcVzEta(((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetEta(),header->GetPrimaryVertexZ()), ((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetPhi()) ;
+						TrigLoc2Match.push_back(itrigloc);
 					}
-				//test }
+				}
 
 
 				// Load event particles
@@ -469,7 +542,9 @@ int main ( int argc, const char** argv ) {
 					Mcreader.GetEvent()->GetHeader()->GetPrimaryVertexZ(),
 					reader.GetEvent()->GetHeader()->GetGReferenceMultiplicity(),
 					reader.GetEvent()->GetHeader()->GetPrimaryVertexZ(),
-					TrigLoc2Match
+					TrigLoc2Match,
+					eventcut->IsTriggerIdOK(reader.GetEvent())
+					//weightbyXsec
 			);
 
 
@@ -484,7 +559,7 @@ int main ( int argc, const char** argv ) {
 	//Long64_t nEventsUsed=reader.GetNOfEvents();  
 
 
-	if(jme->IsOutlierMcpTCutApplied() && jme->GetNEventOutlierMcpTCut()> 3) { cout << " ERROR: there is "<<jme->GetNEventOutlierMcpTCut()<<" events were rejected due to MC pT>"<<jme->GetOutlierMcpTCut()<<" cut. NEED TO CHECK!!!!!! "<<endl; }
+	if( (jme->IsOutlierMcpTCutApplied()|| jme->IsOutlierRcpTCutApplied() ) && (jme->GetNEventOutlierMcpTCut()+jme->GetNEventOutlierRcpTCut())> 3) { cout << " ERROR: there are "<<jme->GetNEventOutlierMcpTCut()<<" events were rejected due to MC pT>"<<jme->GetOutlierMcpTCut()<<" cut and "<<jme->GetNEventOutlierRcpTCut()<<" events were rejected due to Rc  pT>"<<jme->GetOutlierRcpTCut()<<" cut. NEED TO CHECK!!!!!! "<<endl; }
 
 	// Close up shop
 	// -------------

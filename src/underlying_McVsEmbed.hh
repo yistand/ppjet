@@ -21,14 +21,26 @@
 #include <string>
 
 
-class jetpt_McVsEmbed
+#define MAXARRAYLENGTH  5000
+
+
+class underlying_McVsEmbed
 {
 	private:
+		// Parameters
 		int mVerbose; 		// how debug information to print out (0--no, 10 alot);
+		// Underlying event particle: charged(1) or neutral(0) or all(2, or whatever val not equal 1 or 0)
+		int mUnderlyingParticleCharge;
+		// Jet: charged(1) or neutral(0) or all(2, or whatever val not equal 1 or 0)
+		int mJetCharge;
+		// Underlying event phi size: default 60 degree
+		float mTranPhiSize;
+
 
 
 		int nEventPassed;
 		int nEventOutlierMcpT;		// how many events were cut off due to high Mc leading jet pt
+		int nEventOutlierRcpT;		// how many events were cut off due to high Rc leading jet pt
 
 		// Match to trigger or not
 		bool mNeedToMatchTrig;
@@ -40,8 +52,11 @@ class jetpt_McVsEmbed
 		// OutlierMcpTCut flag
 		bool DoOutlierMcpTCut;
 		double mOutlierMcpTCut;
+		bool DoOutlierRcpTCut;
+		double mOutlierRcpTCut;
 
 		// result purpose
+		bool flagIsTrigger;
 		bool flagGoodEtaMcJet;
 		bool flagGoodEtaRcJet;
 
@@ -53,6 +68,8 @@ class jetpt_McVsEmbed
 		bool flagMatch2SubGood;	
 
 		bool trigmatch;		
+
+
 
 		// For output 
 		TFile *fout;
@@ -83,6 +100,8 @@ class jetpt_McVsEmbed
 		double Rcrefmult; 
 		double Rcvz;
 
+		// event weight for that pt bin
+		//double weight;
 
 		// Jet-finding from fastjet
 		float Mcj1pt, Mcjaspt, Mcj2pt;
@@ -116,6 +135,72 @@ class jetpt_McVsEmbed
 		// any Mc level jet matched with Rcj1: the n-th hardest matched, pt, phi, eta of the matched MC jet
 		int MatchedNthMcj;
 		float MatchedMcjpt, MatchedMcjphi, MatchedMcjeta; 	
+		// if any Mc level jet matched with Rcj1: also record the leading Mc jet info in the event
+		float LeadInMatchedMcjpt, LeadInMatchedMcjphi, LeadInMatchedMcjeta; 	
+		
+		// any Rc level jet matched with Mcj1 including even outside jet eta region but constituents cut still applied
+		int MatchedNthRcj;
+		float MatchedRcjpt, MatchedRcjphi, MatchedRcjeta; 	
+
+
+		// underlying event info
+		float McLeadAreaPt;
+		float McSubAreaPt;
+		float McTranMaxPt;
+		float McTranMinPt;
+		float McTranPt;
+		
+		int McLeadAreaNtrk;
+		int McSubAreaNtrk;
+		int McTranMaxNtrk;
+		int McTranMinNtrk;
+		
+		float McTrkTranMaxPt[MAXARRAYLENGTH];		// for track in tranmax
+		float McTrkTranMaxPhi[MAXARRAYLENGTH];		// for track in tranmax
+		float McTrkTranMaxEta[MAXARRAYLENGTH];		// for track in tranmax
+		float McTrkTranMinPt[MAXARRAYLENGTH];		// for track in tranmin
+		float McTrkTranMinPhi[MAXARRAYLENGTH];		// for track in tranmax
+		float McTrkTranMinEta[MAXARRAYLENGTH];		// for track in tranmax
+		float McTrkLeadAreaPt[MAXARRAYLENGTH];			// for track in lead
+		float McTrkLeadAreaPhi[MAXARRAYLENGTH];		// for track in lead
+		float McTrkLeadAreaEta[MAXARRAYLENGTH];		// for track in lead
+		float McTrkSubAreaPt[MAXARRAYLENGTH];		// for track in sublead
+		float McTrkSubAreaPhi[MAXARRAYLENGTH];		// for track in sublead
+		float McTrkSubAreaEta[MAXARRAYLENGTH];		// for track in sublead
+ 
+
+
+
+		float RcLeadAreaPt;
+		float RcSubAreaPt;
+		float RcTranMaxPt;
+		float RcTranMinPt;
+		float RcTranPt;
+		
+		int RcLeadAreaNtrk;
+		int RcSubAreaNtrk;
+		int RcTranMaxNtrk;
+		int RcTranMinNtrk;
+		
+		float RcTrkTranMaxPt[MAXARRAYLENGTH];		// for track in tranmax
+		float RcTrkTranMaxPhi[MAXARRAYLENGTH];		// for track in tranmax
+		float RcTrkTranMaxEta[MAXARRAYLENGTH];		// for track in tranmax
+		float RcTrkTranMinPt[MAXARRAYLENGTH];		// for track in tranmin
+		float RcTrkTranMinPhi[MAXARRAYLENGTH];		// for track in tranmax
+		float RcTrkTranMinEta[MAXARRAYLENGTH];		// for track in tranmax
+		float RcTrkLeadAreaPt[MAXARRAYLENGTH];			// for track in lead
+		float RcTrkLeadAreaPhi[MAXARRAYLENGTH];		// for track in lead
+		float RcTrkLeadAreaEta[MAXARRAYLENGTH];		// for track in lead
+		float RcTrkSubAreaPt[MAXARRAYLENGTH];		// for track in sublead
+		float RcTrkSubAreaPhi[MAXARRAYLENGTH];		// for track in sublead
+		float RcTrkSubAreaEta[MAXARRAYLENGTH];		// for track in sublead
+ 
+
+
+
+
+
+
 
 
 		// for jet finding
@@ -138,6 +223,9 @@ class jetpt_McVsEmbed
 		fastjet::Selector Mcsconst;                ///< compound selector for constituents for jet finding
 		fastjet::Selector Rcsconst;                ///< compound selector for constituents for jet finding
 
+		fastjet::Selector McsUconst;                ///< compound selector for constituents for underlying events 
+		fastjet::Selector RcsUconst;                ///< compound selector for constituents for underlying events 
+
 
 		// Relevant jet candidates
 		fastjet::Selector select_jet_rap;        ///< jet rapidity selector
@@ -157,6 +245,8 @@ class jetpt_McVsEmbed
 
 		std::vector<fastjet::PseudoJet> McJconstituents;     ///< constituents for jet finding
 		std::vector<fastjet::PseudoJet> RcJconstituents;     ///< constituents for jet finding
+		std::vector<fastjet::PseudoJet> McUconstituents;     ///< constituents for underlying events
+		std::vector<fastjet::PseudoJet> RcUconstituents;     ///< constituents for underlying events 
 
 		std::vector<fastjet::PseudoJet> McnosjetJAResult;  ///< Unaltered clustering result 	no jet eta selection
 		std::vector<fastjet::PseudoJet> RcnosjetJAResult;  ///< Unaltered clustering result  	no jet eta selection
@@ -173,15 +263,16 @@ class jetpt_McVsEmbed
 
 
 	public:
-		jetpt_McVsEmbed (	double R = 0.6,
+		underlying_McVsEmbed (	double R = 0.6,
 				double max_const_rap = 1.0,
 				double min_const_pt = 0.2,  
 				std::string jetalgo = "antikt",
 				TString name = "JetMcEmbedoutput.root" 		
 				);
 
-		~jetpt_McVsEmbed();
+		~underlying_McVsEmbed();
 
+		int LoopUnderlying (float RefPhi, std::vector<fastjet::PseudoJet> Uconstituents, int &LeadAreaNtrk, int &SubAreaNtrk, int &TranMaxNtrk, int &TranMinNtrk, float &LeadAreaPt, float &SubAreaPt, float &TranMaxPt, float &TranMinPt, float *TrkLeadAreaPt, float *TrkLeadAreaPhi, float *TrkLeadAreaEta, float *TrkSubAreaPt, float *TrkSubAreaPhi, float *TrkSubAreaEta, float *TrkTranMaxPt, float *TrkTranMaxPhi, float *TrkTranMaxEta, float *TrkTranMinPt, float *TrkTranMinPhi, float *TrkTranMinEta);
 
 		int Init();
 
@@ -190,7 +281,9 @@ class jetpt_McVsEmbed
 			 int ineventid, int inrunid,
 			 double inMcrefmult, double inMcvz,
 			 double inRcrefmult, double inRcvz,
-			 const std::vector<std::pair<float,float> > &ToMatch      
+			 const std::vector<std::pair<float,float> > &ToMatch,
+			 Bool_t is_trigger
+			 //double weightbyXsec
 			);
 
 		int Finish();
@@ -204,6 +297,19 @@ class jetpt_McVsEmbed
 
 		// Wether apply Neutral/Total Pt of Jet fraction cut
 		void SetNetraulJetFracCut(bool val) {mNeutralJetFracCut = val; };
+
+		// Underlying event particle: charged(1) or neutral(0) or all(2)
+		void SetUnderlyingParticleCharge(int val);
+		int GetUnderlyingParticleCharge() { return mUnderlyingParticleCharge; }
+		
+		// Jet: charged(1) or neutral(0) or all(2)
+		void SetJetCharge(int val);
+		int GetJetCharge() { return mJetCharge; }
+
+		// Underlying phi size
+		void SetTransversePhiSize(float val) { if(val<180&&val>0) {mTranPhiSize = val;} else {mTranPhiSize = 60;} }
+		int GetTransversePhiSize() { return mTranPhiSize; }
+
 
 		int SetVerbose(int val) {mVerbose=val;}
 
@@ -266,6 +372,10 @@ class jetpt_McVsEmbed
 		bool IsOutlierMcpTCutApplied() {return DoOutlierMcpTCut;}
 		double GetOutlierMcpTCut() {return mOutlierMcpTCut; }
 		int GetNEventOutlierMcpTCut() {return nEventOutlierMcpT;}
+		void SetOutlierRcpTCut(double val) {DoOutlierRcpTCut = true; mOutlierRcpTCut = val;}
+		bool IsOutlierRcpTCutApplied() {return DoOutlierRcpTCut;}
+		double GetOutlierRcpTCut() {return mOutlierRcpTCut; }
+		int GetNEventOutlierRcpTCut() {return nEventOutlierRcpT;}
 };
 
 
