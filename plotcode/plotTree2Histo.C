@@ -44,6 +44,10 @@
 #include "TF1.h"
 #include "TMath.h"
 
+
+#include "ReWeightByNF.h"
+
+
 #include <iostream>
 #include <algorithm>    // std::max, std::max_element
 
@@ -90,11 +94,11 @@ float foldphi(float phi) {			// fold to [0, pi]
 
 float getweight(float pt, int charge=1, int MC=0) {		// tpc and tof efficiency only apply to charged particle. set 'charge' to 0 if bemc neutral particles are used.
 	
+	if(pt<MINPTCUT) return 0;				// set minimum pt as 0.2 GeV !!!!! CHECK
+
 	if(MC>0) return 1;					// pythia data, no correction needed
 
 	if(charge==0) return 1;
-
-	if(pt<MINPTCUT) return 0;				// set minimum pt as 0.2 GeV !!!!! CHECK
 
 	float eff = 0;
 	TF1* feff=new TF1("feff","[0]*(exp(-pow([1]/x,[2])-pow([3]/x,[4])))",0.1,4.5);
@@ -111,13 +115,13 @@ float getweight(float pt, int charge=1, int MC=0) {		// tpc and tof efficiency o
 }
 
 float inveff_tof(float pt, int charge=1, int MC=0) {		// real data 2000<zdc<3000 
-	//return 1;			// test
+	//return 1;			
+
+	if(pt<MINPTCUT) return 0;
 
 	if(MC>0) return 1;					// pythia data, no correction needed
 
 	if(charge==0) return 1;
-
-	if(pt<MINPTCUT) return 0;
 
 	float eff = 0;
 	TF1* feff=new TF1("feff","[0]*(exp(-pow([1]/x,[2])))", 0.1, 4.5);
@@ -134,13 +138,13 @@ float inveff_tof(float pt, int charge=1, int MC=0) {		// real data 2000<zdc<3000
 
 
 float inveff_tpc(float pt, int charge=1, int MC=0) {		// pion embedding
-	//return 1;			// test
+	//return 1;			
+
+	if(pt<MINPTCUT) return 0;
 
 	if(MC>0) return 1;					// pythia data, no correction needed
 
 	if(charge==0) return 1;
-
-	if(pt<MINPTCUT) return 0;
 
 	float eff = 0;
 	TF1* feff=new TF1("feff","[0]*(exp(-pow([1]/x,[2])))", 0.1, 4.5);
@@ -416,11 +420,21 @@ void RedistriRegions(float phi, float transize, int &leadntrk, int &subntrk, int
 
 
 
-void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp200Y12_jetunderlying/", TString filetag = "underlyingevent_MB_R06_LeadJetAngle_FullJetFraclt90_160116", double jetptmin = 10, double jetptmax= 200, int ExclusiveEta = 0) {
+void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp200Y12_jetunderlying/", TString filetag = "underlyingevent_MB_R06_LeadJetAngle_FullJetFraclt90_160116", double jetptmin = 10, double jetptmax= 200, int ExclusiveEta = 0, int flagjetweight=0) {
 // what2fill: refmult, leadjetpt, maxtrackpt, multiplicity, transntrk	(no space)
+//
+//
 // ExclusiveEta: 
 // 		==1: jet and underlying event in seperate eta region. for example: jet in [-0.6, 0), then undelrying event [0.6,1)
 // 		==0: no requirement for underlying event and jet eta
+//
+// 
+// jetptmin and jetptmax:
+// 		only be used when what2fill is multiplicity/refmult/transntrk
+//
+// flagjetweight:
+// 		==1: Apply jet/event wise weight 		for now (2016.12.21), this weight is used to get JPs jet neutral fraction to be same as MB trigger one
+// 		==0: no jet/event wise weight applied
 
 	if( (!what2fill.EqualTo("refmult",TString::kIgnoreCase)) && (!what2fill.EqualTo("leadjetpt",TString::kIgnoreCase)) && (!what2fill.EqualTo("maxtrackpt",TString::kIgnoreCase)) && (!what2fill.EqualTo("multiplicity",TString::kIgnoreCase)) && (!(what2fill.EqualTo("transntrk",TString::kIgnoreCase)||(what2fill.EqualTo("tranntrk",TString::kIgnoreCase)))) ) {
   	  cout<<"ERR!! call plotTree2Histo(TString what2fill, TString filepath): what2fill should be \"refmult\", \"leadjetpt\", \"maxtrackpt\", \"multiplicity\", \"transntrk\" or \"tranntrk\"."<<endl;
@@ -449,8 +463,8 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	if(chargeflag==1&&MCflag==0&&TOFMATCH==1) cout<<"Apply TOF matching efficiency"<<endl;
 	cout<<endl;
 
-	int savefig = 0;
-	int saveroot = 0; 
+	int savefig = 1;
+	int saveroot = 1; 
 
 	// reader
 	//TFile *f = new TFile("~/Scratch/pp200Y12_jetunderlying/underlyingevent_JP2_R06_LeadJetAngle_MatchTrig_151110.root");
@@ -528,6 +542,15 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 		maxpt = 25;			// max track pt cut is 20 
 		nbinning = 25;
 	}
+
+	int WIDEBIN = 1;
+        const int WJbins = 14;
+        double WJptbins[WJbins+1] = {0,2,3,4,5,7,9,11,15,20,25,35,45,65,100};
+	if(WIDEBIN) {
+		cout<<"Use wide pT bin. "<<endl;
+	}
+        
+
 	TString xvariablename = "refmult";
 	if(what2fill.Contains("jetpt",TString::kIgnoreCase)) {
 		xvariablename = "Leading Jet p_{T}";
@@ -542,51 +565,100 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 		xvariablename = "Transverse multiplicity";
 	}
 
-	TH1D *xaxis = new TH1D(what2fill,xvariablename,nbinning,0,maxpt);
+	TH1D *xaxis;
+	if(!WIDEBIN) xaxis = new TH1D(what2fill,xvariablename,nbinning,0,maxpt); 
+	else xaxis = new TH1D(what2fill,xvariablename,WJbins,WJptbins);cout<<"WIDEBIN="<<WIDEBIN<<endl;
 	xaxis->Sumw2();
 
 	TH2D *hetaphi = new TH2D("hetaphi","#Delta#eta-#Delta#phi",100,0,TMath::Pi(),100,-2,2);
 	hetaphi->Sumw2();
 
-	TProfile *j1ptvsxaxis = new TProfile("j1ptvs"+what2fill,"Leading Jet p_{T} vs "+xvariablename,nbinning,0,maxpt);
-	TProfile *jasptvsxaxis = new TProfile("jasptvs"+what2fill,"Recoild Jet p_{T} vs "+xvariablename,nbinning,0,maxpt);
+	TProfile *j1ptvsxaxis;
+	if(!WIDEBIN) j1ptvsxaxis = new TProfile("j1ptvs"+what2fill,"Leading Jet p_{T} vs "+xvariablename,nbinning,0,maxpt);
+	else j1ptvsxaxis = new TProfile("j1ptvs"+what2fill,"Leading Jet p_{T} vs "+xvariablename,WJbins,WJptbins);
+	TProfile *jasptvsxaxis;
+	if(!WIDEBIN) jasptvsxaxis = new TProfile("jasptvs"+what2fill,"Recoild Jet p_{T} vs "+xvariablename,nbinning,0,maxpt);
+	else jasptvsxaxis = new TProfile("jasptvs"+what2fill,"Recoild Jet p_{T} vs "+xvariablename,WJbins,WJptbins);
 
-        TProfile *leadjetntrkvsxaxis = new TProfile("leadjetareantrkvs"+what2fill,"Leading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *subjetntrkvsxaxis = new TProfile("subjetareantrkvs"+what2fill,"SubLeading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranmaxntrkvsxaxis = new TProfile("tranmaxntrkvs"+what2fill,"Transverse Max Ntrk vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranminntrkvsxaxis = new TProfile("tranminntrkvs"+what2fill,"Transverse Min Ntrk vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranntrkvsxaxis = new TProfile("tranntrkvs"+what2fill,"Transverse Ntrk vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *leadjetntrkvsxaxis;
+	if(!WIDEBIN) leadjetntrkvsxaxis = new TProfile("leadjetareantrkvs"+what2fill,"Leading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt);
+	else leadjetntrkvsxaxis = new TProfile("leadjetareantrkvs"+what2fill,"Leading Jet Area Ntrk vs "+xvariablename,WJbins,WJptbins);
+        TProfile *subjetntrkvsxaxis;
+	if(!WIDEBIN) subjetntrkvsxaxis = new TProfile("subjetareantrkvs"+what2fill,"SubLeading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt);
+	else subjetntrkvsxaxis = new TProfile("subjetareantrkvs"+what2fill,"SubLeading Jet Area Ntrk vs "+xvariablename,WJbins,WJptbins);
+        TProfile *tranmaxntrkvsxaxis;
+	if(!WIDEBIN) tranmaxntrkvsxaxis = new TProfile("tranmaxntrkvs"+what2fill,"Transverse Max Ntrk vs "+xvariablename,nbinning,0,maxpt);
+	else tranmaxntrkvsxaxis = new TProfile("tranmaxntrkvs"+what2fill,"Transverse Max Ntrk vs "+xvariablename,WJbins,WJptbins);
+        TProfile *tranminntrkvsxaxis;
+	if(!WIDEBIN) tranminntrkvsxaxis = new TProfile("tranminntrkvs"+what2fill,"Transverse Min Ntrk vs "+xvariablename,nbinning,0,maxpt);
+	else tranminntrkvsxaxis = new TProfile("tranminntrkvs"+what2fill,"Transverse Min Ntrk vs "+xvariablename,WJbins,WJptbins);
+        TProfile *tranntrkvsxaxis;
+	if(!WIDEBIN) tranntrkvsxaxis = new TProfile("tranntrkvs"+what2fill,"Transverse Ntrk vs "+xvariablename,nbinning,0,maxpt);
+	else tranntrkvsxaxis = new TProfile("tranntrkvs"+what2fill,"Transverse Ntrk vs "+xvariablename,WJbins,WJptbins);
+        TProfile *trantotntrkvsxaxis;
+	if(!WIDEBIN) trantotntrkvsxaxis = new TProfile("trantotntrkvs"+what2fill,"Transverse Total Ntrk vs "+xvariablename,nbinning,0,maxpt);
+	else trantotntrkvsxaxis = new TProfile("trantotntrkvs"+what2fill,"Transverse Total Ntrk vs "+xvariablename,WJbins,WJptbins);
 
-        TProfile *leadjetptsumvsxaxis = new TProfile("leadjetareaptsumvs"+what2fill,"Leading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *subjetptsumvsxaxis = new TProfile("subjetareaptsumvs"+what2fill,"SubLeading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranmaxptsumvsxaxis = new TProfile("tranmaxptsumvs"+what2fill,"Transverse Max Sum Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranminptsumvsxaxis = new TProfile("tranminptsumvs"+what2fill,"Transverse Min Sum Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranptsumvsxaxis = new TProfile("tranptsumvs"+what2fill,"Transverse Sum Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *leadjetptsumvsxaxis;
+	if(!WIDEBIN) leadjetptsumvsxaxis = new TProfile("leadjetareaptsumvs"+what2fill,"Leading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt);
+	else leadjetptsumvsxaxis = new TProfile("leadjetareaptsumvs"+what2fill,"Leading Jet Area Sum Pt vs "+xvariablename,WJbins,WJptbins);
+        TProfile *subjetptsumvsxaxis;
+	if(!WIDEBIN) subjetptsumvsxaxis = new TProfile("subjetareaptsumvs"+what2fill,"SubLeading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt);
+	else subjetptsumvsxaxis = new TProfile("subjetareaptsumvs"+what2fill,"SubLeading Jet Area Sum Pt vs "+xvariablename,WJbins,WJptbins);
+        TProfile *tranmaxptsumvsxaxis;
+	if(!WIDEBIN) tranmaxptsumvsxaxis = new TProfile("tranmaxptsumvs"+what2fill,"Transverse Max Sum Pt vs "+xvariablename,nbinning,0,maxpt);
+	else tranmaxptsumvsxaxis = new TProfile("tranmaxptsumvs"+what2fill,"Transverse Max Sum Pt vs "+xvariablename,WJbins,WJptbins);
+        TProfile *tranminptsumvsxaxis;
+	if(!WIDEBIN) tranminptsumvsxaxis = new TProfile("tranminptsumvs"+what2fill,"Transverse Min Sum Pt vs "+xvariablename,nbinning,0,maxpt);
+	else tranminptsumvsxaxis = new TProfile("tranminptsumvs"+what2fill,"Transverse Min Sum Pt vs "+xvariablename,WJbins,WJptbins);
+        TProfile *tranptsumvsxaxis;
+	if(!WIDEBIN) tranptsumvsxaxis = new TProfile("tranptsumvs"+what2fill,"Transverse Sum Pt vs "+xvariablename,nbinning,0,maxpt);
+	else tranptsumvsxaxis = new TProfile("tranptsumvs"+what2fill,"Transverse Sum Pt vs "+xvariablename,WJbins,WJptbins);
+        TProfile *trantotptsumvsxaxis;
+	if(!WIDEBIN) trantotptsumvsxaxis = new TProfile("trantotptsumvs"+what2fill,"Transverse Total Sum Pt vs "+xvariablename,nbinning,0,maxpt);
+	else trantotptsumvsxaxis = new TProfile("trantotptsumvs"+what2fill,"Transverse Total Sum Pt vs "+xvariablename,WJbins,WJptbins);
 
-        TProfile *leadjetptavevsxaxis = new TProfile("leadjetareaptavevs"+what2fill,"Leading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *subjetptavevsxaxis = new TProfile("subjetareaptavevs"+what2fill,"SubLeading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranmaxptavevsxaxis = new TProfile("tranmaxptavevs"+what2fill,"Transverse Max Average Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranminptavevsxaxis = new TProfile("tranminptavevs"+what2fill,"Transverse Min Average Pt vs "+xvariablename,nbinning,0,maxpt);
-        TProfile *tranptavevsxaxis = new TProfile("tranptavevs"+what2fill,"Transverse Average Pt vs "+xvariablename,nbinning,0,maxpt);
+        TProfile *leadjetptavevsxaxis;
+	if(!WIDEBIN) leadjetptavevsxaxis = new TProfile("leadjetareaptavevs"+what2fill,"Leading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt);
+	else leadjetptavevsxaxis = new TProfile("leadjetareaptavevs"+what2fill,"Leading Jet Area Average Pt vs "+xvariablename,WJbins,WJptbins);
+        TProfile *subjetptavevsxaxis;
+	if(!WIDEBIN) subjetptavevsxaxis = new TProfile("subjetareaptavevs"+what2fill,"SubLeading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt);
+	else subjetptavevsxaxis = new TProfile("subjetareaptavevs"+what2fill,"SubLeading Jet Area Average Pt vs "+xvariablename,WJbins,WJptbins);
+        TProfile *tranmaxptavevsxaxis;
+	if(!WIDEBIN) tranmaxptavevsxaxis = new TProfile("tranmaxptavevs"+what2fill,"Transverse Max Average Pt vs "+xvariablename,nbinning,0,maxpt);
+	else tranmaxptavevsxaxis = new TProfile("tranmaxptavevs"+what2fill,"Transverse Max Average Pt vs "+xvariablename,WJbins,WJptbins);
+        TProfile *tranminptavevsxaxis;
+	if(!WIDEBIN) tranminptavevsxaxis = new TProfile("tranminptavevs"+what2fill,"Transverse Min Average Pt vs "+xvariablename,nbinning,0,maxpt);
+	else tranminptavevsxaxis = new TProfile("tranminptavevs"+what2fill,"Transverse Min Average Pt vs "+xvariablename,WJbins,WJptbins);
+        TProfile *tranptavevsxaxis;
+	if(!WIDEBIN) tranptavevsxaxis = new TProfile("tranptavevs"+what2fill,"Transverse Average Pt vs "+xvariablename,nbinning,0,maxpt);
+	else tranptavevsxaxis = new TProfile("tranptavevs"+what2fill,"Transverse Average Pt vs "+xvariablename,WJbins,WJptbins);
 
-	TProfile *maxtranptvsxaxis = new TProfile("maxtranptvs"+what2fill,"Maximum Transverse Pt vs "+xvariablename,nbinning,0,maxpt);
+	TProfile *maxtranptvsxaxis;
+	if(!WIDEBIN) maxtranptvsxaxis = new TProfile("maxtranptvs"+what2fill,"Maximum Transverse Pt vs "+xvariablename,nbinning,0,maxpt);
+	else maxtranptvsxaxis = new TProfile("maxtranptvs"+what2fill,"Maximum Transverse Pt vs "+xvariablename,WJbins,WJptbins);
 	
 	int nbinning_tpt = 1000;
 	double max_tpt = 50;
+	int max_ntrk = 50;
 	TH2D *hj1ptvsxaxis = new TH2D("hj1ptvs"+what2fill,"Leading Jet p_{T} vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
 	TH2D *hjasptvsxaxis = new TH2D("hjasptvs"+what2fill,"Recoil Jet p_{T} vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
 	
-        TH2D *hleadjetntrkvsxaxis = new TH2D("hleadjetareantrkvs"+what2fill,"Leading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *hsubjetntrkvsxaxis = new TH2D("hsubjetareantrkvs"+what2fill,"SubLeading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranmaxntrkvsxaxis = new TH2D("htranmaxntrkvs"+what2fill,"Transverse Max Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranminntrkvsxaxis = new TH2D("htranminntrkvs"+what2fill,"Transverse Min Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
-        TH2D *htranntrkvsxaxis = new TH2D("htranntrkvs"+what2fill,"Transverse Ntrk vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+	// Important: when do TH2::ProfileX() or TH2::ProfileY(), the return profile histogram is computed using the Y bin center values instead of the real Y values which are used to fill the 2d histogram. Therefore the obtained profile is just an approximation of the correct profile histogram that would be obtained when filling it directly with the original data (see ROOT-7770)
+	// So we keep both TProfile and TH2 here. we also make the Ntrk binning border in the way that the Y-axis center is integral->which means we also need to store the sum of tranntrk (initially I stored the average of tranmax and tranmin as tran)
+        TH2D *hleadjetntrkvsxaxis = new TH2D("hleadjetareantrkvs"+what2fill,"Leading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt,max_ntrk,-0.5,max_ntrk-0.5);
+        TH2D *hsubjetntrkvsxaxis = new TH2D("hsubjetareantrkvs"+what2fill,"SubLeading Jet Area Ntrk vs "+xvariablename,nbinning,0,maxpt,max_ntrk,-0.5,max_ntrk-0.5);
+        TH2D *htranmaxntrkvsxaxis = new TH2D("htranmaxntrkvs"+what2fill,"Transverse Max Ntrk vs "+xvariablename,nbinning,0,maxpt,max_ntrk,-0.5,max_ntrk-0.5);
+        TH2D *htranminntrkvsxaxis = new TH2D("htranminntrkvs"+what2fill,"Transverse Min Ntrk vs "+xvariablename,nbinning,0,maxpt,max_ntrk,-0.5,max_ntrk-0.5);
+        TH2D *htranntrkvsxaxis = new TH2D("htranntrkvs"+what2fill,"Transverse Ntrk vs "+xvariablename,nbinning,0,maxpt,max_ntrk*2,-0.25,max_ntrk-0.25);
+        TH2D *htrantotntrkvsxaxis = new TH2D("htrantotntrkvs"+what2fill,"Transverse Total Ntrk vs "+xvariablename,nbinning,0,maxpt,max_ntrk,-0.5,max_ntrk-0.5);	// 2x of tranntrk for sum instead of average of tranmax and tranmin
 
         TH2D *hleadjetptsumvsxaxis = new TH2D("hleadjetareaptsumvs"+what2fill,"Leading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
         TH2D *hsubjetptsumvsxaxis = new TH2D("hsubjetareaptsumvs"+what2fill,"SubLeading Jet Area Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
         TH2D *htranmaxptsumvsxaxis = new TH2D("htranmaxptsumvs"+what2fill,"Transverse Max Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
         TH2D *htranminptsumvsxaxis = new TH2D("htranminptsumvs"+what2fill,"Transverse Min Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
         TH2D *htranptsumvsxaxis = new TH2D("htranptsumvs"+what2fill,"Transverse Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
+        TH2D *htrantotptsumvsxaxis = new TH2D("htrantotptsumvs"+what2fill,"Transverse Total Sum Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
 
         TH2D *hleadjetptavevsxaxis = new TH2D("hleadjetareaptavevs"+what2fill,"Leading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
         TH2D *hsubjetptavevsxaxis = new TH2D("hsubjetareaptavevs"+what2fill,"SubLeading Jet Area Average Pt vs "+xvariablename,nbinning,0,maxpt,nbinning_tpt,0,max_tpt);
@@ -604,12 +676,14 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
         htranmaxntrkvsxaxis->Sumw2();
         htranminntrkvsxaxis->Sumw2();
         htranntrkvsxaxis->Sumw2();
+        htrantotntrkvsxaxis->Sumw2();
 
         hleadjetptsumvsxaxis->Sumw2();
         hsubjetptsumvsxaxis->Sumw2();
         htranmaxptsumvsxaxis->Sumw2();
         htranminptsumvsxaxis->Sumw2();
         htranptsumvsxaxis->Sumw2();
+        htrantotptsumvsxaxis->Sumw2();
 
         hleadjetptavevsxaxis->Sumw2();
         hsubjetptavevsxaxis->Sumw2();
@@ -622,7 +696,14 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	TH1D *hphidiff = new TH1D("hphidiff","|Max pt Track phi - Jet phi|",100,0,3.15); // for xvariable is maxtrackpt case. 
 	TH2D *hphidiffVsJetpT = new TH2D("hphidiffVsJetpT","|Max pt Track phi - Jet phi| vs jet pt",100,0,100,100,0,3.15); // for xvariable is maxtrackpt case. 
 	TH2D *hphidiffVsMaxTrackpT = new TH2D("hphidiffVsMaxTrackpT","|Max pt Track phi - Jet phi| vs Max Track pt",20,0,20,100,0,3.15); // for xvariable is maxtrackpt case. 
-
+	ReWeightByNF *rwc;
+	if(flagjetweight && filetag.Contains("ppJP_") && filetag.Contains("FullJet",TString::kIgnoreCase) && (!(what2fill.Contains("trackpt",TString::kIgnoreCase)&&filetag.Contains("MaxTrack",TString::kIgnoreCase)))  ) {
+		cout<<"Do per jet reweight";
+		rwc = new ReWeightByNF();
+		rwc->Init4Read();
+		rwc->FillNFRatios();
+		cout<<"."<<endl;
+	}
 
 	// loop over events
 	cout<<"Total # of Events: "<<t->GetEntries()<<endl;
@@ -630,15 +711,26 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	for(int ievt = 0; ievt<t->GetEntries(); ievt++) {	
 		t->GetEntry(ievt);
 		//if(ievt>1000) break;		// test
+		
+
+
+		// Jet weight or event weight		for now (2016.12.21), this weight is used to get JPs jet neutral fraction to be same as MB trigger one
+		// All the histogram with x fill xvariable will be reweighted
+		float xweight = 1;
+		if(flagjetweight && rwc && filetag.Contains("ppJP_") && filetag.Contains("FullJet",TString::kIgnoreCase) && (!(what2fill.Contains("trackpt",TString::kIgnoreCase)&&filetag.Contains("MaxTrack",TString::kIgnoreCase)))  ) {
+			xweight = rwc->GetNFWeight(jpt, j1neutralfrac);	
+		}
 
 		if( !(what2fill.Contains("trackpt",TString::kIgnoreCase)&&filetag.Contains("MaxTrack",TString::kIgnoreCase)) ) {	//  apply the following cut if we are not using the max track pt files
 			if(j1neutralfrac>0.9) continue;			// jet neutral pT fraction < 90%
 			if(runid<=13046029) continue;		// hot BEMC stripe in MB dataset
+			if(runid<=13048000) continue;		// begining of MB run looks different test
 			
-			if(fabs(jeta)>0.6) continue;			// I miss this cut in jet finding selector in old files
+			if(fabs(jeta)>0.4) continue;			// I miss this cut in jet finding selector in old files
 			
 			if(jpt<=0) continue;				// no jet. 2016.08.28 I didn't require non-ghost in jet finding selector: there were some events with jet pt 0, I suspected that is the reason. but anyway remove zero jet events for futher calculation
 
+			//if(fabs(jaspt)<0) continue;			
 			//if(fabs(jaspt)<5) continue;			
 			//if(fabs(jpt-jaspt)>0.05*jpt) continue;		// dijet balanced
 
@@ -715,18 +807,18 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 			xvariable = refmult;
 		}
 
-		xaxis->Fill(xvariable);	
+		xaxis->Fill(xvariable,xweight);	
 
-		j1ptvsxaxis->Fill(xvariable,jpt);
-		jasptvsxaxis->Fill(xvariable,jaspt);
+		j1ptvsxaxis->Fill(xvariable,jpt,xweight);
+		jasptvsxaxis->Fill(xvariable,jaspt,xweight);
 		
-		hj1ptvsxaxis->Fill(xvariable,jpt);
-		hjasptvsxaxis->Fill(xvariable,jaspt);
+		hj1ptvsxaxis->Fill(xvariable,jpt,xweight);
+		hjasptvsxaxis->Fill(xvariable,jaspt,xweight);
 
 		float maxtranspt = max(*max_element(pt_min,pt_min+tranminntrk),*max_element(pt_max,pt_max+tranmaxntrk));	
-		maxtranptvsxaxis->Fill(xvariable,maxtranspt);
+		maxtranptvsxaxis->Fill(xvariable,maxtranspt,xweight);
 
-		hmaxtranptvsxaxis->Fill(xvariable,maxtranspt);
+		hmaxtranptvsxaxis->Fill(xvariable,maxtranspt,xweight);
 
 
 		int etaflag = 0;
@@ -753,11 +845,11 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 				w = inveff_tpc(pt_max[it],chargeflag,MCflag);		// if NO TOF match
 			}
 			//cout<<" w = "<<w<<endl;
-			tranmaxptavevsxaxis->Fill(xvariable,pt_max[it],w);
-			tranptavevsxaxis->Fill(xvariable,pt_max[it],w);
+			tranmaxptavevsxaxis->Fill(xvariable,pt_max[it],w*xweight);
+			tranptavevsxaxis->Fill(xvariable,pt_max[it],w*xweight);
 
-			htranmaxptavevsxaxis->Fill(xvariable,pt_max[it],w);
-			htranptavevsxaxis->Fill(xvariable,pt_max[it],w);
+			htranmaxptavevsxaxis->Fill(xvariable,pt_max[it],w*xweight);
+			htranptavevsxaxis->Fill(xvariable,pt_max[it],w*xweight);
 
 			hetaphi->Fill(foldphi(phi_max[it]-jphi),eta_max[it]-jeta);
 
@@ -778,11 +870,11 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 				w = inveff_tpc(pt_min[it],chargeflag,MCflag);
 			}
 			//cout<<" w = "<<w<<endl;
-			tranminptavevsxaxis->Fill(xvariable,pt_min[it],w);
-			tranptavevsxaxis->Fill(xvariable,pt_min[it],w);
+			tranminptavevsxaxis->Fill(xvariable,pt_min[it],w*xweight);
+			tranptavevsxaxis->Fill(xvariable,pt_min[it],w*xweight);
 
-			htranminptavevsxaxis->Fill(xvariable,pt_min[it],w);
-			htranptavevsxaxis->Fill(xvariable,pt_min[it],w);
+			htranminptavevsxaxis->Fill(xvariable,pt_min[it],w*xweight);
+			htranptavevsxaxis->Fill(xvariable,pt_min[it],w*xweight);
 
 			hetaphi->Fill(foldphi(phi_min[it]-jphi),eta_min[it]-jeta);
 
@@ -803,9 +895,9 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 				w = inveff_tpc(pt_jet[it],chargeflag,MCflag);
 			}
 			//cout<<" w = "<<w<<endl;
-			leadjetptavevsxaxis->Fill(xvariable,pt_jet[it],w);
+			leadjetptavevsxaxis->Fill(xvariable,pt_jet[it],w*xweight);
 
-			hleadjetptavevsxaxis->Fill(xvariable,pt_jet[it],w);
+			hleadjetptavevsxaxis->Fill(xvariable,pt_jet[it],w*xweight);
 			
 			hetaphi->Fill(foldphi(phi_jet[it]-jphi),eta_jet[it]-jeta);
 
@@ -825,9 +917,9 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 				w = inveff_tpc(pt_sub[it],chargeflag,MCflag);
 			}
 			//cout<<" w = "<<w<<endl;
-			subjetptavevsxaxis->Fill(xvariable,pt_sub[it],w);
+			subjetptavevsxaxis->Fill(xvariable,pt_sub[it],w*xweight);
 
-			hsubjetptavevsxaxis->Fill(xvariable,pt_sub[it],w);
+			hsubjetptavevsxaxis->Fill(xvariable,pt_sub[it],w*xweight);
 
 			hetaphi->Fill(foldphi(phi_sub[it]-jphi),eta_sub[it]-jeta);
 
@@ -839,36 +931,40 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 
 		//cout<<"event "<<ievt<<" x="<<xvariable<<" ntrklead = "<<sumleadntrk<<" ntrksub = "<<sumsubntrk<<" ntrkMax = "<<sumtranmaxntrk<<" ntrkMin = "<<sumtranminntrk<<endl;
 
-        	leadjetntrkvsxaxis->Fill(xvariable,sumleadntrk);
-        	hleadjetntrkvsxaxis->Fill(xvariable,sumleadntrk);
-        	subjetntrkvsxaxis->Fill(xvariable,sumsubntrk);
-        	hsubjetntrkvsxaxis->Fill(xvariable,sumsubntrk);
-        	tranntrkvsxaxis->Fill(xvariable,(sumtranmaxntrk+sumtranminntrk)/2.);		// do not use tranntrk directly because it is int type and it is the sum divided by 2 
-        	htranntrkvsxaxis->Fill(xvariable,(sumtranmaxntrk+sumtranminntrk)/2.);
+        	leadjetntrkvsxaxis->Fill(xvariable,sumleadntrk,xweight);
+        	hleadjetntrkvsxaxis->Fill(xvariable,sumleadntrk,xweight);
+        	subjetntrkvsxaxis->Fill(xvariable,sumsubntrk,xweight);
+        	hsubjetntrkvsxaxis->Fill(xvariable,sumsubntrk,xweight);
+        	tranntrkvsxaxis->Fill(xvariable,(sumtranmaxntrk+sumtranminntrk)/2.,xweight);		// do not use tranntrk directly because it is int type and it is the sum divided by 2 
+        	htranntrkvsxaxis->Fill(xvariable,(sumtranmaxntrk+sumtranminntrk)/2.,xweight);
+        	trantotntrkvsxaxis->Fill(xvariable,sumtranmaxntrk+sumtranminntrk,xweight);		// sum of tranmax and tranmin
+        	htrantotntrkvsxaxis->Fill(xvariable,sumtranmaxntrk+sumtranminntrk,xweight);
 
 		// for multiplicity, the largest one with ntrk will be tranmax
 		MaxOrMin(sumtranmaxntrk,sumtranminntrk);		
-        	tranmaxntrkvsxaxis->Fill(xvariable,sumtranmaxntrk);
-        	htranmaxntrkvsxaxis->Fill(xvariable,sumtranmaxntrk);
-        	tranminntrkvsxaxis->Fill(xvariable,sumtranminntrk);
-        	htranminntrkvsxaxis->Fill(xvariable,sumtranminntrk);
+        	tranmaxntrkvsxaxis->Fill(xvariable,sumtranmaxntrk,xweight);
+        	htranmaxntrkvsxaxis->Fill(xvariable,sumtranmaxntrk,xweight);
+        	tranminntrkvsxaxis->Fill(xvariable,sumtranminntrk,xweight);
+        	htranminntrkvsxaxis->Fill(xvariable,sumtranminntrk,xweight);
 
 
 		// for track <pT>, the largest region with sum pT will be tranmax
+        	leadjetptsumvsxaxis->Fill(xvariable,sumleadpt,xweight);
+        	subjetptsumvsxaxis->Fill(xvariable,sumsubpt,xweight);
+        	hleadjetptsumvsxaxis->Fill(xvariable,sumleadpt,xweight);
+        	hsubjetptsumvsxaxis->Fill(xvariable,sumsubpt,xweight);
+        	trantotptsumvsxaxis->Fill(xvariable,sumtranpt,xweight);		// total
+        	htrantotptsumvsxaxis->Fill(xvariable,sumtranpt,xweight);	// total
 		sumtranpt=sumtranpt/2.;		// take the average 
-        	leadjetptsumvsxaxis->Fill(xvariable,sumleadpt);
-        	subjetptsumvsxaxis->Fill(xvariable,sumsubpt);
-        	tranptsumvsxaxis->Fill(xvariable,sumtranpt);
-        	hleadjetptsumvsxaxis->Fill(xvariable,sumleadpt);
-        	hsubjetptsumvsxaxis->Fill(xvariable,sumsubpt);
-        	htranptsumvsxaxis->Fill(xvariable,sumtranpt);
+        	tranptsumvsxaxis->Fill(xvariable,sumtranpt,xweight);
+        	htranptsumvsxaxis->Fill(xvariable,sumtranpt,xweight);
 
 		// for sum pt, the largest one with sum pt will be tranmax
 		MaxOrMin(sumtranmaxpt,sumtranminpt);
-        	tranmaxptsumvsxaxis->Fill(xvariable,sumtranmaxpt);
-        	tranminptsumvsxaxis->Fill(xvariable,sumtranminpt);
-        	htranmaxptsumvsxaxis->Fill(xvariable,sumtranmaxpt);
-        	htranminptsumvsxaxis->Fill(xvariable,sumtranminpt);
+        	tranmaxptsumvsxaxis->Fill(xvariable,sumtranmaxpt,xweight);
+        	tranminptsumvsxaxis->Fill(xvariable,sumtranminpt,xweight);
+        	htranmaxptsumvsxaxis->Fill(xvariable,sumtranmaxpt,xweight);
+        	htranminptsumvsxaxis->Fill(xvariable,sumtranminpt,xweight);
 
 		processedevent++;
 	}
@@ -927,10 +1023,16 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	tranminntrkvsxaxis->SetMarkerColor(cmin);
 
         tranntrkvsxaxis->GetXaxis()->SetTitle(xvariablename);
-	tranntrkvsxaxis->GetYaxis()->SetTitle("Transverse Area Multiplicity");
+	tranntrkvsxaxis->GetYaxis()->SetTitle("Transverse Area Ave Multiplicity");
 	tranntrkvsxaxis->SetLineColor(ctran);
 	tranntrkvsxaxis->SetMarkerStyle(stran);
 	tranntrkvsxaxis->SetMarkerColor(ctran);
+
+        trantotntrkvsxaxis->GetXaxis()->SetTitle(xvariablename);
+	trantotntrkvsxaxis->GetYaxis()->SetTitle("Transverse Area Total Multiplicity");
+	trantotntrkvsxaxis->SetLineColor(ctran);
+	trantotntrkvsxaxis->SetMarkerStyle(stran);
+	trantotntrkvsxaxis->SetMarkerColor(ctran);
 
 
         leadjetptsumvsxaxis->GetXaxis()->SetTitle(xvariablename);
@@ -958,10 +1060,16 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 	tranminptsumvsxaxis->SetMarkerColor(cmin);
 
         tranptsumvsxaxis->GetXaxis()->SetTitle(xvariablename);
-	tranptsumvsxaxis->GetYaxis()->SetTitle("Transverse Area Sum Pt");
+	tranptsumvsxaxis->GetYaxis()->SetTitle("Transverse Area Ave Sum Pt");
 	tranptsumvsxaxis->SetLineColor(ctran);
 	tranptsumvsxaxis->SetMarkerStyle(stran);
 	tranptsumvsxaxis->SetMarkerColor(ctran);
+
+        trantotptsumvsxaxis->GetXaxis()->SetTitle(xvariablename);
+	trantotptsumvsxaxis->GetYaxis()->SetTitle("Transverse Area Total Sum Pt");
+	trantotptsumvsxaxis->SetLineColor(ctran);
+	trantotptsumvsxaxis->SetMarkerStyle(stran);
+	trantotptsumvsxaxis->SetMarkerColor(ctran);
 
 
         leadjetptavevsxaxis->GetXaxis()->SetTitle(xvariablename);
@@ -1086,9 +1194,16 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 		if(MCflag==1) {
 			jettag+="_NoEffCorr";
 		}
-		TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+".root";
+		if(WIDEBIN==1) {
+			jettag+="_WideBin";
+		}
+		if(flagjetweight==1) {
+			jettag+="_reweighted";
+		}
+		TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+".root";		// default
 		//TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_NeutralFrac75.root";
 		//TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_wR1"+".root";
+		//TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_AsJetGt0.root";
 		//TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_AsJetGt5"+".root";
 		//TString outfilepath = dir+what2fill+"hist4"+filetag+jettag+"_balance005"+".root";
 		if(ExclusiveEta>0) {
@@ -1108,12 +1223,14 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
         	tranmaxntrkvsxaxis->Write();
         	tranminntrkvsxaxis->Write();
         	tranntrkvsxaxis->Write();
+        	trantotntrkvsxaxis->Write();
 
         	leadjetptsumvsxaxis->Write();
         	subjetptsumvsxaxis->Write();
         	tranmaxptsumvsxaxis->Write();
         	tranminptsumvsxaxis->Write();
         	tranptsumvsxaxis->Write();
+        	trantotptsumvsxaxis->Write();
 
         	leadjetptavevsxaxis->Write();
         	subjetptavevsxaxis->Write();
@@ -1132,12 +1249,14 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
         	htranmaxntrkvsxaxis->Write();
         	htranminntrkvsxaxis->Write();
         	htranntrkvsxaxis->Write();
+        	htrantotntrkvsxaxis->Write();
 
         	hleadjetptsumvsxaxis->Write();
         	hsubjetptsumvsxaxis->Write();
         	htranmaxptsumvsxaxis->Write();
         	htranminptsumvsxaxis->Write();
         	htranptsumvsxaxis->Write();
+        	htrantotptsumvsxaxis->Write();
 
         	hleadjetptavevsxaxis->Write();
         	hsubjetptavevsxaxis->Write();
@@ -1151,6 +1270,10 @@ void plotTree2Histo(TString what2fill="multiplicity", TString dir="~/Scratch/pp2
 			hphidiff->Write();
 			hphidiffVsJetpT->Write();
 			hphidiffVsMaxTrackpT->Write();
+		}
+
+		for(int ic = 0; ic<ncanv; ic++) {
+			c[ic]->Write();
 		}
 			
 		fout->Close();
