@@ -59,7 +59,8 @@ using std::cos;
 //==============================================================================
 // parameters
 //==============================================================================
-double Unfold2D::Wptbins[] = {0,2,3,4,5,7,9,11,15,20,25,35,45,55,65,100};
+//double Unfold2D::Wptbins[] = {0,2,3,4,5,7,9,11,15,20,25,35,45,55,65,100};
+double Unfold2D::Wptbins[] = {0,2,3,4,5,7,9,11,15,20,25,35,45,55,100};
 
 void Unfold2D::Help() {
 
@@ -162,7 +163,9 @@ void Unfold2D::SetParms (float* args)
 
 void Unfold2D::SetDefaultParms() 		// use default parameterization
 {
-	float args[14] = {1, 50, 40, 50, 40, 0, 100, -0.5, 39.5, 0, 1, 1, 4, 1};
+	float args[14] = {1, 60, 100, 60, 100, 0, 60, 0, 1, 0, 1, 1, 4, 0};	// neutralfrac
+	//float args[14] = {3, 50, 40, 50, 40, 0, 100, -0.5, 39.5, 0, 1, 1, 4, 0};	// TranNtrk
+	//float args[14] = {1, 50, 500, 50, 500, 0, 100, 0, 50, 0, 1, 1, 4, 1};		// PtSum
 	//		method, ntx, nty, nmx, nmy, xlo, xhi, ylo, yhi, overflow, verbose, doerror, regparm, WIDEBIN
 	SetParms(args);	
 }
@@ -200,6 +203,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 	Bool_t flagIsTrigger;
 	Bool_t flagtrigmatch;
 
+	Float_t Mcjneutralfrac;
 	Int_t  McLeadAreaNtrk;
 	Int_t  McSubAreaNtrk;
 	Int_t  McTranMaxNtrk;
@@ -209,6 +213,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 	Float_t McTranMaxPtSum;
 	Float_t McTranMinPtSum;
 
+	Float_t Rcjneutralfrac;
 	Int_t  RcTranMaxNtrk;
 	Int_t  RcTranMinNtrk;
 	Int_t  RcLeadAreaNtrk;
@@ -219,8 +224,20 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 	Float_t RcTranMinPtSum;
 
 
+	if(WIDEBIN) pfxTrain= new TProfile("pfxtrain", "Training", WNbins, Wptbins);
+	else pfxTrain= new TProfile ("pfxtrain", "Training", nmx, xlo, xhi);
+	pfxTrain->SetLineColor(kRed);
+	pfxTrain->GetXaxis()->SetTitle(XvariableName);
+	pfxTrain->GetYaxis()->SetTitle(YvariableName);
+
 	for(int i = 0; i<NUMBEROFPT; i++) {
-		TString ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTransCharged.root",TrigName.Data(),PTBINS[i]);
+		TString ifilename;
+		if(ExcludeOpt&&TrigName.Contains("JP")) {
+			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_excluded.root",TrigName.Data(),PTBINS[i],TranCharge.Data());
+		}
+		else {
+			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s.root",TrigName.Data(),PTBINS[i],TranCharge.Data());
+		}
 		cout<<"Read in "<<ifilename<<endl;
 		ftrain = new TFile(ifilename);
 		tree = (TTree*)ftrain->Get("ResultTree");
@@ -233,6 +250,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 		tree->SetBranchAddress("trigmatch",&flagtrigmatch);
 
 		tree->SetBranchAddress("Mcj1pt",&McJet);
+		tree->SetBranchAddress("Mcj1neutralfrac",&Mcjneutralfrac);
 		tree->SetBranchAddress("McLeadAreaNtrk",&McLeadAreaNtrk);
 		tree->SetBranchAddress("McSubAreaNtrk",&McSubAreaNtrk);
 		tree->SetBranchAddress("McTranMaxNtrk",&McTranMaxNtrk);
@@ -244,6 +262,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 		//tree->SetBranchAddress("McPart",&McPart);
 		
 		tree->SetBranchAddress("Rcj1pt",&RcJet);
+		tree->SetBranchAddress("Rcj1neutralfrac",&Rcjneutralfrac);
 		tree->SetBranchAddress("RcLeadAreaNtrk",&RcLeadAreaNtrk);
 		tree->SetBranchAddress("RcSubAreaNtrk",&RcSubAreaNtrk);
 		tree->SetBranchAddress("RcTranMaxNtrk",&RcTranMaxNtrk);
@@ -266,14 +285,24 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 		for (Int_t j= 0; j<Nevents[i] && j<tree->GetEntries(); j++) {		// loop over entries
 			tree->GetEntry(j);
 
-			//if(!flagIsTrigger) continue;			// no correction for trig now..
 			flag = -999;
-			if(flagIsTrigger && flagtrigmatch && (flagMatch2Lead||flagMatch2Sub) ) flag = 1; 
-			else if(McJet>0 && (RcJet<=0 || !flagtrigmatch) ) flag = 0;		// non-zero Mc, zero Rc
-			else if((RcJet>0&&flagtrigmatch&&flagIsTrigger) && McJet<=0) flag = -1;		// non-zero Rc, zero Mc
-			//if(flagMatch2Lead||flagMatch2Sub) flag = 1; 
-			//else if(McJet>=0 && RcJet<=0) flag = 0;		// non-zero Mc, zero Rc
-			//else if(RcJet>=0 && McJet<=0) flag = -1;		// non-zero Rc, zero Mc
+			//////JPs
+			if(TrigName.Contains("JP",TString::kIgnoreCase)) {
+				if(flagIsTrigger && flagtrigmatch && (flagMatch2Lead||flagMatch2Sub) && RcJet>0 && Rcjneutralfrac<0.9) flag = 1; 		
+				else if(McJet>0 && (RcJet<=0 || !flagtrigmatch) ) flag = 0;		// non-zero Mc, zero Rc
+				else if((RcJet>0&&flagtrigmatch&&flagIsTrigger&&Rcjneutralfrac<0.9) && McJet<=0) flag = -1;		// non-zero Rc, zero Mc		additional neutral fraction here. It is also included in flagMatch2LeadGood and flagMatch2SubGood
+			}
+			else {
+			//if(!flagIsTrigger) continue;			// no correction for trig now..		
+			////MB only need the following 3 lines
+			if(flagIsTrigger && (flagMatch2Lead||flagMatch2Sub) && RcJet>0 && Rcjneutralfrac<0.9)     flag = 1; 				//2016.11.15 add naive simulated trigger for VPDMB
+			else if(McJet>0 && RcJet<=0) flag = 0;		// non-zero Mc, zero Rc
+			else if((flagIsTrigger && RcJet>0 && Rcjneutralfrac<0.9) && McJet<=0) flag = -1;		// non-zero Rc, zero Mc			//2016.11.15 add naive simulated trigger for VPDMB
+			//
+			//if((flagMatch2Lead||flagMatch2Sub) && RcJet>0 && Rcjneutralfrac<0.9)      flag = 1; 				
+			//else if(McJet>0 && RcJet<=0) flag = 0;		// non-zero Mc, zero Rc
+			//else if(RcJet>0 && Rcjneutralfrac<0.9 && McJet<=0) flag = -1;		// non-zero Rc, zero Mc			
+			}
 
 			if(YvariableName.Contains("TranMaxNtrk",TString::kIgnoreCase))
 			{
@@ -380,6 +409,11 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 				McPart = McSubAreaPtSum/McSubAreaNtrk;
 				RcPart = RcSubAreaPtSum/RcSubAreaNtrk;
 			}
+			else if(YvariableName.Contains("NeutralFrac",TString::kIgnoreCase)) 
+			{
+				McPart = Mcjneutralfrac;
+				RcPart = Rcjneutralfrac;
+			}
 			else // default: TranNtrk
 			{
 				McPart = 0.5*(McTranMaxNtrk+McTranMinNtrk);
@@ -390,6 +424,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 				hTrainTrue->Fill(McJet, McPart, weight);	
 				hTrain->Fill(RcJet, RcPart, weight);	
 				response->Fill(RcJet, RcPart,McJet, McPart, weight);
+				pfxTrain->Fill(RcJet, RcPart, weight);	
 			}
 			else if(flag==0) {		// true Mc, no Rc
 				hTrainTrue->Fill(McJet, McPart, weight);
@@ -399,6 +434,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 				hTrain->Fill(RcJet,RcPart, weight);
 				hTrainFake->Fill(RcJet,RcPart, weight);
 				response->Fake(RcJet,RcPart, weight);
+				pfxTrain->Fill(RcJet,RcPart, weight);
 			}
 		}
 		ftrain->Close();
@@ -496,7 +532,9 @@ Int_t Unfold2D::Train()
 
 Int_t Unfold2D::ReadResponseMatrix() 
 {
-	TString ifilename = Form("ResponseMatrix%s_%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data());	
+	TString SExclude="";
+	if(ExcludeOpt) SExclude = "_excluded";
+	TString ifilename = Form("ResponseMatrix%s_%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data());	
 	cout<<__PRETTY_FUNCTION__<<" Read in "<<ifilename<<endl;
 	ftrain = new TFile(ifilename);
 	hTrainTrue = (TH2D*)ftrain->Get("htraintrue");
@@ -529,6 +567,7 @@ void Unfold2D::TrainResults()
 	if (hTrainFakeY) hTrainFakeY->Draw("SAME");
 	lTrain->Draw();
 	ctrainy->Update();
+
 }
 
 
@@ -555,7 +594,13 @@ Int_t Unfold2D::Fill4Unfold() {
 	Float_t InputTranMaxPtSum;
 	Float_t InputTranMinPtSum;
 
-	TString ifilename = TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_TransCharged_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_160829.root");
+	TString ifilename;
+	if(TrigName.Contains("MB")) {
+		ifilename = TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_160829.root");
+	}
+	else {
+		ifilename = TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_160829.root");
+	}
 	cout<<__PRETTY_FUNCTION__<<__func__<<ifilename<<endl;
 	TFile *fin = new TFile(ifilename);
 	if(!fin) {cout<<"Cannot open file in "<<__PRETTY_FUNCTION__<<endl; exit;}
@@ -679,7 +724,7 @@ Int_t Unfold2D::Fill4Unfold() {
 //==============================================================================
 Int_t Unfold2D::ReadMeasHist4Unfold() {
 
-	TString ifilename = TString("~/Scratch/pp200Y12_jetunderlying/leadjetpthist4NoTofMatch_FullJet_TransCharged_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_160829_NoEffCorr.root");
+	TString ifilename = TString("~/Scratch/pp200Y12_jetunderlying/leadjetpthist4NoTofMatch_FullJet_Trans")+TranCharge+TString("_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_160829_NoEffCorr.root");
 	cout<<__PRETTY_FUNCTION__<<" Read in "<<ifilename<<endl;
 	TFile *fin = new TFile(ifilename);
 	if(!fin) {
@@ -772,7 +817,7 @@ Int_t Unfold2D::TrainAndTest ()
 	response = new RooUnfoldResponse ("response", "");
 	response->Setup (hTrain, hTrainTrue);
 
-	int Nevents[NUMBEROFPT] = {1000000,300000,300000,150000,150000,150000,80000,50000,40000,38000,12000};
+	int Nevents[NUMBEROFPT] = {600000,200000,300000,150000,150000,150000,80000,50000,40000,38000,12000};
 	//for(int i=0; i<NUMBEROFPT; i++) {
 	//	cout<<Nevents[i]<<endl;
 	//}
@@ -819,6 +864,13 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 	hFake->GetXaxis()->SetTitle(XvariableName);
 	hFake->GetYaxis()->SetTitle(YvariableName);
 
+	TProfile *pfxMeas;
+	if(WIDEBIN) pfxMeas= new TProfile("pfxmeas", "Test Measured", WNbins, Wptbins);
+	else pfxMeas= new TProfile ("pfxmeas", "Test Measured", nmx, xlo, xhi);
+	pfxMeas->SetLineColor(kRed);
+	pfxMeas->GetXaxis()->SetTitle(XvariableName);
+	pfxMeas->GetYaxis()->SetTitle(YvariableName);
+
 
 	int tflag;
 	float tMcJet, tMcPart, tRcJet, tRcPart;
@@ -853,7 +905,14 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 	double totalxsec = 0;
 	double totalnevents = 0;
 	for(int i = 0; i<NUMBEROFPT; i++) {
-		TString ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTransCharged.root",TrigName.Data(),PTBINS[i]);
+		TString ifilename;
+		if(ExcludeOpt&&TrigName.Contains("JP")) {
+			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_excluded.root",TrigName.Data(),PTBINS[i],TranCharge.Data());
+		}
+		else {
+			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s.root",TrigName.Data(),PTBINS[i],TranCharge.Data());
+		}
+
 		cout<<"Read in "<<ifilename<<endl;
 		TFile *fin = new TFile(ifilename);
 		TTree *ttree = (TTree*)fin->Get("ResultTree");
@@ -1021,6 +1080,7 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 			if(tflag==1) {			// one-to-one tMc to tRc matched
 				hTrue->Fill(tMcJet, tMcPart, tweight);	
 				hMeas->Fill(tRcJet, tRcPart, tweight);	
+				pfxMeas->Fill(tRcJet, tRcPart, tweight);	
 			}
 			else if(tflag==0) {		// true tMc, no tRc
 				hTrue->Fill(tMcJet, tMcPart, tweight);
@@ -1028,6 +1088,7 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 			else if(tflag==-1){				// Fake tRc, no tMc
 				hMeas->Fill(tRcJet,tRcPart, tweight);
 				hFake->Fill(tRcJet,tRcPart, tweight);
+				pfxMeas->Fill(tRcJet,tRcPart, tweight);
 			}
 
 		}// End Loop of events
@@ -1198,7 +1259,9 @@ void Unfold2D::Results()
 
 Int_t Unfold2D::WriteTest() 
 {
-	ftout = new TFile(Form("ResponseMatrix%s_%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data()),"RECREATE");
+	TString SExclude="";
+	if(ExcludeOpt) SExclude = "_excluded";
+	ftout = new TFile(Form("ResponseMatrix%s_%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data()),"RECREATE");
 	if(ftout) cout<<"Write to "<<ftout->GetName()<<endl;
 	hTrainTrue->Write();
 	hTrain->Write();
@@ -1221,12 +1284,17 @@ Int_t Unfold2D::WriteTest()
 
 Int_t Unfold2D::WriteTrain() 
 {
-	ftout = new TFile(Form("ResponseMatrix%s_%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data()),"RECREATE");
+	TString SExclude="";
+	if(ExcludeOpt) SExclude = "_excluded";
+	cout<<"Write to "<<Form("ResponseMatrix%s_%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data())<<endl;
+	ftout = new TFile(Form("ResponseMatrix%s_%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data()),"RECREATE");
 	hTrainTrue->Write();
 	hTrain->Write();
 	hTrainFake->Write();
 	response->Write();
+	if(pfxTrain) pfxTrain->Write();
 
+	cout<<"WriteTrain() done"<<endl;
 
 	return 1;
 }
@@ -1238,7 +1306,9 @@ Int_t Unfold2D::WriteTrain()
 
 Int_t Unfold2D::WriteUnfoldResult() 
 {
-	ftout = new TFile(Form("Unfolding%s_%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data()),"RECREATE");
+	TString SExclude="";
+	if(ExcludeOpt) SExclude = "_excluded";
+	ftout = new TFile(Form("Unfolding%s_%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data()),"RECREATE");
 	hTrainTrue->Write();
 	hTrain->Write();
 	hTrainFake->Write();
@@ -1253,14 +1323,14 @@ Int_t Unfold2D::WriteUnfoldResult()
 // Constructors and destructor
 //==============================================================================
 
-Unfold2D::Unfold2D (TString name): inputname(name), XvariableName("X"), YvariableName("Y"), TrigName("JP2")
+Unfold2D::Unfold2D (TString name): inputname(name), XvariableName("X"), YvariableName("Y"), TrigName("JP2"), TranCharge("Charged"), ExcludeOpt(0)
 {
 	Reset();
 	SetDefaultParms();
 }
 
 	Unfold2D::Unfold2D (const char* name, int argc, const char* const* argv)
-: inputname(name), XvariableName("X"), YvariableName("Y"), TrigName("JP2")
+: inputname(name), XvariableName("X"), YvariableName("Y"), TrigName("JP2"), TranCharge("Charged"), ExcludeOpt(0)
 {
 	Reset();
 	if(argc<14){ Help(); return; }
@@ -1385,6 +1455,14 @@ void Unfold2D::SetTrigName(TString tname) {
 	TrigName = tname;
 }
 
+void Unfold2D::SetTranCharge(TString tname) {
+	TranCharge = tname;
+}
+
+void Unfold2D::SetExcludeJPTrig(Int_t exclude) {
+	ExcludeOpt = exclude;
+}
+
 void Unfold2D::Legend (TLegend*& legend, TH1* truth, TH1* fake, TH1* meas, TH1* reco, TF1* ff, TF1* tf)
 {
 	legend= new TLegend (0.7, (tf ? 0.62 : reco ? 0.72 : 0.75), 0.894, 0.89);
@@ -1421,6 +1499,7 @@ TH2D* Unfold2D::CorrelationHist (const TMatrixD& cov,
 
 //==============================================================================
 // Use wide bin
+// somehow the rebin to wide bin does not work... Need to use initwidebin instead
 //==============================================================================
 TH2D* Unfold2D::RebinAs(TH2D *old, TH2D *model)		// rebin old as the same binining as model
 {
@@ -1460,7 +1539,6 @@ TH2D* Unfold2D::RebinX2DHisto(TH2D *old)
 TH2D* Unfold2D::Rebin2DHisto(TH2D *old, int Nx, double *xbins, int Ny, double *ybins)
 {
 	TH2D *h = new TH2D(Form("Rebin%s",old->GetName()),old->GetTitle(),Nx,xbins,Ny,ybins);	
-	h->Sumw2();
 	TAxis *xaxis = old->GetXaxis();
 	TAxis *yaxis = old->GetYaxis();
 	for (int j=1; j<=yaxis->GetNbins();j++) {
@@ -1468,6 +1546,7 @@ TH2D* Unfold2D::Rebin2DHisto(TH2D *old, int Nx, double *xbins, int Ny, double *y
 			h->Fill(xaxis->GetBinCenter(i),yaxis->GetBinCenter(j),old->GetBinContent(i,j));
 		}
 	}
+	h->Sumw2();
 	return h;
 }
 

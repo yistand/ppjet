@@ -30,11 +30,13 @@ using namespace std;
 
 void MainUnfold2D() {
 
-	Unfold2D *uf2 = new Unfold2D("trig");
+	Unfold2D *uf2 = new Unfold2D("");
 	
 	uf2->Init();
-	uf2->SetXYname("Leading jet p_{T}","TranTotNtrk");
-	uf2->SetTrigName("JP1");
+	uf2->SetXYname("Leading jet p_{T}","NeutralFrac");		// 2nd par: TranTotNtrk TranTotPtSum 
+	uf2->SetTrigName("JP0");						// MB JP0 JP1 JP2
+	uf2->SetTranCharge("Charged");					// Charged Neutral
+	uf2->SetExcludeJPTrig(1);
 
 	uf2->PrintParms();
 /*
@@ -49,16 +51,16 @@ void MainUnfold2D() {
 	uf2->TrainResults();
 	uf2->WriteTrain();
 
-
+/*
 	//uf2->ReadResponseMatrix();
 	
 	//---- Use Fill4Unfold() to read in data tree and fill the histogram or use ReadMeasHist4Unfold() if the histogram is ready been fill by Fill4Unfold() in root file.
-	//uf2->Fill4Unfold();
-	uf2->ReadMeasHist4Unfold();
+	uf2->Fill4Unfold();
+	//uf2->ReadMeasHist4Unfold();
 	uf2->Unfold();
 	uf2->Results();
 	uf2->WriteUnfoldResult();
-
+*/
 	cout<<"Bye .. "<<endl;
 
 }

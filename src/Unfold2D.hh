@@ -58,7 +58,11 @@ public:
 
   TString TrigName;
 
-  static const int WNbins = 15;
+  TString TranCharge;
+
+  Int_t ExcludeOpt;
+
+  static const int WNbins = 14;
   static double Wptbins[WNbins+1];
 
   RooUnfoldResponse* response;
@@ -78,6 +82,7 @@ public:
   TH1D *hTrainX, *hTrainTrueX, *hTrainFakeX, *hTrueX, *hMeasX, *hRecoX, *hFakeX;
   TH1D *hTrainY, *hTrainTrueY, *hTrainFakeY, *hTrueY, *hMeasY, *hRecoY, *hFakeY;
   TH2D *hCorr;
+  TProfile *pfxTrain; 
   // Tree
   TTree *tree;
   // Tree branch
@@ -136,6 +141,8 @@ public:
   static TH2D *InitWideX2DHisto(TString name, TString title, int Ny, double ylo, double yhi);
   void SetXYname(TString xname, TString yname);
   void SetTrigName(TString tname);
+  void SetTranCharge(TString tname);
+  void SetExcludeJPTrig(Int_t exclude);
 
 };
 
