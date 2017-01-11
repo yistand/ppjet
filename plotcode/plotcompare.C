@@ -23,21 +23,14 @@ void plotcompare() {
 
 	const int Nfile = 3;
 	char filename[Nfile][200] = {"leadjetpthist4NoTofMatch_FullJet_TransCharged_MatchTrig_ppJP_160811P12id_R06_HadrCorr_VPDcut_161209_NoEffCorr_WideBin_reweighted.root","leadjetpthist4NoTofMatch_FullJet_TransCharged_MatchTrig_ppJP_160811P12id_R06_HadrCorr_VPDcut_161209_NoEffCorr_WideBin.root","leadjetpthist4NoTofMatch_FullJet_TransCharged_ppMB_160811P12id_R06_HadrCorr_VPDcut_161209_NoEffCorr_WideBin.root"};
+	//char filename[Nfile][200] = {"leadjetpthist4NoTofMatch_FullJet_TransNeutral_MatchTrig_ppJP_160811P12id_R06_HadrCorr_VPDcut_161209_NoEffCorr_WideBin_reweighted.root","leadjetpthist4NoTofMatch_FullJet_TransNeutral_MatchTrig_ppJP_160811P12id_R06_HadrCorr_VPDcut_161209_NoEffCorr_WideBin.root","leadjetpthist4NoTofMatch_FullJet_TransNeutral_ppMB_160811P12id_R06_HadrCorr_VPDcut_161209_NoEffCorr_WideBin.root"};
 	char filetag[Nfile][100] = {"JP reweighted w/ VPD","JP w/ VPD","MB w/ VPD"};
 	char filetag4fig[Nfile][100] = {"reJP","JP","MB"};
-	double drawXrange[Nfile][2] = {{0,60},{0,60},{0,60}};
-
-	//const int Nfile = 3;
-	//char filename[Nfile][200] = {"leadjetpthist4NoTofMatch_FullJet_TransCharged_MatchTrig_ppJP_160811P12id_R06_HadrCorr_161209_NoEffCorr_WideBin_reweighted.root","leadjetpthist4NoTofMatch_FullJet_TransCharged_MatchTrig_ppJP_160811P12id_R06_HadrCorr_161209_NoEffCorr_WideBin.root","leadjetpthist4NoTofMatch_FullJet_TransCharged_ppMB_160811P12id_R06_HadrCorr_161209_NoEffCorr_WideBin.root"};
-	//char filetag[Nfile][100] = {"JP reweighted w/o VPD","JP w/o VPD","VPDMB"};
-	//char filetag4fig[Nfile][100] = {"reJP","JP","MB"};
-	//double drawXrange[Nfile][2] = {{0,60},{0,60},{0,60}};
-
-
 	int filecolor[7] = {kBlack,kRed,kBlue,kGreen+1,kBlue,kMagenta,kPink-7};
 	int markerstyle[7] = {24,8,21,21,34,33,29};
 	float markersize[7] = {1.5,1,1,1,1,1,1};
 
+	double drawXrange[Nfile][2] = {{0,60},{0,60},{0,60}};
 
 	//const int Nfile = 6;
 	//char filename[Nfile][200] = {"leadjetpthist4FullJet_TransCharged_MatchTrig_ppJP2_R06_HadrCorr_160224.root","leadjetpthist4kT_FullJet_TransCharged_MatchTrig_ppJP2_R06_HadrCorr_160224.root","leadjetpthist4Dijet_FullJet_TransCharged_MatchTrig_ppJP2_R06_HadrCorr_160224.root","leadjetpthist4Dijet_FullJet_TransCharged_MatchTrig_ppJP2_R06_HadrCorr_160224_AsJetGt5.root","leadjetpthist4FullJet_TransCharged_MatchTrig_ppJP2_R06_HadrCorr_160224_wR1.root", "leadjetpthist4TranPhi30_FullJet_TransCharged_MatchTrig_ppJP2_R06_HadrCorr_160224.root"};
@@ -52,6 +45,7 @@ void plotcompare() {
 	char histname[Nhist][200] = {"leadjetareantrkvsleadjetpt","subjetareantrkvsleadjetpt","tranntrkvsleadjetpt","leadjetareaptavevsleadjetpt","subjetareaptavevsleadjetpt","tranptavevsleadjetpt","leadjetareaptsumvsleadjetpt","subjetareaptsumvsleadjetpt","tranptsumvsleadjetpt"};
 	char histtag[Nhist][200] = {"Towards","Away","Transverse","Towards","Away","Transverse","Towards","Away","Transverse"};
 	char histy[Nhist][200] = {"Towards Region Multiplicity","Away Region Multiplicity","Transverse Region Multiplicity","Towards Region Track <p_{T}>","Away Region Track <p_{T}>","Transverse Region <p_{T}>","Towards Region Track Sum p_{T}","Away Region Track Sum p_{T}","Transverse Region Sum p_{T}"};
+	//char histy[Nhist][200] = {"Towards Tower Multiplicity","Away Tower Multiplicity","Transverse Tower Multiplicity","Towards Region Track <E_{T}>","Away Region Track <E_{T}>","Transverse Region <E_{T}>","Towards Region Track Sum E_{T}","Away Region Track Sum E_{T}","Transverse Region Sum E_{T}"};
 	char histx[200] = {"leading jet p_{T}"};
 	
 	//const int Nhist = 1;		
@@ -111,7 +105,12 @@ void plotcompare() {
 	
 	TLegend *l[Nhist];
 	for(int i = 0; i<Nhist; i++) {
-		l[i] = new TLegend(0.15,0.6,0.45,0.85);
+		if(strstr(histname[i], "tran")) {
+			l[i] = new TLegend(0.55,0.2,0.85,0.45);
+		}
+		else {
+			l[i] = new TLegend(0.15,0.6,0.45,0.85);
+		}
 		l[i]->SetTextFont(42);
 		l[i]->SetFillColor(0);
 		l[i]->SetBorderSize(0);
@@ -122,6 +121,7 @@ void plotcompare() {
 
 	//TLatex *lat = new TLatex(0.2,0.94,"pp@200GeV JP2 R=0.6 FullJet ");
 	TLatex *lat = new TLatex(0.2,0.94,"pp@200GeV R=0.6 FullJet NoTofMatch");
+	if(strstr(filename[0],"TransNeutral")) lat->SetText(0.1,0.94,"pp@200GeV R=0.6 FullJet TransNeutral NoTofMatch");
 	lat->SetNDC();
 	lat->SetTextFont(42);
 
@@ -145,7 +145,10 @@ void plotcompare() {
 		l[i]->Draw("same");
 		lat->Draw("same");
 
-		if(savefig) c[i]->SaveAs(Form("Compare_%s.png",histname[i]));
+		if(savefig) {
+			if(strstr(filename[0],"TransNeutral")) c[i]->SaveAs(Form("Compare_TransNeutral_%s.png",histname[i]));
+			else c[i]->SaveAs(Form("Compare_%s.png",histname[i]));
+		}
 	}
 
 
