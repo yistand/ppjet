@@ -176,13 +176,15 @@ TStarJetPicoReader SetupMcReader ( TChain* chain){
 	TStarJetPicoReader reader;
 	reader.SetInputChain (chain);
 
+	reader.SetProcessTowers(kFALSE);	// not Tower for MC (all stored as tracks). function added by KK. (it is ok to not set it, as NTowers = 0 anyway)
+
 	// Event and track selection
 	// -------------------------
 	TStarJetPicoEventCuts* evCuts = reader.GetEventCuts();
 	evCuts->SetTriggerSelection( "All" ); //All, MB, HT, pp, ppHT, ppJP
 	// No Additional cuts 
-	evCuts->SetVertexZCut (AjParameters::VzCut);	//test
-	//test evCuts->SetVertexZCut (99999);
+	//evCuts->SetVertexZCut (AjParameters::VzCut);	//test
+	evCuts->SetVertexZCut (99999);
 	evCuts->SetRefMultCut (0);
 	evCuts->SetVertexZDiffCut(999999);
 
@@ -259,10 +261,11 @@ int main ( int argc, const char** argv ) {
 	cout<<"TriggerName: "<<arguments.at(1)<<endl;
 	TString TriggerName = arguments.at(1);
 
-	int TrigFlagId = 0;
+	int TrigFlagId = -999;
+	if(TriggerName.EqualTo("ppJP")) TrigFlagId = 1220;		//// JP0               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND	 Use JP0 if select all JPs
 	if(TriggerName.EqualTo("ppJP2")) TrigFlagId = 1236;		//// JP2               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
 	if(TriggerName.EqualTo("ppJP1")) TrigFlagId = 1228;		//// JP1               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
-	if(TriggerName.EqualTo("ppJP0")) TrigFlagId = 1220;		//// JP1               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
+	if(TriggerName.EqualTo("ppJP0")) TrigFlagId = 1220;		//// JP0               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
 
 
 	cout<<"Chain data: "<<arguments.at(2).data()<<" for "<<RcChainName<<" and "<<McChainName<<endl;
@@ -300,7 +303,7 @@ int main ( int argc, const char** argv ) {
 
 	TStarJetPicoDefinitions::SetDebugLevel(0);
 
-	cout<<"SetupReader for RcPico"<<endl;
+	//cout<<"SetupReader for RcPico"<<endl;
 	double RefMultCut = 0;
 	//TStarJetPicoReader reader = SetupReader( chain, TriggerName,RefMultCut );			// #ly note: Events & Tracks & Towers cuts are set here
 	TStarJetPicoReader reader = SetupReader( chain, "All" ,RefMultCut );			// #ly note: Events & Tracks & Towers cuts are set here. To assess the trigger efficiency, we move the trigger information into tree production, variable is_trigger
@@ -414,7 +417,7 @@ int main ( int argc, const char** argv ) {
 	jme->SetVerbose(0);
 
 	Long64_t nEvents=-1; // -1 for all
-	//nEvents=1000;	// test
+	//nEvents=1;	// test
 	cout<<"init..."<<nEvents<<endl;
 	Mcreader.Init(nEvents);
 	reader.Init(nEvents);
@@ -442,7 +445,11 @@ int main ( int argc, const char** argv ) {
 			int Mcrunid   = Mcheader->GetRunId();
 			int Mceventid   = Mcheader->GetEventId();
 			//cout<<"Mc runid="<<Mcrunid<<" Mceventid="<<Mceventid<<endl;		
-
+			
+			// simulate vpd effect. cannot do it for Rc as we currently don't have it in our simulation 2016.11.14
+			Bool_t is_vpdtrg = kFALSE;			// true if both is_posvpd and is_negvpd are true
+			Bool_t is_posvpd = kFALSE;
+			Bool_t is_negvpd = kFALSE;
 
 			// Load event particles
 			// ----------
@@ -455,13 +462,25 @@ int main ( int argc, const char** argv ) {
 				Mcsv = Mccontainer->Get(mcip);  // Note that TStarJetVector contains more info
 
 				Mcpj=MakePseudoJet( Mcsv );
-				Mcpj.set_user_info ( new JetAnalysisUserInfo( 3*Mcsv->GetCharge(), Mcsv->GetFeatureD(TStarJetVector::_DEDX), 0)  );	// for Mc track, DEDX is actually pdg id. TOF one is set to 0.
+				Mcpj.set_user_info ( new JetAnalysisUserInfo( 3*Mcsv->GetCharge(), Mcsv->GetFeatureD(TStarJetVector::_DEDX), 0, Mcsv->GetFeatureI(TStarJetVector::_KEY) )  );	// for Mc track, DEDX is actually pdg id. TOF one is set to 0.
 				Mcpj.set_user_index(mcip);		
+				//cout<<"input Mcsv key = "<<Mcsv->GetFeatureI(TStarJetVector::_KEY)<<" eta = "<< Mcsv->eta() <<" phi = "<< Mcsv->phi() << " pt = "<< Mcsv->perp() << endl;
 				//cout<<"input "<<Mcsv->GetCharge() <<" -> "<<Mcpj.user_info<JetAnalysisUserInfo>().GetQuarkCharge()<<endl;	 
 
 				Mcparticles.push_back ( Mcpj );
-			}    
 
+				double ieta = Mcpj.eta();
+				if( TriggerName.Contains("MB") ) { 
+					if( is_posvpd==kFALSE && ieta>=4.24 && ieta<=5.1 )  {is_posvpd=kTRUE; }
+					if( is_negvpd==kFALSE && ieta<=-4.24 && ieta>=-5.1 )  {is_negvpd=kTRUE; }
+				}
+
+			}    
+			if( TriggerName.Contains("MB") ) {
+				is_vpdtrg = is_posvpd && is_negvpd;
+			}
+
+			//cout<<"Start RC"<<endl;
 
 
 			// Then loop over Rc event
@@ -474,8 +493,8 @@ int main ( int argc, const char** argv ) {
 				int eventid   = header->GetEventId();
 
 
-				//test #ly somehow McEvent doesnot have correct runid. they are all 0... if(runid!=Mcrunid || eventid!=Mceventid) {
-				if(eventid!=Mceventid) {	// test #ly only check eventid for now
+				//#ly somehow McEvent doesnot have correct runid. they are all 0... if(runid!=Mcrunid || eventid!=Mceventid) {
+				if(eventid!=Mceventid) {	// #ly Caution, see above.  only check eventid for now
 					cout<<"ERROR!!!!!!!!!!!!!!!!!! MC and RC not consistent!!!!!!!"<<endl;
 					cout<<"runid Rc = "<<runid<<" VS  Mc = "<<Mcrunid<<endl;
 					cout<<"eventid Rc = "<<eventid<<" VS  Mc = "<<Mceventid<<endl;
@@ -498,10 +517,12 @@ int main ( int argc, const char** argv ) {
 				// ----------
 				//std::cout<<"load trigger objs"<<endl;	
 				TClonesArray *trigobj = reader.GetEvent()->GetTrigObjs();
-				for(int itrg = 0; itrg<trigobj->GetEntries(); itrg++) {
-					if( ((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetTriggerFlag()==TrigFlagId )	 { 
-						EtaPhiPair itrigloc =std::make_pair(CorrectBemcVzEta(((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetEta(),header->GetPrimaryVertexZ()), ((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetPhi()) ;
-						TrigLoc2Match.push_back(itrigloc);
+				if(TrigFlagId>5) {		// Flag 5 is used to divided different triggers. If >5, means we want to read trigger info.
+					for(int itrg = 0; itrg<trigobj->GetEntries(); itrg++) {
+						if( ((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetTriggerFlag()==TrigFlagId )	 { 
+							EtaPhiPair itrigloc =std::make_pair(CorrectBemcVzEta(((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetEta(),header->GetPrimaryVertexZ()), ((TStarJetPicoTriggerInfo *)((*trigobj)[itrg]))->GetPhi()) ;
+							TrigLoc2Match.push_back(itrigloc);
+						}
 					}
 				}
 
@@ -519,11 +540,13 @@ int main ( int argc, const char** argv ) {
 
 					//if (sv->GetCharge()==0 ) (*sv) *= fTowScale; // for systematics
 					pj=MakePseudoJet( sv );
-					pj.set_user_info ( new JetAnalysisUserInfo( 3*sv->GetCharge(), sv->GetFeatureD(TStarJetVector::_DEDX), sv->GetFeatureD(TStarJetVector::_TOFBETA) ) );
+					pj.set_user_info ( new JetAnalysisUserInfo( 3*sv->GetCharge(), sv->GetFeatureD(TStarJetVector::_DEDX), sv->GetFeatureD(TStarJetVector::_TOFBETA), sv->GetMatch() ) );
 					pj.set_user_index(ip);		// #ly	link fastjet::PseudoJet to TStarJetVector class	--> NEED TO FIX THIS, NOT SURE WHY USER_INFO IS NOT PASSED TO JAResult.at(0).constituents() in UnderlyingAna.cxx
 					//cout<<"input "<<sv->GetCharge() <<" -> "<<pj.user_info<JetAnalysisUserInfo>().GetQuarkCharge()<<endl;	 
+					//cout<<"input Rcsv key = "<<sv->GetMatch()<<" eta = "<< sv->eta() <<" phi = "<< sv->phi() << " pt = "<< sv->perp() << " charge = "<<sv->GetCharge()<<endl;
 
 					particles.push_back ( pj );
+	
 					//}	      
 				}    
 			}
@@ -532,6 +555,10 @@ int main ( int argc, const char** argv ) {
 			// Run jet finding analysis
 			// ------------
 			//cout<<"analyze and fill"<<endl; 	
+
+			Bool_t istrigger = eventcut->IsTriggerIdOK(reader.GetEvent());		//  not work for MB
+			if(TriggerName.Contains("MB") &&  is_vpdtrg==kTRUE) istrigger=kTRUE;
+			
 
 			jme->Make( 	Mcparticles, 
 					particles, 
@@ -543,7 +570,8 @@ int main ( int argc, const char** argv ) {
 					reader.GetEvent()->GetHeader()->GetGReferenceMultiplicity(),
 					reader.GetEvent()->GetHeader()->GetPrimaryVertexZ(),
 					TrigLoc2Match,
-					eventcut->IsTriggerIdOK(reader.GetEvent())
+					istrigger
+					//eventcut->IsTriggerIdOK(reader.GetEvent())
 					//weightbyXsec
 			);
 
