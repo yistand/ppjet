@@ -49,7 +49,7 @@ bool ReadHist(TFile *f, TH1D* &hmeaspx, TH1D* &hrecopx, TH1D* &htrainmpx, TH1D* 
 	TH2D *htrainm = (TH2D*)GetTH2D(f,"htrain");
 	TH2D *htraint = (TH2D*)GetTH2D(f,"htraintrue");
 
-	htrainmpx = (TH1D*)htrainm->ProfileX("trainmpx"+tag);
+	htrainmpx = (TH1D*)htrainm->ProfileX("htrainmpx"+tag);
 	htraintpx = (TH1D*)htraint->ProfileX("htraintpx"+tag);
 
 	SetHistStyle(hmeaspx, 2, 2, 25, 1, 2, 1);
@@ -58,40 +58,45 @@ bool ReadHist(TFile *f, TH1D* &hmeaspx, TH1D* &hrecopx, TH1D* &htrainmpx, TH1D* 
 	SetHistStyle(htrainmpx, 2, 2, 25, 1, 2, 3);
 	SetHistStyle(htraintpx, 1, 1, 20, 1, 2, 3);
 
-	float DeDpNorma = 1./(2.*2.*TMath::Pi()/3.);	// TranTot: 2 area; eta 2; phi pi/3
-	hmeaspx->Scale(DeDpNorma);
-	hrecopx->Scale(DeDpNorma);
-	htrainmpx->Scale(DeDpNorma);
-	htraintpx->Scale(DeDpNorma);
-
 	TString ftitle = f->GetName();
+
+	float DeDpNorma = 1./(2.*2.*TMath::Pi()/3.);	// TranTot: 2 area; eta 2; phi pi/3
+	if(!ftitle.Contains("LeadJetNtrk",TString::kIgnoreCase)) {
+		hmeaspx->Scale(DeDpNorma);
+		hrecopx->Scale(DeDpNorma);
+		htrainmpx->Scale(DeDpNorma);
+		htraintpx->Scale(DeDpNorma);
+	}
 
 	TString sregion = "Transverse";
 	if(ftitle.Contains("Lead",TString::kIgnoreCase)) sregion = "Toward";
 	if(ftitle.Contains("Away",TString::kIgnoreCase) || ftitle.Contains("Sub",TString::kIgnoreCase)) sregion = "Away";
+	if(ftitle.Contains("LeadJetNtrk",TString::kIgnoreCase)) sregion = "Leading Jet";
 	TString svariable = " #LTN_{ch}/#delta#eta#delta#phi#GT";		// Ntrk
 	if(ftitle.Contains("PtAve",TString::kIgnoreCase) || ftitle.Contains("AvePt",TString::kIgnoreCase)) svariable = "#LTp_{T}^{ch}#GT";
 	if(ftitle.Contains("PtSum",TString::kIgnoreCase) || ftitle.Contains("SumPt",TString::kIgnoreCase)) svariable = "#sump_{T}^{ch}";
+	if(ftitle.Contains("LeadJetNtrk",TString::kIgnoreCase)) svariable = " Constituents Multiplicity";
 	hmeaspx->GetYaxis()->SetTitle(sregion+svariable);
 	hmeaspx->GetXaxis()->SetRangeUser(0,55);
 	hmeaspx->SetMinimum(0);
 	if(sregion.EqualTo("Transverse")) hmeaspx->SetMaximum(1.5);//Tran Ntrk density
-	if(sregion.EqualTo("Lead")||sregion.EqualTo("Away"))  hmeaspx->SetMaximum(2.5);//Lead Ntrk density
+	if(sregion.EqualTo("Toward")||sregion.EqualTo("Away"))  hmeaspx->SetMaximum(2.5);//Lead Ntrk density
 	if(ftitle.Contains("PtSum",TString::kIgnoreCase) || ftitle.Contains("SumPt",TString::kIgnoreCase)) {
-		if(sregion.EqualTo("Tran")) hmeaspx->SetMaximum(0.9);//Tran PtSum
-		if(sregion.EqualTo("Lead")||sregion.EqualTo("Away"))  hmeaspx->SetMaximum(10);//Lead PtSum
+		if(sregion.Contains("Tran")) hmeaspx->SetMaximum(0.9);//Tran PtSum
+		if(sregion.EqualTo("Toward")||sregion.EqualTo("Away"))  hmeaspx->SetMaximum(10);//Lead PtSum
 	}
 	if(ftitle.Contains("PtAve",TString::kIgnoreCase) || ftitle.Contains("AvePt",TString::kIgnoreCase)) {
-		if(sregion.EqualTo("Tran")) hmeaspx->SetMaximum(0.68);//Tran PtAve
-		if(sregion.EqualTo("Lead")||sregion.EqualTo("Away"))  hmeaspx->SetMaximum(4);//Lead PtAve
+		if(sregion.Contains("Tran")) hmeaspx->SetMaximum(0.68);//Tran PtAve
+		if(sregion.EqualTo("Twoard")||sregion.EqualTo("Away"))  hmeaspx->SetMaximum(4);//Lead PtAve
 	}
+	if(ftitle.Contains("LeadJetNtrk",TString::kIgnoreCase)) hmeaspx->SetMaximum(31);	// Lead Jet Ntrk (Charged+Neutral)
 
 	return true;
 
 }
 
 
-void plotUnfold(TString filename, TString filename2="") {
+void plotUnfold(TString filename, TString filename2="") {		// filename is _NFweight, filename2 is not weight
 
 	TFile *f = new TFile(filename);
 	TH1D *hmeaspx, *hrecopx, *htrainmpx, *htraintpx;
@@ -124,12 +129,15 @@ void plotUnfold(TString filename, TString filename2="") {
 	if(flagf2) {
 		hmeaspx2->Draw("eX0same");
 		hrecopx2->Draw("eX0same");
-		//htrainmpx2->Draw("HISTsame");
-		//htraintpx2->Draw("HISTsame");
+		htrainmpx2->Draw("HISTsame");
+		htraintpx2->Draw("HISTsame");
 	}
 
 	TLegend *leg;
-	if(filename.Contains("Lead",TString::kIgnoreCase)||filename.Contains("Away",TString::kIgnoreCase)) {
+	if(filename.Contains("LeadJetNtrk")) {
+		leg = new TLegend(0.17,0.6,0.55,0.88);		//LeadJetNtrk
+	}
+	else if(filename.Contains("Lead",TString::kIgnoreCase)||filename.Contains("Away",TString::kIgnoreCase)) {
 		leg = new TLegend(0.5,0.2,0.88,0.48);		//Lead
 	}
 	else {
@@ -152,13 +160,19 @@ void plotUnfold(TString filename, TString filename2="") {
 			leg->AddEntry(hrecopx2,"Unfolded data Fine Bin w/o NF weight","p");
 		}
 		else {
-			//leg->AddEntry(htrainmpx2,"MC Detector-level","l");
-			//leg->AddEntry(htraintpx2,"MC Particle-level","l");
+			leg->AddEntry(htrainmpx2,"MC JP0 Detector-level","l");
+			leg->AddEntry(htraintpx2,"MC JP0 Particle-level","l");
 			leg->AddEntry(hmeaspx2,"Measured data w/o NF weight","p");
 			leg->AddEntry(hrecopx2,"Unfolded data w/o NF weight","p");
 		}
 	}
 	leg->Draw();
+
+	TString sregion = "Tran";
+	if(filename.Contains("Lead",TString::kIgnoreCase)) sregion = "Lead";
+	if(filename.Contains("Away",TString::kIgnoreCase) || filename.Contains("Sub",TString::kIgnoreCase)) sregion = "Sub";
+	if(filename.Contains("LeadJetNtrk",TString::kIgnoreCase)) sregion="LeadJetChargedAndNeutralNtrk";	// Lead Jet Ntrk (Charged+Neutral)
+	c->SaveAs("Unfold"+sregion+"NtrkVsJetPt_JPs_NFweightedembedMBVsNoWeightembedJP0.png");
 
 
 }
