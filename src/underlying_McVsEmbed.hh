@@ -21,7 +21,7 @@
 #include <string>
 
 
-#define MAXARRAYLENGTH  5000
+#define MAXARRAYLENGTH  4000
 
 
 class underlying_McVsEmbed
@@ -158,15 +158,19 @@ class underlying_McVsEmbed
 		float McTrkTranMaxPt[MAXARRAYLENGTH];		// for track in tranmax
 		float McTrkTranMaxPhi[MAXARRAYLENGTH];		// for track in tranmax
 		float McTrkTranMaxEta[MAXARRAYLENGTH];		// for track in tranmax
+		int McTrkTranMaxId[MAXARRAYLENGTH];		// for track in tranmax
 		float McTrkTranMinPt[MAXARRAYLENGTH];		// for track in tranmin
 		float McTrkTranMinPhi[MAXARRAYLENGTH];		// for track in tranmax
 		float McTrkTranMinEta[MAXARRAYLENGTH];		// for track in tranmax
+		int McTrkTranMinId[MAXARRAYLENGTH];		// for track in tranmax
 		float McTrkLeadAreaPt[MAXARRAYLENGTH];			// for track in lead
 		float McTrkLeadAreaPhi[MAXARRAYLENGTH];		// for track in lead
 		float McTrkLeadAreaEta[MAXARRAYLENGTH];		// for track in lead
+		int McTrkLeadAreaId[MAXARRAYLENGTH];		// for track in lead
 		float McTrkSubAreaPt[MAXARRAYLENGTH];		// for track in sublead
 		float McTrkSubAreaPhi[MAXARRAYLENGTH];		// for track in sublead
 		float McTrkSubAreaEta[MAXARRAYLENGTH];		// for track in sublead
+		int McTrkSubAreaId[MAXARRAYLENGTH];		// for track in sublead
  
 
 
@@ -185,15 +189,19 @@ class underlying_McVsEmbed
 		float RcTrkTranMaxPt[MAXARRAYLENGTH];		// for track in tranmax
 		float RcTrkTranMaxPhi[MAXARRAYLENGTH];		// for track in tranmax
 		float RcTrkTranMaxEta[MAXARRAYLENGTH];		// for track in tranmax
+		int RcTrkTranMaxMcId[MAXARRAYLENGTH];		// for track in tranmax
 		float RcTrkTranMinPt[MAXARRAYLENGTH];		// for track in tranmin
 		float RcTrkTranMinPhi[MAXARRAYLENGTH];		// for track in tranmax
 		float RcTrkTranMinEta[MAXARRAYLENGTH];		// for track in tranmax
+		int RcTrkTranMinMcId[MAXARRAYLENGTH];		// for track in tranmax
 		float RcTrkLeadAreaPt[MAXARRAYLENGTH];			// for track in lead
 		float RcTrkLeadAreaPhi[MAXARRAYLENGTH];		// for track in lead
 		float RcTrkLeadAreaEta[MAXARRAYLENGTH];		// for track in lead
+		int RcTrkLeadAreaMcId[MAXARRAYLENGTH];		// for track in lead
 		float RcTrkSubAreaPt[MAXARRAYLENGTH];		// for track in sublead
 		float RcTrkSubAreaPhi[MAXARRAYLENGTH];		// for track in sublead
 		float RcTrkSubAreaEta[MAXARRAYLENGTH];		// for track in sublead
+		int RcTrkSubAreaMcId[MAXARRAYLENGTH];		// for track in sublead
  
 
 
@@ -272,7 +280,7 @@ class underlying_McVsEmbed
 
 		~underlying_McVsEmbed();
 
-		int LoopUnderlying (float RefPhi, std::vector<fastjet::PseudoJet> Uconstituents, int &LeadAreaNtrk, int &SubAreaNtrk, int &TranMaxNtrk, int &TranMinNtrk, float &LeadAreaPt, float &SubAreaPt, float &TranMaxPt, float &TranMinPt, float *TrkLeadAreaPt, float *TrkLeadAreaPhi, float *TrkLeadAreaEta, float *TrkSubAreaPt, float *TrkSubAreaPhi, float *TrkSubAreaEta, float *TrkTranMaxPt, float *TrkTranMaxPhi, float *TrkTranMaxEta, float *TrkTranMinPt, float *TrkTranMinPhi, float *TrkTranMinEta);
+		int LoopUnderlying (float RefPhi, std::vector<fastjet::PseudoJet> Uconstituents, int &LeadAreaNtrk, int &SubAreaNtrk, int &TranMaxNtrk, int &TranMinNtrk, float &LeadAreaPt, float &SubAreaPt, float &TranMaxPt, float &TranMinPt, float *TrkLeadAreaPt, float *TrkLeadAreaPhi, float *TrkLeadAreaEta, float *TrkSubAreaPt, float *TrkSubAreaPhi, float *TrkSubAreaEta, float *TrkTranMaxPt, float *TrkTranMaxPhi, float *TrkTranMaxEta, float *TrkTranMinPt, float *TrkTranMinPhi, float *TrkTranMinEta, int *TrkLeadAreaId, int *TrkSubAreaId, int *TrkTranMaxId, int *TrkTranMinId);	
 
 		int Init();
 

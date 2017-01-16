@@ -63,12 +63,14 @@ underlying_McVsEmbed::underlying_McVsEmbed (	double R,
 
 	// Constituent Selector for jet finding
 	// ---------------------
-	Mcsconst     = fastjet::SelectorIdentity(); //select_const_ptmin;			
+	//2017.01.10  Mcsconst     = fastjet::SelectorIdentity(); //select_const_ptmin;			
+	Mcsconst     = select_const_ptmin;			
 	Rcsconst     = select_const_rap && select_const_ptmin;				// detector eta acceptance
 
 	// Constituent Selector for underlying events
 	// ---------------------
-	McsUconst     = select_const_rap; // fastjet::SelectorIdentity(); //select_const_ptmin;		For underlying event quantities, still apply detector eta cut
+	//2017.01.10  McsUconst     = select_const_rap; // fastjet::SelectorIdentity(); //select_const_ptmin;		For underlying event quantities, still apply detector eta cut
+	McsUconst     = select_const_rap && select_const_ptmin;		 
 	RcsUconst     = select_const_rap && select_const_ptmin;				// detector eta acceptance
 
 
@@ -224,15 +226,19 @@ int underlying_McVsEmbed::Init()
 	ResultTree->Branch("McTrkTranMaxPt",McTrkTranMaxPt,"McTrkTranMaxPt[McTranMaxNtrk]/F");
 	ResultTree->Branch("McTrkTranMaxPhi",McTrkTranMaxPhi,"McTrkTranMaxPhi[McTranMaxNtrk]/F");
 	ResultTree->Branch("McTrkTranMaxEta",McTrkTranMaxEta,"McTrkTranMaxEta[McTranMaxNtrk]/F");
+	ResultTree->Branch("McTrkTranMaxId",McTrkTranMaxId,"McTrkTranMaxId[McTranMaxNtrk]/I");
 	ResultTree->Branch("McTrkTranMinPt",McTrkTranMinPt,"McTrkTranMinPt[McTranMinNtrk]/F");
 	ResultTree->Branch("McTrkTranMinPhi",McTrkTranMinPhi,"McTrkTranMinPhi[McTranMinNtrk]/F");
 	ResultTree->Branch("McTrkTranMinEta",McTrkTranMinEta,"McTrkTranMinEta[McTranMinNtrk]/F");
+	ResultTree->Branch("McTrkTranMinId",McTrkTranMinId,"McTrkTranMinId[McTranMinNtrk]/I");
 	ResultTree->Branch("McTrkLeadAreaPt",McTrkLeadAreaPt,"McTrkLeadAreaPt[McLeadAreaNtrk]/F");
 	ResultTree->Branch("McTrkLeadAreaPhi",McTrkLeadAreaPhi,"McTrkLeadAreaPhi[McLeadAreaNtrk]/F");
 	ResultTree->Branch("McTrkLeadAreaEta",McTrkLeadAreaEta,"McTrkLeadAreaEta[McLeadAreaNtrk]/F");
+	ResultTree->Branch("McTrkLeadAreaId",McTrkLeadAreaId,"McTrkLeadAreaId[McLeadAreaNtrk]/I");
 	ResultTree->Branch("McTrkSubAreaPt",McTrkSubAreaPt,"McTrkSubAreaPt[McSubAreaNtrk]/F");
 	ResultTree->Branch("McTrkSubAreaPhi",McTrkSubAreaPhi,"McTrkSubAreaPhi[McSubAreaNtrk]/F");
 	ResultTree->Branch("McTrkSubAreaEta",McTrkSubAreaEta,"McTrkSubAreaEta[McSubAreaNtrk]/F");
+	ResultTree->Branch("McTrkSubAreaId",McTrkSubAreaId,"McTrkSubAreaId[McSubAreaNtrk]/I");
  
 
 	// Detector level
@@ -281,15 +287,19 @@ int underlying_McVsEmbed::Init()
 	ResultTree->Branch("RcTrkTranMaxPt",RcTrkTranMaxPt,"RcTrkTranMaxPt[RcTranMaxNtrk]/F");
 	ResultTree->Branch("RcTrkTranMaxPhi",RcTrkTranMaxPhi,"RcTrkTranMaxPhi[RcTranMaxNtrk]/F");
 	ResultTree->Branch("RcTrkTranMaxEta",RcTrkTranMaxEta,"RcTrkTranMaxEta[RcTranMaxNtrk]/F");
+	ResultTree->Branch("RcTrkTranMaxMcId",RcTrkTranMaxMcId,"RcTrkTranMaxMcId[RcTranMaxNtrk]/I");
 	ResultTree->Branch("RcTrkTranMinPt",RcTrkTranMinPt,"RcTrkTranMinPt[RcTranMinNtrk]/F");
 	ResultTree->Branch("RcTrkTranMinPhi",RcTrkTranMinPhi,"RcTrkTranMinPhi[RcTranMinNtrk]/F");
 	ResultTree->Branch("RcTrkTranMinEta",RcTrkTranMinEta,"RcTrkTranMinEta[RcTranMinNtrk]/F");
+	ResultTree->Branch("RcTrkTranMinMcId",RcTrkTranMinMcId,"RcTrkTranMinMcId[RcTranMinNtrk]/I");
 	ResultTree->Branch("RcTrkLeadAreaPt",RcTrkLeadAreaPt,"RcTrkLeadAreaPt[RcLeadAreaNtrk]/F");
 	ResultTree->Branch("RcTrkLeadAreaPhi",RcTrkLeadAreaPhi,"RcTrkLeadAreaPhi[RcLeadAreaNtrk]/F");
 	ResultTree->Branch("RcTrkLeadAreaEta",RcTrkLeadAreaEta,"RcTrkLeadAreaEta[RcLeadAreaNtrk]/F");
+	ResultTree->Branch("RcTrkLeadAreaMcId",RcTrkLeadAreaMcId,"RcTrkLeadAreaMcId[RcLeadAreaNtrk]/I");
 	ResultTree->Branch("RcTrkSubAreaPt",RcTrkSubAreaPt,"RcTrkSubAreaPt[RcSubAreaNtrk]/F");
 	ResultTree->Branch("RcTrkSubAreaPhi",RcTrkSubAreaPhi,"RcTrkSubAreaPhi[RcSubAreaNtrk]/F");
 	ResultTree->Branch("RcTrkSubAreaEta",RcTrkSubAreaEta,"RcTrkSubAreaEta[RcSubAreaNtrk]/F");
+	ResultTree->Branch("RcTrkSubAreaMcId",RcTrkSubAreaMcId,"RcTrkSubAreaMcId[RcSubAreaNtrk]/I");
  
 
 	// Detector-level jet matched to any Particle-level jet
@@ -357,7 +367,7 @@ int underlying_McVsEmbed::Make (	const std::vector<fastjet::PseudoJet>& Mcpartic
 
 
 	Mcj1pt=0, Mcjaspt=0, Mcj2pt=0;
-	Mcj1phi=-999, Mcjaspt=-999, Mcj2phi=-999;
+	Mcj1phi=-999, Mcjasphi=-999, Mcj2phi=-999;
 	Mcj1eta=-999, Mcjaseta=-999, Mcj2eta=-999;
 	Mcj1area=0, Mcjasarea=0, Mcj2area=0;
 	Mcj1area_err=0, Mcjasarea_err=0, Mcj2area_err=0;
@@ -371,7 +381,7 @@ int underlying_McVsEmbed::Make (	const std::vector<fastjet::PseudoJet>& Mcpartic
 
 
 	Rcj1pt=0, Rcjaspt=0, Rcj2pt=0;
-	Rcj1phi=-999, Rcjaspt=-999, Rcj2phi=-999;
+	Rcj1phi=-999, Rcjasphi=-999, Rcj2phi=-999;
 	Rcj1eta=-999, Rcjaseta=-999, Rcj2eta=-999;
 	Rcj1area=0, Rcjasarea=0, Rcj2area=0;
 	Rcj1area_err=0, Rcjasarea_err=0, Rcj2area_err=0;
@@ -391,6 +401,29 @@ int underlying_McVsEmbed::Make (	const std::vector<fastjet::PseudoJet>& Mcpartic
 	flagIsTrigger = is_trigger;
 	//weight = weightbyXsec;
 
+	// underlying event info zero
+	McLeadAreaPt = 0;
+	McSubAreaPt = 0;
+	McTranMaxPt = 0;
+	McTranMinPt = 0;
+	McTranPt = 0;
+	
+	McLeadAreaNtrk = 0;
+	McSubAreaNtrk = 0;
+	McTranMaxNtrk = 0;
+	McTranMinNtrk = 0;
+		
+	RcLeadAreaPt = 0;
+	RcSubAreaPt = 0;
+	RcTranMaxPt = 0;
+	RcTranMinPt = 0;
+	RcTranPt = 0;
+	
+	RcLeadAreaNtrk = 0;
+	RcSubAreaNtrk = 0;
+	RcTranMaxNtrk = 0;
+	RcTranMinNtrk = 0;
+		
 	// Select particles to perform analysis on
 	// ---------------------------------------
 	// Constituent Selector for jet finding
@@ -742,13 +775,13 @@ int underlying_McVsEmbed::Make (	const std::vector<fastjet::PseudoJet>& Mcpartic
 
 
 	if(flagGoodEtaMcJet) {
-		LoopUnderlying(Mcj1phi, McUconstituents, McLeadAreaNtrk, McSubAreaNtrk, McTranMaxNtrk, McTranMinNtrk, McLeadAreaPt, McSubAreaPt, McTranMaxPt, McTranMinPt, McTrkLeadAreaPt, McTrkLeadAreaPhi, McTrkLeadAreaEta, McTrkSubAreaPt, McTrkSubAreaPhi, McTrkSubAreaEta, McTrkTranMaxPt, McTrkTranMaxPhi, McTrkTranMaxEta, McTrkTranMinPt, McTrkTranMinPhi, McTrkTranMinEta);	
+		LoopUnderlying(Mcj1phi, McUconstituents, McLeadAreaNtrk, McSubAreaNtrk, McTranMaxNtrk, McTranMinNtrk, McLeadAreaPt, McSubAreaPt, McTranMaxPt, McTranMinPt, McTrkLeadAreaPt, McTrkLeadAreaPhi, McTrkLeadAreaEta, McTrkSubAreaPt, McTrkSubAreaPhi, McTrkSubAreaEta, McTrkTranMaxPt, McTrkTranMaxPhi, McTrkTranMaxEta, McTrkTranMinPt, McTrkTranMinPhi, McTrkTranMinEta, McTrkLeadAreaId, McTrkSubAreaId, McTrkTranMaxId, McTrkTranMinId);	
 		McTranPt = (McTranMaxPt+McTranMinPt)/2.;
 	}
 
 
 	if(flagGoodEtaRcJet) {
-		LoopUnderlying(Rcj1phi, RcUconstituents, RcLeadAreaNtrk, RcSubAreaNtrk, RcTranMaxNtrk, RcTranMinNtrk, RcLeadAreaPt, RcSubAreaPt, RcTranMaxPt, RcTranMinPt, RcTrkLeadAreaPt, RcTrkLeadAreaPhi, RcTrkLeadAreaEta, RcTrkSubAreaPt, RcTrkSubAreaPhi, RcTrkSubAreaEta, RcTrkTranMaxPt, RcTrkTranMaxPhi, RcTrkTranMaxEta, RcTrkTranMinPt, RcTrkTranMinPhi, RcTrkTranMinEta);	
+		LoopUnderlying(Rcj1phi, RcUconstituents, RcLeadAreaNtrk, RcSubAreaNtrk, RcTranMaxNtrk, RcTranMinNtrk, RcLeadAreaPt, RcSubAreaPt, RcTranMaxPt, RcTranMinPt, RcTrkLeadAreaPt, RcTrkLeadAreaPhi, RcTrkLeadAreaEta, RcTrkSubAreaPt, RcTrkSubAreaPhi, RcTrkSubAreaEta, RcTrkTranMaxPt, RcTrkTranMaxPhi, RcTrkTranMaxEta, RcTrkTranMinPt, RcTrkTranMinPhi, RcTrkTranMinEta, RcTrkLeadAreaMcId, RcTrkSubAreaMcId, RcTrkTranMaxMcId, RcTrkTranMinMcId);	
 		RcTranPt = (RcTranMaxPt+RcTranMinPt)/2.;
 	}
 
@@ -774,15 +807,17 @@ int underlying_McVsEmbed::Make (	const std::vector<fastjet::PseudoJet>& Mcpartic
 
 
 
-int underlying_McVsEmbed::LoopUnderlying (float RefPhi, std::vector<fastjet::PseudoJet> Uconstituents, int &LeadAreaNtrk, int &SubAreaNtrk, int &TranMaxNtrk, int &TranMinNtrk, float &LeadAreaPt, float &SubAreaPt, float &TranMaxPt, float &TranMinPt, float *TrkLeadAreaPt, float *TrkLeadAreaPhi, float *TrkLeadAreaEta, float *TrkSubAreaPt, float *TrkSubAreaPhi, float *TrkSubAreaEta, float *TrkTranMaxPt, float *TrkTranMaxPhi, float *TrkTranMaxEta, float *TrkTranMinPt, float *TrkTranMinPhi, float *TrkTranMinEta)  {
+int underlying_McVsEmbed::LoopUnderlying (float RefPhi, std::vector<fastjet::PseudoJet> Uconstituents, int &LeadAreaNtrk, int &SubAreaNtrk, int &TranMaxNtrk, int &TranMinNtrk, float &LeadAreaPt, float &SubAreaPt, float &TranMaxPt, float &TranMinPt, float *TrkLeadAreaPt, float *TrkLeadAreaPhi, float *TrkLeadAreaEta, float *TrkSubAreaPt, float *TrkSubAreaPhi, float *TrkSubAreaEta, float *TrkTranMaxPt, float *TrkTranMaxPhi, float *TrkTranMaxEta, float *TrkTranMinPt, float *TrkTranMinPhi, float *TrkTranMinEta, int *TrkLeadAreaId, int *TrkSubAreaId, int *TrkTranMaxId, int *TrkTranMinId)  {
 
 	// Calculate underlying event and fill histos 
 	std::vector<float> tmp1Pt;
 	std::vector<float> tmp1Phi;
 	std::vector<float> tmp1Eta;
+	std::vector<int> tmp1Id;
 	std::vector<float> tmp2Pt;
 	std::vector<float> tmp2Phi;
 	std::vector<float> tmp2Eta;
+	std::vector<int> tmp2Id;
 
 	//==================== Loop over TStarJetVectorContainer for underlying info ====================================
 	int ntrklead = 0, ntrksublead = 0, ntrktran = 0, ntrktranmax = 0, ntrktranmin = 0;
@@ -794,11 +829,13 @@ int underlying_McVsEmbed::LoopUnderlying (float RefPhi, std::vector<fastjet::Pse
 		double iphi = pj->phi_std();	// -pi - pi
 		double ieta = pj->eta();
 		double ipt = pj->perp();	
+		int id = pj->user_info<JetAnalysisUserInfo>().GetId();			// MC is MC id; RC is matched MC id
 
 		if(fabs(JetAnalyzer::phimod2pi(iphi-RefPhi))<((180.-mTranPhiSize)/2.)/180.*TMath::Pi()) {		// leading		phimod2pi(phi) gives -pi ->pi
 			TrkLeadAreaPt[ntrklead] = ipt;
 			TrkLeadAreaPhi[ntrklead] = iphi;
 			TrkLeadAreaEta[ntrklead] = ieta;
+			TrkLeadAreaId[ntrklead] = id;
 			ntrklead++;
 			ptlead+=ipt;		// scalar sum
 			//std::cout<<"leading"<<std::endl;		
@@ -807,6 +844,7 @@ int underlying_McVsEmbed::LoopUnderlying (float RefPhi, std::vector<fastjet::Pse
 			TrkSubAreaPt[ntrksublead] = ipt;
 			TrkSubAreaPhi[ntrksublead] = iphi;
 			TrkSubAreaEta[ntrksublead] = ieta;
+			TrkSubAreaId[ntrksublead] = id;
 			ntrksublead++;
 			ptsublead+=ipt;		// scalar sum
 			//std::cout<<"subleading"<<std::endl;		
@@ -815,6 +853,7 @@ int underlying_McVsEmbed::LoopUnderlying (float RefPhi, std::vector<fastjet::Pse
 			tmp1Pt.push_back(ipt);
 			tmp1Phi.push_back(iphi);
 			tmp1Eta.push_back(ieta);
+			tmp1Id.push_back(id);
 			ntrktranmax++;		// will decide which one is max/min later and switch if needed
 			pttranmax+=ipt;		// scalar sum
 			//std::cout<<"transverse"<<std::endl;		
@@ -823,6 +862,7 @@ int underlying_McVsEmbed::LoopUnderlying (float RefPhi, std::vector<fastjet::Pse
 			tmp2Pt.push_back(ipt);
 			tmp2Phi.push_back(iphi);
 			tmp2Eta.push_back(ieta);
+			tmp2Id.push_back(id);
 			ntrktranmin++;
 			pttranmin+=ipt;		// scalar sum
 			//std::cout<<"transverse"<<std::endl;	
@@ -845,20 +885,24 @@ int underlying_McVsEmbed::LoopUnderlying (float RefPhi, std::vector<fastjet::Pse
 		std::copy(tmp2Pt.begin(),tmp2Pt.end(),TrkTranMaxPt);
 		std::copy(tmp2Phi.begin(),tmp2Phi.end(),TrkTranMaxPhi);
 		std::copy(tmp2Eta.begin(),tmp2Eta.end(),TrkTranMaxEta);
+		std::copy(tmp2Id.begin(),tmp2Id.end(),TrkTranMaxId);
 
 		std::copy(tmp1Pt.begin(),tmp1Pt.end(),TrkTranMinPt);
 		std::copy(tmp1Phi.begin(),tmp1Phi.end(),TrkTranMinPhi);
 		std::copy(tmp1Eta.begin(),tmp1Eta.end(),TrkTranMinEta);
+		std::copy(tmp1Id.begin(),tmp1Id.end(),TrkTranMinId);
 
 	}
 	else {
 		std::copy(tmp1Pt.begin(),tmp1Pt.end(),TrkTranMaxPt);
 		std::copy(tmp1Phi.begin(),tmp1Phi.end(),TrkTranMaxPhi);
 		std::copy(tmp1Eta.begin(),tmp1Eta.end(),TrkTranMaxEta);
+		std::copy(tmp1Id.begin(),tmp1Id.end(),TrkTranMaxId);
 
 		std::copy(tmp2Pt.begin(),tmp2Pt.end(),TrkTranMinPt);
 		std::copy(tmp2Phi.begin(),tmp2Phi.end(),TrkTranMinPhi);
 		std::copy(tmp2Eta.begin(),tmp2Eta.end(),TrkTranMinEta);
+		std::copy(tmp2Id.begin(),tmp2Id.end(),TrkTranMinId);
 
 	}
 
