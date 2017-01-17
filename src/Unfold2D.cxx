@@ -22,6 +22,7 @@
 
 #include "Unfold2D.hh"
 #include "CrossSectionPerpT.h"
+#include "ReWeightByNF.h"
 
 #if !defined(__CINT__) || defined(__MAKECINT__)
 #include <cmath>
@@ -33,7 +34,7 @@
 #include "TLegend.h"
 #include "TRandom.h"
 #include "TH1D.h"
-#include "TH2D.h"
+#include "TH2F.h"
 #include "TProfile.h"
 #include "TVectorD.h"
 #include "TLine.h"
@@ -60,7 +61,8 @@ using std::cos;
 // parameters
 //==============================================================================
 //double Unfold2D::Wptbins[] = {0,2,3,4,5,7,9,11,15,20,25,35,45,55,65,100};
-double Unfold2D::Wptbins[] = {0,2,3,4,5,7,9,11,15,20,25,35,45,55,100};
+//double Unfold2D::Wptbins[] = {0,2,3,4,5,7,9,11,15,20,25,35,45,55,100};
+double Unfold2D::Wptbins[] = {0,2,3,4,5,7,9,11,15,20,25,35,45,55};
 
 void Unfold2D::Help() {
 
@@ -93,6 +95,8 @@ void Unfold2D::Help() {
 	cout<<"//    kDefault=-1          //   not specified"<<endl<<endl;
 	cout<<"regparm = args[12];			// regularisation parameter (If not sure use: Bayes niter=3, SVD kterm=ntx/2)"<<endl;
 	cout<<"WIDEBIN = args[13];			// 1: for use wide pT bins (various bin size). 0: for use fine fixed pT bins"<<endl;
+	cout<<"flagjetweight = args[14];		// 1: if JPs (mix JP0, JP1, JP2), reweight 2D histograms with Neutral Fraction vs jet pT distribution same as MB. 0: no reweighting procedure"<<endl;
+	cout<<"						// if flagjetweight==1, WIDEBIN will be reset to 1, no mattter the input. Because, the reweighting procedure used wide jet pt bin, here needs to keep consistence"<<endl;
 
 	cout<<endl<<endl;
 
@@ -126,6 +130,7 @@ int Unfold2D::Float2Int(float aFloat)
 
 void Unfold2D::SetParms (float* args)
 {
+
 	method = args[0];			// use 1 if not sure
 	// 0	  no unfolding (output copied from measured input)
 	// 1	  Bayes
@@ -159,15 +164,29 @@ void Unfold2D::SetParms (float* args)
 
 	if(args[13]>0) WIDEBIN = true;		// Use wide and various pT bins or not
 	else WIDEBIN = false;
+
+	if(args[14]>0) {
+		flagjetweight = true;		// Use Neutral Fraction ratio weight for JPs, so that it has the same NF distribution per jet pt as MB
+		WIDEBIN = true;			// When NF reweighting is used, NEED to use WIDEBIN = TRUE as this is what used for Reweighting procedure
+	}
+	else flagjetweight = false;
 }
 
 void Unfold2D::SetDefaultParms() 		// use default parameterization
 {
-	float args[14] = {1, 60, 100, 60, 100, 0, 60, 0, 1, 0, 1, 1, 4, 0};	// neutralfrac
-	//float args[14] = {3, 50, 40, 50, 40, 0, 100, -0.5, 39.5, 0, 1, 1, 4, 0};	// TranNtrk
-	//float args[14] = {1, 50, 500, 50, 500, 0, 100, 0, 50, 0, 1, 1, 4, 1};		// PtSum
-	//		method, ntx, nty, nmx, nmy, xlo, xhi, ylo, yhi, overflow, verbose, doerror, regparm, WIDEBIN
-	SetParms(args);	
+	FlagDefaultCalled = 1;
+
+	float argsNF[15] = {1, 60, 100, 60, 100, 0, 60, 0, 1, 0, 1, 1, 4, 0, 0};	// neutralfrac
+	float argsNtrk[15] 	  = {1, 50, 40, 50, 40, 0, 100, -0.5, 39.5, 0, 1, 1, 4, 1, 1};	// TranNtrk, TranTotNtrk
+	float argsPtSum[15] = {1, 50, 500, 50, 500, 0, 100, 0, 50, 0, 1, 1, 4, 1, 1};		// PtSum
+	float argsPtAve[15] = {1, 50, 1000, 50, 1000, 0, 100, 0, 10, 0, 1, 1, 7, 1, 1};		// PtAve
+	//		method, ntx, nty, nmx, nmy, xlo, xhi, ylo, yhi, overflow, verbose, doerror, regparm, WIDEBIN, flagjetweight
+
+	if(YvariableName.Contains("PtAve")) SetParms(argsPtAve);
+	else if(YvariableName.Contains("PtSum")) SetParms(argsPtSum);
+	else if(YvariableName.Contains("NeutralFrac")) SetParms(argsNF);
+	else SetParms(argsNtrk);
+	//SetParms(args);	
 }
 
 void Unfold2D::PrintParms() 
@@ -186,6 +205,7 @@ void Unfold2D::PrintParms()
 	cout<<"doerror = "<<doerror<<endl;
 	cout<<"regparm = "<<regparm<<endl;
 	cout<<"WIDEBIN = "<<WIDEBIN<<endl;
+	cout<<"flagjetweight = "<<flagjetweight<<endl;
 }
 
 //==============================================================================
@@ -204,6 +224,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 	Bool_t flagtrigmatch;
 
 	Float_t Mcjneutralfrac;
+	Int_t Mcjconstntrk;
 	Int_t  McLeadAreaNtrk;
 	Int_t  McSubAreaNtrk;
 	Int_t  McTranMaxNtrk;
@@ -212,8 +233,25 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 	Float_t McSubAreaPtSum;
 	Float_t McTranMaxPtSum;
 	Float_t McTranMinPtSum;
+	Float_t McTrkLeadAreaPt[MAXARRAY];
+	Float_t McTrkSubAreaPt[MAXARRAY];
+	Float_t McTrkTranMaxPt[MAXARRAY];
+	Float_t McTrkTranMinPt[MAXARRAY];
+	Float_t McTrkLeadAreaPhi[MAXARRAY];
+	Float_t McTrkSubAreaPhi[MAXARRAY];
+	Float_t McTrkTranMaxPhi[MAXARRAY];
+	Float_t McTrkTranMinPhi[MAXARRAY];
+	Float_t McTrkLeadAreaEta[MAXARRAY];
+	Float_t McTrkSubAreaEta[MAXARRAY];
+	Float_t McTrkTranMaxEta[MAXARRAY];
+	Float_t McTrkTranMinEta[MAXARRAY];
+	Int_t McTrkLeadAreaId[MAXARRAY];
+	Int_t McTrkSubAreaId[MAXARRAY];
+	Int_t McTrkTranMaxId[MAXARRAY];
+	Int_t McTrkTranMinId[MAXARRAY];
 
 	Float_t Rcjneutralfrac;
+	Int_t Rcjconstntrk;
 	Int_t  RcTranMaxNtrk;
 	Int_t  RcTranMinNtrk;
 	Int_t  RcLeadAreaNtrk;
@@ -222,6 +260,22 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 	Float_t RcSubAreaPtSum;
 	Float_t RcTranMaxPtSum;
 	Float_t RcTranMinPtSum;
+	Float_t RcTrkLeadAreaPt[MAXARRAY];
+	Float_t RcTrkSubAreaPt[MAXARRAY];
+	Float_t RcTrkTranMaxPt[MAXARRAY];
+	Float_t RcTrkTranMinPt[MAXARRAY];
+	Float_t RcTrkLeadAreaPhi[MAXARRAY];
+	Float_t RcTrkSubAreaPhi[MAXARRAY];
+	Float_t RcTrkTranMaxPhi[MAXARRAY];
+	Float_t RcTrkTranMinPhi[MAXARRAY];
+	Float_t RcTrkLeadAreaEta[MAXARRAY];
+	Float_t RcTrkSubAreaEta[MAXARRAY];
+	Float_t RcTrkTranMaxEta[MAXARRAY];
+	Float_t RcTrkTranMinEta[MAXARRAY];
+	Int_t RcTrkLeadAreaId[MAXARRAY];
+	Int_t RcTrkSubAreaId[MAXARRAY];
+	Int_t RcTrkTranMaxId[MAXARRAY];
+	Int_t RcTrkTranMinId[MAXARRAY];
 
 
 	if(WIDEBIN) pfxTrain= new TProfile("pfxtrain", "Training", WNbins, Wptbins);
@@ -230,13 +284,21 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 	pfxTrain->GetXaxis()->SetTitle(XvariableName);
 	pfxTrain->GetYaxis()->SetTitle(YvariableName);
 
+
+	//// fortest to remove 8 events cause a large fluctuation 
+	//int countremove = 0;
+
 	for(int i = 0; i<NUMBEROFPT; i++) {
 		TString ifilename;
-		if(ExcludeOpt&&TrigName.Contains("JP")) {
-			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_excluded.root",TrigName.Data(),PTBINS[i],TranCharge.Data());
+		if(TrigName.Contains("JP")&&flagjetweight) {
+		// if flagjetweight==1, JP hist is weighted by MB NF distribution. Then we shall use MB embeding data (no trigger effect). This means we don't unfold trigger effect on jet pt distribution, but the neutral jet trigger effect should be already corrected by weighting procedure. However, if we don't do weighting by MB Neutral Fraction dist, we could also use JP embedding to unfold all trigger effects together
+			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_McPt02.root",  "MB",   PTBINS[i],TranCharge.Data());
+		}
+		else if(ExcludeOpt&&TrigName.Contains("JP")) {
+			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_excluded_McPt02.root",TrigName.Data(),PTBINS[i],TranCharge.Data());
 		}
 		else {
-			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s.root",TrigName.Data(),PTBINS[i],TranCharge.Data());
+			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_McPt02.root",TrigName.Data(),PTBINS[i],TranCharge.Data());
 		}
 		cout<<"Read in "<<ifilename<<endl;
 		ftrain = new TFile(ifilename);
@@ -251,6 +313,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 
 		tree->SetBranchAddress("Mcj1pt",&McJet);
 		tree->SetBranchAddress("Mcj1neutralfrac",&Mcjneutralfrac);
+		tree->SetBranchAddress("Mcj1constntrk",&Mcjconstntrk);
 		tree->SetBranchAddress("McLeadAreaNtrk",&McLeadAreaNtrk);
 		tree->SetBranchAddress("McSubAreaNtrk",&McSubAreaNtrk);
 		tree->SetBranchAddress("McTranMaxNtrk",&McTranMaxNtrk);
@@ -259,10 +322,27 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 		tree->SetBranchAddress("McSubLeadAreaPtSum",&McSubAreaPtSum);
 		tree->SetBranchAddress("McTranMaxPtSum",&McTranMaxPtSum);
 		tree->SetBranchAddress("McTranMinPtSum",&McTranMinPtSum);
+		tree->SetBranchAddress("McTrkLeadAreaPt",McTrkLeadAreaPt);
+		tree->SetBranchAddress("McTrkSubAreaPt",McTrkSubAreaPt);
+		tree->SetBranchAddress("McTrkTranMaxPt",McTrkTranMaxPt);
+		tree->SetBranchAddress("McTrkTranMinPt",McTrkTranMinPt);
+		tree->SetBranchAddress("McTrkLeadAreaPhi",McTrkLeadAreaPhi);
+		tree->SetBranchAddress("McTrkSubAreaPhi",McTrkSubAreaPhi);
+		tree->SetBranchAddress("McTrkTranMaxPhi",McTrkTranMaxPhi);
+		tree->SetBranchAddress("McTrkTranMinPhi",McTrkTranMinPhi);
+		tree->SetBranchAddress("McTrkLeadAreaEta",McTrkLeadAreaEta);
+		tree->SetBranchAddress("McTrkSubAreaEta",McTrkSubAreaEta);
+		tree->SetBranchAddress("McTrkTranMaxEta",McTrkTranMaxEta);
+		tree->SetBranchAddress("McTrkTranMinEta",McTrkTranMinEta);
+		tree->SetBranchAddress("McTrkLeadAreaId",McTrkLeadAreaId);
+		tree->SetBranchAddress("McTrkSubAreaId",McTrkSubAreaId);
+		tree->SetBranchAddress("McTrkTranMaxId",McTrkTranMaxId);
+		tree->SetBranchAddress("McTrkTranMinId",McTrkTranMinId);
 		//tree->SetBranchAddress("McPart",&McPart);
 		
 		tree->SetBranchAddress("Rcj1pt",&RcJet);
 		tree->SetBranchAddress("Rcj1neutralfrac",&Rcjneutralfrac);
+		tree->SetBranchAddress("Rcj1constntrk",&Rcjconstntrk);
 		tree->SetBranchAddress("RcLeadAreaNtrk",&RcLeadAreaNtrk);
 		tree->SetBranchAddress("RcSubAreaNtrk",&RcSubAreaNtrk);
 		tree->SetBranchAddress("RcTranMaxNtrk",&RcTranMaxNtrk);
@@ -271,7 +351,40 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 		tree->SetBranchAddress("RcSubLeadAreaPtSum",&RcSubAreaPtSum);
 		tree->SetBranchAddress("RcTranMaxPtSum",&RcTranMaxPtSum);
 		tree->SetBranchAddress("RcTranMinPtSum",&RcTranMinPtSum);
+		tree->SetBranchAddress("RcTrkLeadAreaPt",RcTrkLeadAreaPt);
+		tree->SetBranchAddress("RcTrkSubAreaPt",RcTrkSubAreaPt);
+		tree->SetBranchAddress("RcTrkTranMaxPt",RcTrkTranMaxPt);
+		tree->SetBranchAddress("RcTrkTranMinPt",RcTrkTranMinPt);
+		tree->SetBranchAddress("RcTrkLeadAreaPhi",RcTrkLeadAreaPhi);
+		tree->SetBranchAddress("RcTrkSubAreaPhi",RcTrkSubAreaPhi);
+		tree->SetBranchAddress("RcTrkTranMaxPhi",RcTrkTranMaxPhi);
+		tree->SetBranchAddress("RcTrkTranMinPhi",RcTrkTranMinPhi);
+		tree->SetBranchAddress("RcTrkLeadAreaEta",RcTrkLeadAreaEta);
+		tree->SetBranchAddress("RcTrkSubAreaEta",RcTrkSubAreaEta);
+		tree->SetBranchAddress("RcTrkTranMaxEta",RcTrkTranMaxEta);
+		tree->SetBranchAddress("RcTrkTranMinEta",RcTrkTranMinEta);
+		tree->SetBranchAddress("RcTrkLeadAreaMcId",RcTrkLeadAreaId);
+		tree->SetBranchAddress("RcTrkSubAreaMcId",RcTrkSubAreaId);
+		tree->SetBranchAddress("RcTrkTranMaxMcId",RcTrkTranMaxId);
+		tree->SetBranchAddress("RcTrkTranMinMcId",RcTrkTranMinId);
 		//tree->SetBranchAddress("RcPart",&RcPart);
+
+
+		//// fortest to remove 8 events cause a large fluctuation 
+		//// pythia pt bins: {2,3,4,5,7,9,11,15,20,25,35,inf}
+		//if( (i==3 && runid==13049080 && eventid ==42) 
+		//  &&(i==5 && runid==13051020 && eventid ==216) 
+		//  &&(i==5 && runid==13055075 && eventid ==323) 
+		//  &&(i==5 && runid==13057057 && eventid ==422) 
+		//  &&(i==5 && runid==13059076 && eventid ==16) 
+		//  &&(i==5 && runid==13059076 && eventid ==16) 
+		//  &&(i==8 && runid==13047126 && eventid ==23) 
+		//  &&(i==9 && runid==13051006 && eventid ==43) 
+		//  &&(i==9 && runid==13055008 && eventid ==70) 
+		//  ) {
+		//	countremove ++;
+		//	continue;	
+		//}
 
 		if(verbose && Nevents[i]>tree->GetEntries()) {cout<<__PRETTY_FUNCTION__<<": pT bin "<<PTBINS[i]<<" Read # of events["<<i<<"] = "<<tree->GetEntries()<<endl; }
 
@@ -287,21 +400,23 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 
 			flag = -999;
 			//////JPs
-			if(TrigName.Contains("JP",TString::kIgnoreCase)) {
-				if(flagIsTrigger && flagtrigmatch && (flagMatch2Lead||flagMatch2Sub) && RcJet>0 && Rcjneutralfrac<0.9) flag = 1; 		
-				else if(McJet>0 && (RcJet<=0 || !flagtrigmatch) ) flag = 0;		// non-zero Mc, zero Rc
-				else if((RcJet>0&&flagtrigmatch&&flagIsTrigger&&Rcjneutralfrac<0.9) && McJet<=0) flag = -1;		// non-zero Rc, zero Mc		additional neutral fraction here. It is also included in flagMatch2LeadGood and flagMatch2SubGood
+			if(TrigName.Contains("JP",TString::kIgnoreCase)&&(!flagjetweight)) {
+				if(flagIsTrigger && flagtrigmatch && (flagMatch2Lead||flagMatch2Sub) && (RcJet>0) && (Rcjneutralfrac<0.9) && (Rcjneutralfrac>0)) flag = 1; 		
+				else if(McJet>0 && (RcJet<=0 || (!flagtrigmatch)) ) flag = 0;		// non-zero Mc, zero Rc
+				else if((RcJet>0&&flagtrigmatch&&flagIsTrigger&&Rcjneutralfrac<0.9&&Rcjneutralfrac>0) && McJet<=0) flag = -1;		// non-zero Rc, zero Mc		additional neutral fraction here. It is also included in flagMatch2LeadGood and flagMatch2SubGood
+				//cout<<"flag = "<<flag<<endl;
 			}
 			else {
-			//if(!flagIsTrigger) continue;			// no correction for trig now..		
-			////MB only need the following 3 lines
-			if(flagIsTrigger && (flagMatch2Lead||flagMatch2Sub) && RcJet>0 && Rcjneutralfrac<0.9)     flag = 1; 				//2016.11.15 add naive simulated trigger for VPDMB
-			else if(McJet>0 && RcJet<=0) flag = 0;		// non-zero Mc, zero Rc
-			else if((flagIsTrigger && RcJet>0 && Rcjneutralfrac<0.9) && McJet<=0) flag = -1;		// non-zero Rc, zero Mc			//2016.11.15 add naive simulated trigger for VPDMB
-			//
-			//if((flagMatch2Lead||flagMatch2Sub) && RcJet>0 && Rcjneutralfrac<0.9)      flag = 1; 				
-			//else if(McJet>0 && RcJet<=0) flag = 0;		// non-zero Mc, zero Rc
-			//else if(RcJet>0 && Rcjneutralfrac<0.9 && McJet<=0) flag = -1;		// non-zero Rc, zero Mc			
+				//if(!flagIsTrigger) continue;			// no correction for trig now..		
+				////MB only need the following 3 lines
+				//if(flagIsTrigger && (flagMatch2Lead||flagMatch2Sub) && RcJet>0 && Rcjneutralfrac<0.9)     flag = 1; 				//2016.11.15 add naive simulated trigger for VPDMB	// 2017.01.04 don't use this naive simulated trigger: it doesn't describe data
+				//else if(McJet>0 && RcJet<=0) flag = 0;		// non-zero Mc, zero Rc
+				//else if((flagIsTrigger && RcJet>0 && Rcjneutralfrac<0.9) && McJet<=0) flag = -1;		// non-zero Rc, zero Mc			//2016.11.15 add naive simulated trigger for VPDMB	// 2017.01.04 don't use this naive simulated trigger: it doesn't describe data
+				//
+				// use ReWeightByNF which requires Rcjneutralfrac!=0 or 0.9	2017.01.04
+				if((flagMatch2Lead||flagMatch2Sub) && RcJet>0 && Rcjneutralfrac<0.9 && Rcjneutralfrac>0)      flag = 1; 				
+				else if(McJet>0 && RcJet<=0) flag = 0;		// non-zero Mc, zero Rc
+				else if(RcJet>0 && Rcjneutralfrac<0.9 && Rcjneutralfrac>0 && McJet<=0) flag = -1;		// non-zero Rc, zero Mc			
 			}
 
 			if(YvariableName.Contains("TranMaxNtrk",TString::kIgnoreCase))
@@ -352,7 +467,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 				McPart = McTranMaxPtSum+McTranMinPtSum;
 				RcPart = RcTranMaxPtSum+RcTranMinPtSum;
 			}
-			else if(YvariableName.Contains("TranMaxPtAve",TString::kIgnoreCase))
+			else if(YvariableName.Contains("TranMaxPtAveEventWise",TString::kIgnoreCase))
 			{
 				float McTranMaxPtAve = 1.*McTranMaxPtSum/McTranMaxNtrk;
 				float McTranMinPtAve = 1.*McTranMinPtSum/McTranMinNtrk;
@@ -363,7 +478,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 				if(RcTranMaxPtAve>RcTranMinPtAve) RcPart = RcTranMaxPtAve;
 				else RcPart = RcTranMinPtAve;
 			}
-			else if(YvariableName.Contains("TranMinPtAve",TString::kIgnoreCase)) 
+			else if(YvariableName.Contains("TranMinPtAveEventWise",TString::kIgnoreCase)) 
 			{
 				float McTranMaxPtAve = 1.*McTranMaxPtSum/McTranMaxNtrk;
 				float McTranMinPtAve = 1.*McTranMinPtSum/McTranMinNtrk;
@@ -374,7 +489,12 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 				if(RcTranMaxPtAve>RcTranMinPtAve) RcPart = RcTranMaxPtAve;
 				else RcPart = RcTranMinPtAve;
 			}
-			else if(YvariableName.Contains("TranPtAve",TString::kIgnoreCase))
+			else if(YvariableName.Contains("TranPtAveEventWise",TString::kIgnoreCase))
+			{
+				McPart = (McTranMaxPtSum+McTranMinPtSum)/(McTranMaxNtrk+McTranMinNtrk);
+				RcPart = (RcTranMaxPtSum+RcTranMinPtSum)/(RcTranMaxNtrk+RcTranMinNtrk);
+			}
+			else if(YvariableName.Contains("TranTotPtAveEventWise",TString::kIgnoreCase))
 			{
 				McPart = (McTranMaxPtSum+McTranMinPtSum)/(McTranMaxNtrk+McTranMinNtrk);
 				RcPart = (RcTranMaxPtSum+RcTranMinPtSum)/(RcTranMaxNtrk+RcTranMinNtrk);
@@ -399,12 +519,12 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 				McPart = McSubAreaPtSum;
 				RcPart = RcSubAreaPtSum;
 			}
-			else if(YvariableName.Contains("LeadAreaPtAve",TString::kIgnoreCase)) 
+			else if(YvariableName.Contains("LeadAreaPtAveEventWise",TString::kIgnoreCase)) 
 			{
 				McPart = McLeadAreaPtSum/McLeadAreaNtrk;
 				RcPart = RcLeadAreaPtSum/RcLeadAreaNtrk;
 			}
-			else if(YvariableName.Contains("SubAreaPtAve",TString::kIgnoreCase)) 
+			else if(YvariableName.Contains("SubAreaPtAveEventWise",TString::kIgnoreCase)) 
 			{
 				McPart = McSubAreaPtSum/McSubAreaNtrk;
 				RcPart = RcSubAreaPtSum/RcSubAreaNtrk;
@@ -414,31 +534,149 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 				McPart = Mcjneutralfrac;
 				RcPart = Rcjneutralfrac;
 			}
+			else if(YvariableName.Contains("TranPtAve",TString::kIgnoreCase)&&!(YvariableName.Contains("EventWise",TString::kIgnoreCase))) 		// Particle-wise variable, need to loop over Mc and Rc particles
+			{
+				std::vector<float> vMcTrkTranTotPt;
+				std::vector<float> vMcTrkTranTotPhi;
+				std::vector<float> vMcTrkTranTotEta;
+				std::vector<int> vMcTrkTranTotId;
+				std::vector<float> vRcTrkTranTotPt;
+				std::vector<float> vRcTrkTranTotPhi;
+				std::vector<float> vRcTrkTranTotEta;
+				std::vector<int> vRcTrkTranTotId;
+
+				std::vector<int> vMcTrkTranTotMatchedId;
+
+				//cout<<endl;
+				//cout<<"McJet = "<<McJet<<endl;
+				//cout<<"RcJet = "<<RcJet<<endl;
+				//cout<<" "<<McTranMaxNtrk+McTranMinNtrk<<" McTran"<<endl;
+				//cout<<" "<<RcTranMaxNtrk+RcTranMinNtrk<<" RcTran"<<endl;
+
+				// Merge TranMax and TranMin
+				// Mc
+				if(flag!=-1) 	// one-to-one Mc jet to Rc jet Or no Rc jet, only Mc jet
+				{
+					for(int im = 0; im<McTranMaxNtrk; im++) 
+					{
+						vMcTrkTranTotPt.push_back(McTrkTranMaxPt[im]);
+						vMcTrkTranTotPhi.push_back(McTrkTranMaxPhi[im]);
+						vMcTrkTranTotEta.push_back(McTrkTranMaxEta[im]);
+						vMcTrkTranTotId.push_back(McTrkTranMaxId[im]);
+						vMcTrkTranTotMatchedId.push_back(0);			// assuming not matched
+					}
+					for(int im = 0; im<McTranMinNtrk; im++) 
+					{
+						vMcTrkTranTotPt.push_back(McTrkTranMinPt[im]);
+						vMcTrkTranTotPhi.push_back(McTrkTranMinPhi[im]);
+						vMcTrkTranTotEta.push_back(McTrkTranMinEta[im]);
+						vMcTrkTranTotId.push_back(McTrkTranMinId[im]);
+						vMcTrkTranTotMatchedId.push_back(0);			// assuming not matched
+					}
+				}
+				// Rc
+				if(flag!=0) 	// ! No RcJet: one-to-one Rc jet to Mc jet Or Fake Rc jet, no Mc jet
+				{
+					for(int ir = 0; ir<RcTranMaxNtrk; ir++) 
+					{
+						vRcTrkTranTotPt.push_back(RcTrkTranMaxPt[ir]);
+						vRcTrkTranTotPhi.push_back(RcTrkTranMaxPhi[ir]);
+						vRcTrkTranTotEta.push_back(RcTrkTranMaxEta[ir]);
+						vRcTrkTranTotId.push_back(RcTrkTranMaxId[ir]);
+					}
+					for(int ir = 0; ir<RcTranMinNtrk; ir++) 
+					{
+						vRcTrkTranTotPt.push_back(RcTrkTranMinPt[ir]);
+						vRcTrkTranTotPhi.push_back(RcTrkTranMinPhi[ir]);
+						vRcTrkTranTotEta.push_back(RcTrkTranMinEta[ir]);
+						vRcTrkTranTotId.push_back(RcTrkTranMinId[ir]);
+					}
+				}
+				
+				// Loop over Rc
+				if(flag!=0) 	// ! No RcJet: one-to-one Mc jet to Mc jet Or Fake Rc jet, no Mc jet
+				{
+					for(int ir = 0; ir<vRcTrkTranTotPt.size(); ir++)
+					{
+						RcPart = vRcTrkTranTotPt.at(ir);
+
+						hTrain->Fill(RcJet, RcPart, weight);		
+						
+						// Find the Mc id matched to Rc id
+						int iter_matched = -1;
+						iter_matched = Unfold2D::Find(vMcTrkTranTotId, vRcTrkTranTotId.at(ir));
+						
+						if(iter_matched!=-1) 	// match succesfully Rc Id to Mc Id
+						{
+							McPart = vMcTrkTranTotPt.at(iter_matched);
+							vMcTrkTranTotMatchedId.at(iter_matched) = 1;		// Mark the matched MC
+							response->Fill(RcJet, RcPart, McJet, McPart, weight);
+							pfxTrain->Fill(RcJet, RcPart, weight);
+							
+							//cout<<"Match RcJet = "<<RcJet<<" RcPart = "<<RcPart<<" RcPhi = "<< vRcTrkTranTotPhi.at(ir) << " RcEta = "<< vRcTrkTranTotEta.at(ir) <<" McJet = "<<McJet<<" McPart = "<<McPart<<" McPhi = "<< vMcTrkTranTotPhi.at(iter_matched)<<" McEta = "<<vMcTrkTranTotEta.at(iter_matched)<<" weight = "<<weight<<endl;
+						}
+						else 
+						{
+							hTrainFake->Fill(RcJet, RcPart, weight);
+							response->Fake(RcJet, RcPart, weight);
+							//cout<<"Fake RcJet = "<<RcJet<<" RcPart = "<<RcPart<<" RcPhi = "<< vRcTrkTranTotPhi.at(ir) << " RcEta = "<< vRcTrkTranTotEta.at(ir)<<" weight = "<<weight<<endl;
+						}
+					}
+				}
+
+				// Loop over Mc 
+				if(flag!=-1) 
+				{
+					for(int im = 0; im<vMcTrkTranTotPt.size(); im++)
+					{
+						McPart = vMcTrkTranTotPt.at(im);
+
+						hTrainTrue->Fill(McJet, McPart, weight);
+
+						if(!vMcTrkTranTotMatchedId.at(im)) 
+						{
+							response->Miss(McJet, McPart, weight);
+							//cout<<"Miss McJet = "<<McJet<<" McPart = "<<McPart<<" McPhi = "<< vMcTrkTranTotPhi.at(im)<<" McEta = "<<vMcTrkTranTotEta.at(im)<<" weight = "<<weight<<endl;
+						}
+
+					}
+				}
+
+			}
+			else if(YvariableName.Contains("JetNtrk",TString::kIgnoreCase))
+			{
+				McPart = Mcjconstntrk;
+				RcPart = Rcjconstntrk;
+			}
 			else // default: TranNtrk
 			{
 				McPart = 0.5*(McTranMaxNtrk+McTranMinNtrk);
 				RcPart = 0.5*(RcTranMaxNtrk+RcTranMinNtrk);
 			}
 
-			if(flag==1) {			// one-to-one Mc to Rc matched
-				hTrainTrue->Fill(McJet, McPart, weight);	
-				hTrain->Fill(RcJet, RcPart, weight);	
-				response->Fill(RcJet, RcPart,McJet, McPart, weight);
-				pfxTrain->Fill(RcJet, RcPart, weight);	
-			}
-			else if(flag==0) {		// true Mc, no Rc
-				hTrainTrue->Fill(McJet, McPart, weight);
-				response->Miss(McJet,McPart, weight);
-			}
-			else if(flag==-1){				// Fake Rc, no Mc
-				hTrain->Fill(RcJet,RcPart, weight);
-				hTrainFake->Fill(RcJet,RcPart, weight);
-				response->Fake(RcJet,RcPart, weight);
-				pfxTrain->Fill(RcJet,RcPart, weight);
+			if( !(YvariableName.Contains("PtAve",TString::kIgnoreCase)&&(!YvariableName.Contains("EventWise",TString::kIgnoreCase))) ) {
+				if(flag==1) {			// one-to-one Mc to Rc matched
+					hTrainTrue->Fill(McJet, McPart, weight);	
+					hTrain->Fill(RcJet, RcPart, weight);	
+					response->Fill(RcJet, RcPart,McJet, McPart, weight);
+					pfxTrain->Fill(RcJet, RcPart, weight);	
+				}
+				else if(flag==0) {		// true Mc, no Rc
+					hTrainTrue->Fill(McJet, McPart, weight);
+					response->Miss(McJet, McPart, weight);
+				}
+				else if(flag==-1){				// Fake Rc, no Mc
+					hTrain->Fill(RcJet,RcPart, weight);
+					hTrainFake->Fill(RcJet,RcPart, weight);
+					response->Fake(RcJet,RcPart, weight);
+					pfxTrain->Fill(RcJet,RcPart, weight);
+				}
 			}
 		}
 		ftrain->Close();
 	}
+	//// fortest to remove 3 events cause a large fluctuation 
+	//cout<<" -- Removed "<<countremove<<" events"<<endl;
 
 	return 1;
 }
@@ -492,20 +730,20 @@ Int_t Unfold2D::Fill4Train ()
 
 Int_t Unfold2D::Train()
 {
-	if(WIDEBIN) hTrainTrue = InitWideX2DHisto("htraintrue", "Training Truth", nty, ylo, yhi);
-	else hTrainTrue= new TH2D ("htraintrue", "Training Truth", ntx, xlo, xhi, nty, ylo, yhi);
+	if(WIDEBIN) hTrainTrue = InitWideXY2DHisto("htraintrue", "Training Truth");
+	else hTrainTrue= new TH2F ("htraintrue", "Training Truth", ntx, xlo, xhi, nty, ylo, yhi);
 	hTrainTrue->SetLineColor(kBlue);
 	hTrainTrue->GetXaxis()->SetTitle(XvariableName);
 	hTrainTrue->GetYaxis()->SetTitle(YvariableName);
 
-	if(WIDEBIN) hTrain= InitWideX2DHisto("htrain", "Training Measured", nmy, ylo, yhi);
-	else hTrain= new TH2D ("htrain", "Training Measured", nmx, xlo, xhi, nmy, ylo, yhi);
+	if(WIDEBIN ) hTrain= InitWideXY2DHisto("htrain", "Training Measured");
+	else hTrain= new TH2F ("htrain", "Training Measured", nmx, xlo, xhi, nmy, ylo, yhi);
 	hTrain->SetLineColor(kRed);
 	hTrain->GetXaxis()->SetTitle(XvariableName);
 	hTrain->GetYaxis()->SetTitle(YvariableName);
 
-	if(WIDEBIN) hTrainFake= InitWideX2DHisto("htrainfake", "Training Fakes", nmy, ylo, yhi);
-	else hTrainFake= new TH2D ("htrainfake", "Training Fakes", nmx, xlo, xhi, nmy, ylo, yhi);
+	if(WIDEBIN ) hTrainFake= InitWideXY2DHisto("htrainfake", "Training Fakes");
+	else hTrainFake= new TH2F ("htrainfake", "Training Fakes", nmx, xlo, xhi, nmy, ylo, yhi);
 	hTrainFake->SetLineColor(93);
 	hTrainFake->GetXaxis()->SetTitle(XvariableName);
 	hTrainFake->GetYaxis()->SetTitle(YvariableName);
@@ -534,12 +772,18 @@ Int_t Unfold2D::ReadResponseMatrix()
 {
 	TString SExclude="";
 	if(ExcludeOpt) SExclude = "_excluded";
-	TString ifilename = Form("ResponseMatrix%s_%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data());	
+	TString SFineBin="";
+	if(!WIDEBIN) SFineBin = "_FineBin";
+	TString ifilename = Form("ResponseMatrix%s_%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data());	
+	if(flagjetweight) {
+		cout<<"INFO -------  Int_t Unfold2D::WriteTrain():  flagjetweight (args[14]) == 1. Use MB embedding for JP unfolding, which will be written"<<endl;
+		ifilename = Form("ResponseMatrix%s_%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),"MB",TranCharge.Data(),SExclude.Data(),SFineBin.Data());	
+	}
 	cout<<__PRETTY_FUNCTION__<<" Read in "<<ifilename<<endl;
 	ftrain = new TFile(ifilename);
-	hTrainTrue = (TH2D*)ftrain->Get("htraintrue");
-	hTrain = (TH2D*)ftrain->Get("htrain");
-	hTrainFake = (TH2D*)ftrain->Get("htrainfake");
+	hTrainTrue = (TH2F*)ftrain->Get("htraintrue");
+	hTrain = (TH2F*)ftrain->Get("htrain");
+	hTrainFake = (TH2F*)ftrain->Get("htrainfake");
 	response = (RooUnfoldResponse*)ftrain->Get("response");
 	
 	return 1;
@@ -576,8 +820,8 @@ void Unfold2D::TrainResults()
 //==============================================================================
 Int_t Unfold2D::Fill4Unfold() {
 
-	if(WIDEBIN) hMeas= InitWideX2DHisto("hmeas", "Measured", nmy, ylo, yhi);
-	else hMeas= new TH2D ("hmeas", "Measured", nmx, xlo, xhi, nmy, ylo, yhi);
+	if(WIDEBIN) hMeas= InitWideXY2DHisto("hmeas", "Measured");
+	else hMeas= new TH2F ("hmeas", "Measured", nmx, xlo, xhi, nmy, ylo, yhi);
 	hMeas->SetLineColor(kRed);
 	hMeas->GetXaxis()->SetTitle(XvariableName);
 	hMeas->GetYaxis()->SetTitle(YvariableName);
@@ -585,6 +829,7 @@ Int_t Unfold2D::Fill4Unfold() {
 	Float_t InputJet;
 	Float_t InputPart;	
 
+	Int_t  InputJetNtrk;
 	Int_t  InputLeadAreaNtrk;
 	Int_t  InputSubAreaNtrk;
 	Int_t  InputTranMaxNtrk;
@@ -594,20 +839,31 @@ Int_t Unfold2D::Fill4Unfold() {
 	Float_t InputTranMaxPtSum;
 	Float_t InputTranMinPtSum;
 
+	// some optional parameters for cuts and reweighting
+	Float_t InputJetNF;		// Neutral fraction
+	Int_t InputRunid;	
+
+	// Tracks
+	Float_t InputTrkLeadAreaPt[MAXARRAY];
+	Float_t InputTrkSubAreaPt[MAXARRAY];
+	Float_t InputTrkTranMaxPt[MAXARRAY];
+	Float_t InputTrkTranMinPt[MAXARRAY];
+
 	TString ifilename;
 	if(TrigName.Contains("MB")) {
-		ifilename = TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_160829.root");
+		ifilename = TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_161209.root");
 	}
 	else {
-		ifilename = TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_160829.root");
+		ifilename = TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_161209.root");
 	}
-	cout<<__PRETTY_FUNCTION__<<__func__<<ifilename<<endl;
+	cout<<__PRETTY_FUNCTION__<<__func__<<" Reading in "<<ifilename<<endl;
 	TFile *fin = new TFile(ifilename);
 	if(!fin) {cout<<"Cannot open file in "<<__PRETTY_FUNCTION__<<endl; exit;}
 	TTree *ttree = (TTree*)fin->Get("ResultTree");
 	if(!ttree) {cout<<"Cannot find tree from input in "<<__PRETTY_FUNCTION__<<endl;exit;}
 
 	ttree->SetBranchAddress("j1pt",&InputJet);
+	ttree->SetBranchAddress("j1constntrk",&InputJetNtrk);
 	ttree->SetBranchAddress("LeadAreaNtrk",&InputLeadAreaNtrk);
 	ttree->SetBranchAddress("SubAreaNtrk",&InputSubAreaNtrk);
 	ttree->SetBranchAddress("TranMaxNtrk",&InputTranMaxNtrk);
@@ -616,9 +872,41 @@ Int_t Unfold2D::Fill4Unfold() {
 	ttree->SetBranchAddress("SubLeadAreaPtSum",&InputSubAreaPtSum);
 	ttree->SetBranchAddress("TranMaxPtSum",&InputTranMaxPtSum);
 	ttree->SetBranchAddress("TranMinPtSum",&InputTranMinPtSum);
+	ttree->SetBranchAddress("runid",&InputRunid);
+	ttree->SetBranchAddress("j1neutralfrac",&InputJetNF);
+	
+	ttree->SetBranchAddress("TrkLeadAreaPt",InputTrkLeadAreaPt);
+	ttree->SetBranchAddress("TrkSubAreaPt",InputTrkSubAreaPt);
+	ttree->SetBranchAddress("TrkTranMaxPt",InputTrkTranMaxPt);
+	ttree->SetBranchAddress("TrkTranMinPt",InputTrkTranMinPt);
+
+
+	// Reweight JPs to have same Neutral Fraction distribution per jet pt bin as MB 
+	ReWeightByNF *rwc;
+	if( flagjetweight && ifilename.Contains("ppJP_") && ifilename.Contains("FullJet",TString::kIgnoreCase) ) {
+		cout<<"Do per jet reweight";
+		rwc = new ReWeightByNF();
+		rwc->Init4Read("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_TransCharged_MatchTrig_ppJP_160811P12id_R06_HadrCorr_VPDcut_161209.root","~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_TransCharged_ppMB_160811P12id_R06_HadrCorr_VPDcut_161209.root");
+		rwc->FillNFRatios();
+		cout<<"."<<endl;
+	}
+
+
+	// Jet weight or event weight		for now (2016.12.21), this weight is used to get JPs jet neutral fraction to be same as MB trigger one
+	TH1D *htmpx = (TH1D*)hMeas->ProjectionX("htmpx");		// htmpx is the InputJet distribution without reweighting; need to use same X-binning as hMeas. htmpx is used by ReWeightByNF class in order to insure the Nevts distribution to be same as before reweighting
 
 	for (Int_t j=0;j<ttree->GetEntries() ; j++) {			// Caution!!! Need to update loop if needed
 		ttree->GetEntry(j);
+
+		if(InputJetNF<=0 || InputJetNF>=0.9) continue;			// this cut is also used by ReWeightByNF 	2017.01.04
+		if(InputJet<=0) continue;					// if no jet, continue;
+		if(InputRunid<=13048000) continue;				// begining of MB run looks different test
+
+		// Jet weight or event weight		for now (2016.12.21), this weight is used to get JPs jet neutral fraction to be same as MB trigger one
+		float xweight = 1;
+		if( flagjetweight && ifilename.Contains("ppJP_") && ifilename.Contains("FullJet",TString::kIgnoreCase) ) {
+			xweight = rwc->GetNFWeight(InputJet, InputJetNF);	
+		}
 
 		if(YvariableName.Contains("TranMaxNtrk",TString::kIgnoreCase))
 		{
@@ -656,21 +944,21 @@ Int_t Unfold2D::Fill4Unfold() {
 		{
 			InputPart = InputTranMaxPtSum+InputTranMinPtSum;
 		}
-		else if(YvariableName.Contains("TranMaxPtAve",TString::kIgnoreCase))
+		else if(YvariableName.Contains("TranMaxPtAveEventWise",TString::kIgnoreCase))
 		{
 			float InputTranMaxPtAve = 1.*InputTranMaxPtSum/InputTranMaxNtrk;
 			float InputTranMinPtAve = 1.*InputTranMinPtSum/InputTranMinNtrk;
 			if(InputTranMaxPtAve>InputTranMinPtAve) InputPart = InputTranMaxPtAve;
 			else InputPart = InputTranMinPtAve;
 		}
-		else if(YvariableName.Contains("TranMinPtAve",TString::kIgnoreCase)) 
+		else if(YvariableName.Contains("TranMinPtAveEventWise",TString::kIgnoreCase)) 
 		{
 			float InputTranMaxPtAve = 1.*InputTranMaxPtSum/InputTranMaxNtrk;
 			float InputTranMinPtAve = 1.*InputTranMinPtSum/InputTranMinNtrk;
 			if(InputTranMaxPtAve<InputTranMinPtAve) InputPart = InputTranMaxPtAve;
 			else InputPart = InputTranMinPtAve;
 		}
-		else if(YvariableName.Contains("TranPtAve",TString::kIgnoreCase))
+		else if(YvariableName.Contains("TranPtAveEventWise",TString::kIgnoreCase))
 		{
 			InputPart = (InputTranMaxPtSum+InputTranMinPtSum)/(InputTranMaxNtrk+InputTranMinNtrk);
 		}
@@ -690,13 +978,32 @@ Int_t Unfold2D::Fill4Unfold() {
 		{
 			InputPart = InputSubAreaPtSum;
 		}
-		else if(YvariableName.Contains("LeadAreaPtAve",TString::kIgnoreCase)) 
+		else if(YvariableName.Contains("LeadAreaPtAveEventWise",TString::kIgnoreCase)) 
 		{
 			InputPart = InputLeadAreaPtSum/InputLeadAreaNtrk;
 		}
-		else if(YvariableName.Contains("SubAreaPtAve",TString::kIgnoreCase)) 
+		else if(YvariableName.Contains("SubAreaPtAveEventWise",TString::kIgnoreCase)) 
 		{
 			InputPart = InputSubAreaPtSum/InputSubAreaNtrk;
+		}
+		else if(YvariableName.Contains("TranPtAve",TString::kIgnoreCase)&&!(YvariableName.Contains("EventWise",TString::kIgnoreCase))) 		// Particle-wise variable, need to loop over Mc and Rc particles
+		{
+			for(int it = 0; it<InputTranMaxNtrk; it++) 
+			{
+				InputPart = InputTrkTranMaxPt[it];
+				hMeas->Fill(InputJet, InputPart, xweight);	
+				htmpx->Fill(InputJet);		// without weighting; will later be used by ReWeightByNF for adjusting to have same Nevts distribution before weighting
+			}
+			for(int it = 0; it<InputTranMinNtrk; it++) 
+			{
+				InputPart = InputTrkTranMinPt[it];
+				hMeas->Fill(InputJet, InputPart, xweight);	
+				htmpx->Fill(InputJet);		// without weighting; will later be used by ReWeightByNF for adjusting to have same Nevts distribution before weighting
+			}
+		}
+		else if(YvariableName.Contains("JetNtrk",TString::kIgnoreCase))
+		{
+			InputPart = InputJetNtrk;
 		}
 		else // default: TranNtrk
 		{
@@ -704,10 +1011,18 @@ Int_t Unfold2D::Fill4Unfold() {
 		}
 
 		// Fill histogram
-		hMeas->Fill(InputJet, InputPart);	
+		if( !(YvariableName.Contains("PtAve",TString::kIgnoreCase)&&(!YvariableName.Contains("EventWise",TString::kIgnoreCase))) ) {
+			hMeas->Fill(InputJet, InputPart, xweight);	
+			htmpx->Fill(InputJet);		// without weighting; will later be used by ReWeightByNF for adjusting to have same Nevts dist. before weighting
+		}
 
 	}// End Loop of events
 	fin->Close();
+
+	// Adjust jet pt Nevts distribution if ReWeightByNF was used
+	if( flagjetweight && ifilename.Contains("ppJP_") && ifilename.Contains("FullJet",TString::kIgnoreCase) ) {
+		rwc->AdjustNevts(hMeas, htmpx);
+	}
 
 	hMeas->Sumw2();
 
@@ -724,7 +1039,7 @@ Int_t Unfold2D::Fill4Unfold() {
 //==============================================================================
 Int_t Unfold2D::ReadMeasHist4Unfold() {
 
-	TString ifilename = TString("~/Scratch/pp200Y12_jetunderlying/leadjetpthist4NoTofMatch_FullJet_Trans")+TranCharge+TString("_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_160829_NoEffCorr.root");
+	TString ifilename = TString("~/Scratch/pp200Y12_jetunderlying/leadjetpthist4NoTofMatch_FullJet_Trans")+TranCharge+TString("_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_161209_NoEffCorr.root");
 	cout<<__PRETTY_FUNCTION__<<" Read in "<<ifilename<<endl;
 	TFile *fin = new TFile(ifilename);
 	if(!fin) {
@@ -732,7 +1047,7 @@ Int_t Unfold2D::ReadMeasHist4Unfold() {
 		exit; 
 	}
 	TString ihistname = "h"+ToLower(YvariableName)+"vsleadjetpt";			// Default is Tran Multiplicity 
-	TH2D *htmp = (TH2D*)fin->Get(ihistname);
+	TH2F *htmp = (TH2F*)fin->Get(ihistname);
 	if(hTrain && htmp) hMeas = RebinAs(htmp,hTrain);
 	else {
 		cout<<"ERR!! "<<__PRETTY_FUNCTION__<<": hTrain is zero."<<endl; 
@@ -795,20 +1110,20 @@ Int_t Unfold2D::Unfold() {
 Int_t Unfold2D::TrainAndTest ()
 {
 
-	if(WIDEBIN) hTrainTrue = InitWideX2DHisto("htraintrue", "Training Truth", nty, ylo, yhi);
-	else hTrainTrue= new TH2D ("htraintrue", "Training Truth", ntx, xlo, xhi, nty, ylo, yhi);
+	if(WIDEBIN) hTrainTrue = InitWideXY2DHisto("htraintrue", "Training Truth");
+	else hTrainTrue= new TH2F ("htraintrue", "Training Truth", ntx, xlo, xhi, nty, ylo, yhi);
 	hTrainTrue->SetLineColor(kBlue);
 	hTrainTrue->GetXaxis()->SetTitle(XvariableName);
 	hTrainTrue->GetYaxis()->SetTitle(YvariableName);
 
-	if(WIDEBIN) hTrain= InitWideX2DHisto("htrain", "Training Measured", nmy, ylo, yhi);
-	else hTrain= new TH2D ("htrain", "Training Measured", nmx, xlo, xhi, nmy, ylo, yhi);
+	if(WIDEBIN) hTrain= InitWideXY2DHisto("htrain", "Training Measured");
+	else hTrain= new TH2F ("htrain", "Training Measured", nmx, xlo, xhi, nmy, ylo, yhi);
 	hTrain->SetLineColor(kRed);
 	hTrain->GetXaxis()->SetTitle(XvariableName);
 	hTrain->GetYaxis()->SetTitle(YvariableName);
 
-	if(WIDEBIN) hTrainFake= InitWideX2DHisto("htrainfake", "Training Fakes", nmy, ylo, yhi);
-	else hTrainFake= new TH2D ("htrainfake", "Training Fakes", nmx, xlo, xhi, nmy, ylo, yhi);
+	if(WIDEBIN) hTrainFake= InitWideXY2DHisto("htrainfake", "Training Fakes");
+	else hTrainFake= new TH2F ("htrainfake", "Training Fakes", nmx, xlo, xhi, nmy, ylo, yhi);
 	hTrainFake->SetLineColor(93);
 	hTrainFake->GetXaxis()->SetTitle(XvariableName);
 	hTrainFake->GetYaxis()->SetTitle(YvariableName);
@@ -846,20 +1161,20 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 	cout<<"I am using parts of simulations for train, rest for test"<<endl;
 	cout<<"If this is not what you want, change loop in "<< __PRETTY_FUNCTION__<<endl;
 
-	if(WIDEBIN) hTrue= InitWideX2DHisto("htrue", "Test Truth", nty, ylo, yhi);
-	else hTrue= new TH2D ("htrue", "Test Truth", ntx, xlo, xhi, nty, ylo, yhi);
+	if(WIDEBIN) hTrue= InitWideXY2DHisto("htrue", "Test Truth");	
+	else hTrue= new TH2F ("htrue", "Test Truth", ntx, xlo, xhi, nty, ylo, yhi);
 	hTrue->SetLineColor(kBlue);
 	hTrue->GetXaxis()->SetTitle(XvariableName);
 	hTrue->GetYaxis()->SetTitle(YvariableName);
 
-	if(WIDEBIN) hMeas= InitWideX2DHisto("hmeas", "Test Measured", nmy, ylo, yhi);
-	else hMeas= new TH2D ("hmeas", "Test Measured", nmx, xlo, xhi, nmy, ylo, yhi);
+	if(WIDEBIN) hMeas= InitWideXY2DHisto("hmeas", "Test Measured");
+	else hMeas= new TH2F ("hmeas", "Test Measured", nmx, xlo, xhi, nmy, ylo, yhi);
 	hMeas->SetLineColor(kRed);
 	hMeas->GetXaxis()->SetTitle(XvariableName);
 	hMeas->GetYaxis()->SetTitle(YvariableName);
 
-	if(WIDEBIN) hFake= InitWideX2DHisto("hfake", "Test Fake", nmy, ylo, yhi);
-	else hFake= new TH2D ("hfake", "Test Fake", nmx, xlo, xhi, nmy, ylo, yhi);
+	if(WIDEBIN) hFake= InitWideXY2DHisto("hfake", "Test Fake");
+	else hFake= new TH2F ("hfake", "Test Fake", nmx, xlo, xhi, nmy, ylo, yhi);
 	hFake->SetLineColor(93);
 	hFake->GetXaxis()->SetTitle(XvariableName);
 	hFake->GetYaxis()->SetTitle(YvariableName);
@@ -906,11 +1221,15 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 	double totalnevents = 0;
 	for(int i = 0; i<NUMBEROFPT; i++) {
 		TString ifilename;
-		if(ExcludeOpt&&TrigName.Contains("JP")) {
-			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_excluded.root",TrigName.Data(),PTBINS[i],TranCharge.Data());
+		if(TrigName.Contains("JP")&&flagjetweight) {
+		// if flagjetweight==true, JP hist is weighted by MB NF distribution. Then we shall use MB embeding data (no trigger effect). This means we don't unfold trigger effect on jet pt distribution, but the neutral jet trigger effect should be already corrected by weighting procedure. However, if we don't do weighting by MB Neutral Fraction dist, we could also use JP embedding to unfold all trigger effects together
+			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_McPt02.root",  "MB",   PTBINS[i],TranCharge.Data());
+		}
+		else if(ExcludeOpt&&TrigName.Contains("JP")) {		
+			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_excluded_McPt02.root",TrigName.Data(),PTBINS[i],TranCharge.Data());
 		}
 		else {
-			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s.root",TrigName.Data(),PTBINS[i],TranCharge.Data());
+			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_McPt02.root",TrigName.Data(),PTBINS[i],TranCharge.Data());
 		}
 
 		cout<<"Read in "<<ifilename<<endl;
@@ -1261,7 +1580,9 @@ Int_t Unfold2D::WriteTest()
 {
 	TString SExclude="";
 	if(ExcludeOpt) SExclude = "_excluded";
-	ftout = new TFile(Form("ResponseMatrix%s_%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data()),"RECREATE");
+	TString SFineBin="";
+	if(!WIDEBIN) SFineBin = "_FineBin";
+	ftout = new TFile(Form("ResponseMatrix%s_%s%s%s%s%d_McPt02.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data()),"RECREATE");
 	if(ftout) cout<<"Write to "<<ftout->GetName()<<endl;
 	hTrainTrue->Write();
 	hTrain->Write();
@@ -1286,8 +1607,18 @@ Int_t Unfold2D::WriteTrain()
 {
 	TString SExclude="";
 	if(ExcludeOpt) SExclude = "_excluded";
-	cout<<"Write to "<<Form("ResponseMatrix%s_%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data())<<endl;
-	ftout = new TFile(Form("ResponseMatrix%s_%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data()),"RECREATE");
+	TString SFineBin="";
+	if(!WIDEBIN) SFineBin = "_FineBin";
+	TString SIter="";
+	TString ifilename = Form("ResponseMatrix%s_%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data());
+	if(flagjetweight) {
+		cout<<"INFO -------  Int_t Unfold2D::WriteTrain():  flagjetweight (args[14]) == 1. Use MB embedding for JP unfolding, which will be written"<<endl;
+		ifilename = Form("ResponseMatrix%s_%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),"MB",TranCharge.Data(),SExclude.Data(),SFineBin.Data());	
+	}
+
+
+	cout<<"Write to "<<ifilename<<endl;
+	ftout = new TFile(ifilename,"RECREATE");
 	hTrainTrue->Write();
 	hTrain->Write();
 	hTrainFake->Write();
@@ -1308,7 +1639,15 @@ Int_t Unfold2D::WriteUnfoldResult()
 {
 	TString SExclude="";
 	if(ExcludeOpt) SExclude = "_excluded";
-	ftout = new TFile(Form("Unfolding%s_%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data()),"RECREATE");
+	TString SNFWeight="";
+	if(flagjetweight) SNFWeight = "_NFweight";
+	TString SFineBin="";
+	if(!WIDEBIN) SFineBin = "_FineBin";
+	TString SIter="";
+	if( method==1 && (regparm!=4) ) {
+		SIter = Form("_Baye%d",regparm);
+	}
+	ftout = new TFile(Form("Unfolding%s_%s%s%s%s%s%s%s_McPt02.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SFineBin.Data(),SIter.Data()),"RECREATE");
 	hTrainTrue->Write();
 	hTrain->Write();
 	hTrainFake->Write();
@@ -1327,6 +1666,7 @@ Unfold2D::Unfold2D (TString name): inputname(name), XvariableName("X"), Yvariabl
 {
 	Reset();
 	SetDefaultParms();
+	FlagDefaultCalled = 1;
 }
 
 	Unfold2D::Unfold2D (const char* name, int argc, const char* const* argv)
@@ -1335,6 +1675,7 @@ Unfold2D::Unfold2D (TString name): inputname(name), XvariableName("X"), Yvariabl
 	Reset();
 	if(argc<14){ Help(); return; }
 	SetParms(argv);
+	FlagDefaultCalled = 0;
 }
 
 
@@ -1449,6 +1790,8 @@ void Unfold2D::setmax (TH1* h,
 void Unfold2D::SetXYname(TString xname, TString yname) {
 	XvariableName = xname;
 	YvariableName = yname;
+
+	if(FlagDefaultCalled) SetDefaultParms();		// If SetXYname called, need to update default parameters using YvariableName if we are using default values
 }
 
 void Unfold2D::SetTrigName(TString tname) {
@@ -1482,12 +1825,12 @@ void Unfold2D::Legend (TLegend*& legend, TH1* truth, TH1* fake, TH1* meas, TH1* 
 }
 
 
-TH2D* Unfold2D::CorrelationHist (const TMatrixD& cov,
+TH2F* Unfold2D::CorrelationHist (const TMatrixD& cov,
 		const char* name, const char* title,
 		Double_t lo, Double_t hi)
 {
 	Int_t nb= cov.GetNrows();
-	TH2D* h= new TH2D (name, title, nb, lo, hi, nb, lo, hi);
+	TH2F* h= new TH2F (name, title, nb, lo, hi, nb, lo, hi);
 	h->SetAxisRange (-1.0, 1.0, "Z");
 	for(int i=0; i < nb; i++)
 		for(int j=0; j < nb; j++) {
@@ -1501,7 +1844,7 @@ TH2D* Unfold2D::CorrelationHist (const TMatrixD& cov,
 // Use wide bin
 // somehow the rebin to wide bin does not work... Need to use initwidebin instead
 //==============================================================================
-TH2D* Unfold2D::RebinAs(TH2D *old, TH2D *model)		// rebin old as the same binining as model
+TH2F* Unfold2D::RebinAs(TH2F *old, TH2F *model)		// rebin old as the same binining as model
 {
 	int Nx = model->GetNbinsX();
 	double *xbins = new double[Nx+1];
@@ -1519,7 +1862,7 @@ TH2D* Unfold2D::RebinAs(TH2D *old, TH2D *model)		// rebin old as the same binini
 	return Rebin2DHisto(old,Nx, xbins, Ny, ybins);
 }
 
-TH2D* Unfold2D::RebinX2DHisto(TH2D *old)	
+TH2F* Unfold2D::RebinX2DHisto(TH2F *old)	
 {
 	//const int WNbins = 15;
         //double Wptbins[WNbins+1] = {0,2,3,4,5,7,9,11,15,20,25,35,45,55,65,100};
@@ -1531,14 +1874,14 @@ TH2D* Unfold2D::RebinX2DHisto(TH2D *old)
 	}
 	*(ybins+Ny) = old->GetYaxis()->GetBinLowEdge(Ny) + old->GetYaxis()->GetBinWidth(Ny);
 
-	TH2D *hnew = Rebin2DHisto(old, WNbins, Wptbins, Ny, ybins);
+	TH2F *hnew = Rebin2DHisto(old, WNbins, Wptbins, Ny, ybins);
 	return hnew;
 }
 
 
-TH2D* Unfold2D::Rebin2DHisto(TH2D *old, int Nx, double *xbins, int Ny, double *ybins)
+TH2F* Unfold2D::Rebin2DHisto(TH2F *old, int Nx, double *xbins, int Ny, double *ybins)
 {
-	TH2D *h = new TH2D(Form("Rebin%s",old->GetName()),old->GetTitle(),Nx,xbins,Ny,ybins);	
+	TH2F *h = new TH2F(Form("Rebin%s",old->GetName()),old->GetTitle(),Nx,xbins,Ny,ybins);	
 	TAxis *xaxis = old->GetXaxis();
 	TAxis *yaxis = old->GetYaxis();
 	for (int j=1; j<=yaxis->GetNbins();j++) {
@@ -1550,10 +1893,8 @@ TH2D* Unfold2D::Rebin2DHisto(TH2D *old, int Nx, double *xbins, int Ny, double *y
 	return h;
 }
 
-TH2D* Unfold2D::InitWideX2DHisto(TString name, TString title, int Ny, double ylo, double yhi) 
+TH2F* Unfold2D::InitWideX2DHisto(TString name, TString title, int Ny, double ylo, double yhi) 
 {
-	//const int WNbins = 15;
-        //double Wptbins[WNbins+1] = {0,2,3,4,5,7,9,11,15,20,25,35,45,55,65,100};
 
 	if(Ny<=0) {cout<<"Err: "<<__PRETTY_FUNCTION__<<", Ny = "<<Ny<<"<=0"<<endl;return NULL;}
 	double *ybins = new double[Ny+1];
@@ -1562,10 +1903,97 @@ TH2D* Unfold2D::InitWideX2DHisto(TString name, TString title, int Ny, double ylo
 	}
 	*(ybins+Ny) = yhi;
 
-	TH2D *h = new TH2D(name, title, WNbins, Wptbins, Ny,ybins);
+	TH2F* h = new TH2F(name, title, WNbins, Wptbins, Ny,ybins);
 	return h;
 }
 
+TH2F* Unfold2D::InitWideX2DHisto(TString name, TString title, int Ny, double *ybins) 
+{
+
+	if(Ny<=0) {cout<<"Err: "<<__PRETTY_FUNCTION__<<", Ny = "<<Ny<<"<=0"<<endl;return NULL;}
+
+	TH2F* h = new TH2F(name, title, WNbins, Wptbins, Ny,ybins);
+	return h;
+}
+
+TH2F* Unfold2D::InitWideXY2DHisto(TString name, TString title) 
+{
+	TH2F *h;
+
+	cout<<"Init WideBin for "<<name<<" "<<title<<" with ";
+	if(YvariableName.Contains("Ntrk")) 
+	{
+		const int Nltrkbins = 18;
+		double ltrkbins[Nltrkbins+1] = {-0.5,0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5,9.5,10.5,11.5,12.5,13.5,14.5,17.5,21.5,39.5};
+		h = InitWideX2DHisto(name, title, Nltrkbins, ltrkbins);
+		cout<<Nltrkbins<<" bins"<<endl;
+	}
+	else if(YvariableName.Contains("TranPtAve")) 
+	{
+		//const int Nptavebins = 178;
+		//double ptavebins[Nptavebins+1];
+		//if MC unfolded to pT==0
+		//ptavebins[0] = 0;
+		//for(int i = 1; i<132; i++) {
+		//	ptavebins[i] = 0.2+(i-1)*0.01;
+		//}
+		//for(int i = 132; i<142; i++) {
+		//	ptavebins[i] = 1.5+(i-131)*0.05;
+		//}
+		//for(int i = 142; i<162; i++) {
+		//	ptavebins[i] = 2+(i-141)*0.1;
+		//}
+		//for(int i = 162; i<172; i++) {
+		//	ptavebins[i] = 4+(i-161)*0.2;
+		//}
+		//for(int i = 172; i<179; i++) {
+		//	ptavebins[i] = 6+(i-171)*2;
+		//}
+		
+		// if Mc unfolded to pT->0.2
+		const int Nptavebins = 50;
+		double ptavebins[Nptavebins+1];
+		for(int i = 0; i<26; i++) {
+			ptavebins[i] = 0.2+i*0.04;
+		}
+		for(int i = 26; i<34; i++) {
+			ptavebins[i] = 1.2+(i-25)*0.1;
+		}
+		for(int i = 34; i<44; i++) {
+			ptavebins[i] = 2+(i-33)*0.2;
+		}
+		for(int i = 44; i<48; i++) {
+			ptavebins[i] = 4+(i-43)*0.5;
+		}
+		for(int i = 48; i<50; i++) {
+			ptavebins[i] = 6+(i-47)*2;
+		}
+		ptavebins[50] = 20;
+
+		h = new TH2F(name, title, WNbins, Wptbins, Nptavebins, ptavebins);
+		cout<<Nptavebins<<" bins"<<endl;
+	
+	}
+	else 
+	{
+		h = InitWideX2DHisto(name, title, nty, ylo, yhi);
+		cout<<nty<<" bins"<<endl;
+	}
+
+
+
+	return h;
+	
+}
+
+int Unfold2D::Find(std::vector<int> vec, int val) {
+
+        for(int i = 0; i<vec.size(); i++) {
+                if(val==vec.at(i)) return i;
+        }
+
+        return -1;
+}
 
 
 #endif
