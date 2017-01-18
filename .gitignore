@@ -1,0 +1,13 @@
+*.png
+*.root
+*.so
+*.d
+*.o
+dict.h
+dict.cxx
+*RootDict.cxx
+*RootDict.o
+*RootDict.h
+*RootDict_rdict.pcm
+.DS_Store
+
