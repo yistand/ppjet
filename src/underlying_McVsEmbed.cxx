@@ -819,7 +819,7 @@ int underlying_McVsEmbed::Make (	const std::vector<fastjet::PseudoJet>& Mcpartic
 	}
 
 
-	if(flagGoodEtaRcJet) {
+	if(flagGoodEtaRcJet && flagtrigmatch && flagneutralfrac) {
 		LoopUnderlying(Rcj1phi, RcUconstituents, RcLeadAreaNtrk, RcSubAreaNtrk, RcTranMaxNtrk, RcTranMinNtrk, RcLeadAreaPt, RcSubAreaPt, RcTranMaxPt, RcTranMinPt, RcTrkLeadAreaPt, RcTrkLeadAreaPhi, RcTrkLeadAreaEta, RcTrkSubAreaPt, RcTrkSubAreaPhi, RcTrkSubAreaEta, RcTrkTranMaxPt, RcTrkTranMaxPhi, RcTrkTranMaxEta, RcTrkTranMinPt, RcTrkTranMinPhi, RcTrkTranMinEta, RcTrkLeadAreaMcId, RcTrkSubAreaMcId, RcTrkTranMaxMcId, RcTrkTranMinMcId);	
 		RcTranPt = (RcTranMaxPt+RcTranMinPt)/2.;
 	}
