@@ -20,7 +20,6 @@
 #include <TH3.h>
 #include <TProfile.h>
 #include <TFile.h>
-
 #include <TLorentzVector.h>
 #include <TClonesArray.h>
 #include <TString.h>
@@ -28,6 +27,7 @@
 #include <TBranch.h>
 #include <TMath.h>
 #include <TRandom.h>
+#include <TRandom2.h>
 #include <TSystem.h>
 
 #include "TClonesArray.h"
@@ -40,6 +40,8 @@
 #include <exception>
 #include <cstdlib>      // std::rand, std::srand
 #include <algorithm>    // std::random_shuffle
+#include <ctime>		// time_t
+#include <unistd.h>	// getpid()
 
 #include "TStarJetPicoReader.h"
 #include "TStarJetPicoEvent.h"
@@ -122,7 +124,6 @@ TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const dou
 	// -------------------------
 	TStarJetPicoEventCuts* evCuts = reader.GetEventCuts();
 	evCuts->SetTriggerSelection( TriggerString ); //All, MB, HT, pp, ppHT, ppJP
-	//evCuts->SetTriggerSelection( "All" ); //All, MB, HT, pp, ppHT, ppJP	// test
 	// Additional cuts 
 	evCuts->SetVertexZCut (AjParameters::VzCut);
 	evCuts->SetRefMultCut ( RefMultCut );
@@ -183,7 +184,6 @@ TStarJetPicoReader SetupMcReader ( TChain* chain){
 	TStarJetPicoEventCuts* evCuts = reader.GetEventCuts();
 	evCuts->SetTriggerSelection( "All" ); //All, MB, HT, pp, ppHT, ppJP
 	// No Additional cuts 
-	//evCuts->SetVertexZCut (AjParameters::VzCut);	//test
 	evCuts->SetVertexZCut (99999);
 	evCuts->SetRefMultCut (0);
 	evCuts->SetVertexZDiffCut(999999);
@@ -218,7 +218,7 @@ TStarJetPicoReader SetupMcReader ( TChain* chain){
 
 int main ( int argc, const char** argv ) {
 
-	const char *defaults[] = {"PicoUnderMcVsEmbed","/home/fas/caines/ly247/Scratch/embedPythia/pt2_3_JetMcVsEmbedMatchTrig.root","ppJP2","/home/fas/caines/ly247/Scratch/embedPythia/160808/pt2_3*.root"};		// IMPORTNANT: for input file, should always run one pt bin at each time for proper cross section weight later on
+	const char *defaults[] = {"PicoUnderMcVsEmbed","pt2_3_UnderMcVsEmbedMatchTrig.root","ppJP","/home/fas/caines/ly247/Scratch/embedPythia/160808/pp12Pico_pt2_3_13047003_2_1D5BF037780AD6F889C7689DEF3E2321_0.root", "1"};		// IMPORTNANT: for input file, should always run one pt bin at each time for proper cross section weight later on	// Code name, output file, TrigName, input file, sys err (TPC tracking efficiency uncertainty 5%)
 
 
 	if ( argc==1 ) {
@@ -303,7 +303,7 @@ int main ( int argc, const char** argv ) {
 
 	TStarJetPicoDefinitions::SetDebugLevel(0);
 
-	//cout<<"SetupReader for RcPico"<<endl;
+	//cout<<"SetupReader for RcPico"<<endl;	
 	double RefMultCut = 0;
 	//TStarJetPicoReader reader = SetupReader( chain, TriggerName,RefMultCut );			// #ly note: Events & Tracks & Towers cuts are set here
 	TStarJetPicoReader reader = SetupReader( chain, "All" ,RefMultCut );			// #ly note: Events & Tracks & Towers cuts are set here. To assess the trigger efficiency, we move the trigger information into tree production, variable is_trigger
@@ -324,6 +324,7 @@ int main ( int argc, const char** argv ) {
 
 
 
+	//cout<<"SetupReader for McPico"<<endl;	
 	TStarJetPicoReader Mcreader = SetupMcReader( Mcchain); 
 
 	// Initialize analysis class
@@ -333,6 +334,15 @@ int main ( int argc, const char** argv ) {
 	if(OutFileName.Contains ("kT") && (!(OutFileName.Contains ("AntikT")))) {
 		jetalgorithm = "kt";
 	}
+
+	int AddTpcEffErr = abs(arguments.at(3).compare("0"));
+	if(AddTpcEffErr) std::cout<<"INFO: Add TPC tracking efficiency Uncertainty"<<endl;
+
+	// For systematically study 
+	float tpcefferr = 0.05;				// relative 5% uncertainty on TPC efficiency mean
+
+
+	OutFileName.ReplaceAll(".root",Form("_TpcErrPlus%.2f.root",tpcefferr));
 
 	std::cout<<"OutFileName="<<OutFileName<<std::endl;
 
@@ -417,11 +427,18 @@ int main ( int argc, const char** argv ) {
 	jme->SetVerbose(0);
 
 	Long64_t nEvents=-1; // -1 for all
-	//nEvents=1;	// test
+	//nEvents=100;	// test
 	cout<<"init..."<<nEvents<<endl;
 	Mcreader.Init(nEvents);
 	reader.Init(nEvents);
 	int count = 0;
+
+	// For systematically study 
+	TRandom2 *TpcTracking = new TRandom2();
+	ULong_t seed = time(NULL)%getpid();
+	cout<<"Random Seed = "<<seed<<endl;
+	TpcTracking->SetSeed(seed);
+	
 
 	try{
 		cout<<"START:"<<endl;
@@ -460,6 +477,10 @@ int main ( int argc, const char** argv ) {
 
 			for (int mcip = 0; mcip<Mccontainer->GetEntries() ; ++mcip ){
 				Mcsv = Mccontainer->Get(mcip);  // Note that TStarJetVector contains more info
+
+				if( AddTpcEffErr && (Mcsv->GetCharge()!=0)) {
+					if( TpcTracking->Rndm()<tpcefferr )  continue;			// throw away 5% particles randomly on MC level. Effectivley increase TPC tracking efficiency...
+				}
 
 				Mcpj=MakePseudoJet( Mcsv );
 				Mcpj.set_user_info ( new JetAnalysisUserInfo( 3*Mcsv->GetCharge(), Mcsv->GetFeatureD(TStarJetVector::_DEDX), 0, Mcsv->GetFeatureI(TStarJetVector::_KEY) )  );	// for Mc track, DEDX is actually pdg id. TOF one is set to 0.
@@ -534,8 +555,14 @@ int main ( int argc, const char** argv ) {
 				// Make particle vector
 				// --------------------
 
+
 				for (int ip = 0; ip<container->GetEntries() ; ++ip ){
 					sv = container->Get(ip);  // Note that TStarJetVector contains more info, such as charge;
+
+
+					//if( AddTpcEffErr && (sv->GetCharge()!=0)) {
+					//	if( TpcTracking->Rndm()<tpcefferr )  continue;			// throw away 5% particles randomly on RC level
+					//}
 
 
 					//if (sv->GetCharge()==0 ) (*sv) *= fTowScale; // for systematics
@@ -549,6 +576,7 @@ int main ( int argc, const char** argv ) {
 	
 					//}	      
 				}    
+
 			}
 
 
@@ -583,6 +611,7 @@ int main ( int argc, const char** argv ) {
 		return -1;
 	}
 	cout << "##################################################################" << endl;
+
 
 	//Long64_t nEventsUsed=reader.GetNOfEvents();  
 
