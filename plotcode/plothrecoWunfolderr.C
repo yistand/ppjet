@@ -127,7 +127,7 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranTotNtrkJPCharged_NFweig
 
 
 	//Make sure input default filename is NFweighted with MB embedding
-	if(!filename.Contains("_NFweight")) filename.ReplaceAll("_McPt02_embedJP0","_NFWeight_McPt02_embedMB");
+	if(!filename.Contains("_NFweight")) filename.ReplaceAll("_McPt02_embedJP0","_NFweight_McPt02_embedMB");
 	//Make sure input default filename is consistent with DefaultTh 
 	if(! (filename.Contains(Form("_Baye%d",DefaultTh))||(DefaultTh==4)) ) {
 		Ssiz_t toinsert = filename.Index(".root");
@@ -174,7 +174,7 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranTotNtrkJPCharged_NFweig
 	//--- No NFweighted one ---
 	// default bayes iteration WITHOUT NFweight
 	TString nfilename = filename;
-	nfilename.ReplaceAll("_NFWeight_McPt02_embedMB","_McPt02_embedJP0");
+	nfilename.ReplaceAll("_NFweight_McPt02_embedMB","_McPt02_embedJP0");
 	cout<<"replace to --> "<<endl<< nfilename<<endl;
 	f[BayesTimes+2] = new TFile(nfilename);
 	hreco[BayesTimes+2] = (TH2D*)f[BayesTimes+2]->Get("hreco");
@@ -209,7 +209,7 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranTotNtrkJPCharged_NFweig
 
 	//--- YScaled one ---
 	TString ysfilename = filename;
-	ysfilename.ReplaceAll("_NFWeight","_YScale");
+	ysfilename.ReplaceAll("_NFweight","_YScale");
 	cout<<"Read Yscaled file: "<<ysfilename<<endl;
 	f[(BayesTimes+2)*2] = new TFile(ysfilename);
 	hreco[(BayesTimes+2)*2] = (TH2D*)f[(BayesTimes+2)*2]->Get("hreco");
@@ -266,11 +266,32 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranTotNtrkJPCharged_NFweig
 	}
 
 	TString opt_unfold = "s";			// will take the max of all as the final unfolding sys err
-	ClassSysErr *syserr_unfold = new ClassSysErr((BayesTimes+2)*2,gr[0], gr+1,opt_unfold);			// Bayes, Bin-by-Bin, NFWeight or not, YScale
+	ClassSysErr *syserr_unfold = new ClassSysErr((BayesTimes+2)*2,gr[0], gr+1,opt_unfold);			// Bayes, Bin-by-Bin, NFweight or not, YScale
 	TString opt_tracking = "s";
 	ClassSysErr *syserr_tpc = new ClassSysErr(TpcTimes,gr[0], gr+(BayesTimes+2)*2+1,opt_tracking);
-	ClassSysErr *syserr = SumTwoSSysErr(gr[0], syserr_unfold->GetEYlow(), syserr_unfold->GetEYhigh(), syserr_tpc->GetEYlow(), syserr_tpc->GetEYhigh());
+	// estimate 7% from 5% TPC tracking uncertainty 
+	int N5 = syserr_tpc->GetN();
+	double *x5, *y5, *eyl5, *eyh5;
+	double *x7, *y7, *eyl7, *eyh7;
+	x5 = syserr_tpc->GetX();
+	y5 = syserr_tpc->GetY();
+	eyl5 = syserr_tpc->GetEYlow();
+	eyh5 = syserr_tpc->GetEYhigh();
+	x7 = new double[N5];
+	y7 = new double[N5];
+	eyl7 = new double[N5];
+	eyh7 = new double[N5];
+	for(int i = 0; i<N5; i++) {
+		x7[i] = x5[i];
+		y7[i] = y5[i];
+		eyl7[i] = eyl5[i]*1.4;
+		eyh7[i] = eyh5[i]*1.4;
+	}
+	ClassSysErr *syserr_tpc7 = new ClassSysErr(N5, x7, y7, eyl7, eyh7);
 
+	ClassSysErr *syserr = SumTwoSSysErr(gr[0], syserr_unfold->GetEYlow(), syserr_unfold->GetEYhigh(), syserr_tpc7->GetEYlow(), syserr_tpc7->GetEYhigh());
+
+	//ClassSysErr *syserr = SumTwoSSysErr(gr[0], syserr_unfold->GetEYlow(), syserr_unfold->GetEYhigh(), syserr_tpc->GetEYlow(), syserr_tpc->GetEYhigh());
 
 	TString sregion = "Transverse";
 	if(filename.Contains("Lead",TString::kIgnoreCase)) sregion = "Toward";
