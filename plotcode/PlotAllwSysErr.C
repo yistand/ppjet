@@ -295,6 +295,16 @@ void PlotAllwSysErr() {
 		leg2->AddEntry(httpf[i],Form("MC %s",legtag[i]),"l");
 	}
 	//leg2->Draw();
+
+
+
+	// Print out data point
+	for(int i=0;i<NRegion; i++) {
+		cout<<legtag[i]<<": "<<endl;
+		for(int j = 0; j<hrecopf[i]->GetNbinsX(); j++) {
+			cout<<hrecopf[i]->GetBinCenter(j+1)<<" "<<hrecopf[i]->GetBinContent(j+1)<<" +/- "<<hrecopf[i]->GetBinError(j+1)<<" (stat);  "<<grreco[i]->GetY()[j]<<" +"<<grreco[i]->GetEYhigh()[j]<<" - "<<grreco[i]->GetEYlow()[j]<<" (sys)"<<"\t\t\t PYTHIA = "<<httpf[i]->GetBinContent(j+1)<<endl;
+		}
+	}
 }
 
 
