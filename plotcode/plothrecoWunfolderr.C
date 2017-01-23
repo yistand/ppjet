@@ -58,18 +58,75 @@ void graphSystBand(int n, Double_t *x, Double_t *y, Double_t *ex, Double_t *ey,
 }
 
 
-void plothrecoWunfolderr(TString filename="Unfolding_TranTotNtrkJPCharged_NFweight_McPt02_embedMB.root") {
+
+//=======================================================================================
+
+ClassSysErr *SumTwoSSysErr(TGraphErrors *gr, double *e1l, double *e1h, double *e2l, double *e2h) {
+
+    const int MAXPOINT = 1024;
+    if(MAXPOINT<gr->GetN()) { cout<<"increase MAXPOINT > "<<gr->GetN()<<" in function SysErrMultSingleS()"<<endl;}
+    double x[MAXPOINT] = {0}, y[MAXPOINT] = {0}, eyl[MAXPOINT] = {0}, eyh[MAXPOINT] = {0};
+    double *xx, *yy; 
+    xx = gr->GetX();
+    yy = gr->GetY();
+    for(int i = 0; i<gr->GetN(); i++) {
+	    x[i] = xx[i];
+	    y[i] = yy[i];
+	    eyl[i] = -sqrt( pow(e1l[i],2) + pow(e2l[i],2) );
+	    eyh[i] = sqrt( pow(e1h[i],2) + pow(e2h[i],2) );
+    }
+
+    ClassSysErr *syserr = new ClassSysErr(gr->GetN(), x, y, eyl, eyh);
+
+	return syserr;
+
+}
+
+
+
+ClassSysErr *SumTwoSSysErr(TGraphAsymmErrors *gr, double *e1l, double *e1h, double *e2l, double *e2h) {
+
+    const int MAXPOINT = 1024;
+    if(MAXPOINT<gr->GetN()) { cout<<"increase MAXPOINT > "<<gr->GetN()<<" in function SysErrMultSingleS()"<<endl;}
+    double x[MAXPOINT] = {0}, y[MAXPOINT] = {0}, eyl[MAXPOINT] = {0}, eyh[MAXPOINT] = {0};
+	double *xx, *yy; 
+	xx = gr->GetX();
+	yy = gr->GetY();
+    for(int i = 0; i<gr->GetN(); i++) {
+		x[i] = xx[i];
+		y[i] = yy[i];
+		eyl[i] = -sqrt( pow(e1l[i],2) + pow(e2l[i],2) );
+		eyh[i] = sqrt( pow(e1h[i],2) + pow(e2h[i],2) );
+	}
+
+    ClassSysErr *syserr = new ClassSysErr(gr->GetN(), x, y, eyl, eyh);
+
+	return syserr;
+
+}
+
+
+
+
+
+//================================================== Main =================================================
+
+void plothrecoWunfolderr(TString filename="Unfolding_TranTotNtrkJPCharged_NFweight_McPt02_embedMB_Baye5.root") {
 
 	int DefaultTh = 5;
 	const int BayesTimes = 5;
 	int OtherTh[BayesTimes] = {2,3,4,6,7};
 	if(filename.Contains("LeadAreaNtrk")&&OtherTh[2]==4) OtherTh[2] = 5;		// There is a jump when iteration==4 for LeadAreaNtrk
 
-	TFile *f[(BayesTimes+2)*2];	// (Bayes iterations + Bin-by-Bin) * (NFweight vs Not weight)
-	TH2D *hreco[(BayesTimes+2)*2];
+	const int TpcTimes = 2;
+	const char *TpcName[TpcTimes] = {"_TpcErrPlus005","_TpcErrMinus005"};
+
+	const int Nfile = (BayesTimes+2)*2+1+TpcTimes;						// (Bayes iterations + Bin-by-Bin) * (NFweight vs Not weight)	+ YScale  + (TPC 5% tracking plus+minus)
+	TFile *f[Nfile];	
+	TH2D *hreco[Nfile];
 
 
-	//Make sure input default filename is NFweighted
+	//Make sure input default filename is NFweighted with MB embedding
 	if(!filename.Contains("_NFweight")) filename.ReplaceAll("_McPt02_embedJP0","_NFWeight_McPt02_embedMB");
 	//Make sure input default filename is consistent with DefaultTh 
 	if(! (filename.Contains(Form("_Baye%d",DefaultTh))||(DefaultTh==4)) ) {
@@ -122,7 +179,7 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranTotNtrkJPCharged_NFweig
 	f[BayesTimes+2] = new TFile(nfilename);
 	hreco[BayesTimes+2] = (TH2D*)f[BayesTimes+2]->Get("hreco");
 	hreco[BayesTimes+2]->SetName(Form("hreco_NoNFw_default"));
-	TH2D *hmeasNFF = (TH2D*)f[0]->Get("hmeas");
+	TH2D *hmeasNFF = (TH2D*)f[BayesTimes+2]->Get("hmeas");
 	TH2D *httNFF = (TH2D*)f[BayesTimes+2]->Get("htraintrue");
 	TH2D *htNFF = (TH2D*)f[BayesTimes+2]->Get("htrain");
 
@@ -149,10 +206,33 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranTotNtrkJPCharged_NFweig
 	hreco[(BayesTimes+2)*2-1]->SetName("hrecoNNF_BbB");
 
 
+
+	//--- YScaled one ---
+	TString ysfilename = filename;
+	ysfilename.ReplaceAll("_NFWeight","_YScale");
+	cout<<"Read Yscaled file: "<<ysfilename<<endl;
+	f[(BayesTimes+2)*2] = new TFile(ysfilename);
+	hreco[(BayesTimes+2)*2] = (TH2D*)f[(BayesTimes+2)*2]->Get("hreco");
+	hreco[(BayesTimes+2)*2]->SetName(Form("hreco_Yscale"));
+
+
+
+	//--- TPC tracking 5% ---
+	for(int i = (BayesTimes+2)*2+1; i<(BayesTimes+2)*2+1+TpcTimes; i++) {
+		TString ifilename = filename;
+		Ssiz_t toinsert = ifilename.Index(".root");
+		ifilename.Insert(toinsert,TpcName[i-((BayesTimes+2)*2+1)]);
+		f[i] = new TFile(ifilename);
+		hreco[i] = (TH2D*)f[i]->Get("hreco");
+		hreco[i]->SetName(Form("hreco%s",TpcName[i-((BayesTimes+2)*2+1)]));
+	}
+
+
+
 	// Take ProfileX
 	cout<<"Take ProfileX"<<endl;
-	TProfile *hp[(BayesTimes+2)*2];
-	for(int i = 0; i<(BayesTimes+2)*2; i++) {
+	TProfile *hp[Nfile];
+	for(int i = 0; i<Nfile; i++) {
 		hp[i] = (TProfile*)hreco[i]->ProfileX(Form("%s_pfx",hreco[i]->GetName()));
 		cout<<hp[i]->GetName()<<endl;
 	}
@@ -160,7 +240,7 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranTotNtrkJPCharged_NFweig
 	// Normalized ProfileX to density
 	float DeDpNorma = 1./(2.*2.*TMath::Pi()/3.);	// TranTot: 2 area; eta 2; phi pi/3
 	if(!filename.Contains("LeadJetNtrk",TString::kIgnoreCase)) {
-		for(int i = 0; i<(BayesTimes+2)*2; i++) {
+		for(int i = 0; i<Nfile; i++) {
 			hp[i]->Scale(DeDpNorma);
 		}
 	}
@@ -168,8 +248,8 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranTotNtrkJPCharged_NFweig
 
 	// Convert ProfileX to TGraphErrors for ClassSysErr
 	const int Nbins = 13;
-	TGraphErrors *gr[(BayesTimes+2)*2];
-	for(int i = 0; i<(BayesTimes+2)*2; i++) {
+	TGraphErrors *gr[Nfile];
+	for(int i = 0; i<Nfile; i++) {
 		gr[i] = new TGraphErrors();
 		gr[i]->SetName(Form("gr_%s",hreco[i]->GetName()));
 		for(int j = 0; j<hp[i]->GetNbinsX(); j++) {
@@ -181,9 +261,15 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranTotNtrkJPCharged_NFweig
 		gr[i]->SetMarkerStyle(24);
 		gr[i]->SetMarkerSize(2);
 	}
+	for(int i = (BayesTimes+2)*2+1; i<(BayesTimes+2)*2+1+TpcTimes; i++) {
+		gr[i]->SetMarkerStyle(23);
+	}
 
-	TString opt = "s";			// will take the max of all as the final sys err
-	ClassSysErr *syserr = new ClassSysErr((BayesTimes+2)*2-1,gr[0], gr+1,opt);
+	TString opt_unfold = "s";			// will take the max of all as the final unfolding sys err
+	ClassSysErr *syserr_unfold = new ClassSysErr((BayesTimes+2)*2,gr[0], gr+1,opt_unfold);			// Bayes, Bin-by-Bin, NFWeight or not, YScale
+	TString opt_tracking = "s";
+	ClassSysErr *syserr_tpc = new ClassSysErr(TpcTimes,gr[0], gr+(BayesTimes+2)*2+1,opt_tracking);
+	ClassSysErr *syserr = SumTwoSSysErr(gr[0], syserr_unfold->GetEYlow(), syserr_unfold->GetEYhigh(), syserr_tpc->GetEYlow(), syserr_tpc->GetEYhigh());
 
 
 	TString sregion = "Transverse";
@@ -226,7 +312,7 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranTotNtrkJPCharged_NFweig
 	hp[0]->Draw("p");
 	graphSystBand(Nbins,syserr->GetX(),syserr->GetY(),0,0,syserr->GetEYlow(),  syserr->GetEYhigh(),kGray);
 	hp[0]->Draw("psame");
-	for(int i = 1; i<(BayesTimes+2)*2; i++) {
+	for(int i = 1; i<Nfile; i++) {
 		if(!(filename.Contains("LeadAreaNtrk")&&OtherTh[i>(BayesTimes+2)?i-(BayesTimes+3):i-1]==DefaultTh))
 		gr[i]->Draw("psame");
 	}
@@ -255,7 +341,30 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranTotNtrkJPCharged_NFweig
 		leg->AddEntry(gr[i],Form("w/o NFweight iter=%d",OtherTh[i-(BayesTimes+3)]),"p");
 	}
 	leg->AddEntry(gr[(BayesTimes+2)*2-1],"w/o NFweight Bin-by-Bin","p");
+	leg->AddEntry(gr[(BayesTimes+2)*2],"Scaled meas to match MB","p");
+	for(int i = (BayesTimes+2)*2+1; i<(BayesTimes+2)*2+1+TpcTimes; i++) {
+		leg->AddEntry(gr[i],TpcName[i-((BayesTimes+2)*2+1)],"p");
+	}
 	leg->Draw();
 
+
+	if(1) {
+		TFile *fout = new TFile(("SysErr4"+filename),"RECREATE");
+		c->Write();
+		hp[0]->Write();
+		double *eylow;
+		eylow = new double[Nbins];
+		for(int i = 0; i<Nbins; i++) {
+			eylow[i] = fabs(syserr->GetEYlow()[i]);	//syserr->GetEYlow() return negative values
+		}
+		TGraphAsymmErrors *gsyserr = new TGraphAsymmErrors(Nbins, syserr->GetX(),syserr->GetY(),0,0,eylow,  syserr->GetEYhigh());
+		gsyserr->SetName("gSysErr"+sregion);
+		gsyserr->Write();
+		hmeas->ProfileX()->Write();
+		htt->ProfileX()->Write();
+		ht->ProfileX()->Write();
+
+		fout->Close();
+	}
 
 }
