@@ -155,9 +155,17 @@ void plotUnfold(TString filename, TString filename2="") {		// filename is _NFwei
 		leg->AddEntry(hrecopx,"Unfolded data w/o NF weight","p");
 	}
 	if(flagf2) {
-		if(filename2.Contains("FineBin")) {
+		if(filename2.Contains("YScale")) {
+			leg->AddEntry(hmeaspx2,"Measured data scaled to MB","p");
+			leg->AddEntry(hrecopx2,"Unfolded data after scaled to MB","p");
+			leg->AddEntry(htrainmpx2,"MC JP0 Detector-level","l");
+			leg->AddEntry(htraintpx2,"MC JP0 Particle-level","l");
+		}
+		else if(filename2.Contains("FineBin")) {
 			leg->AddEntry(hmeaspx2,"Measured data Fine Bin w/o NF weight","p");
 			leg->AddEntry(hrecopx2,"Unfolded data Fine Bin w/o NF weight","p");
+			leg->AddEntry(htrainmpx2,"MC JP0 Detector-level Fine Bin","l");
+			leg->AddEntry(htraintpx2,"MC JP0 Particle-level Fine Bin","l");
 		}
 		else {
 			leg->AddEntry(htrainmpx2,"MC JP0 Detector-level","l");
@@ -172,7 +180,7 @@ void plotUnfold(TString filename, TString filename2="") {		// filename is _NFwei
 	if(filename.Contains("Lead",TString::kIgnoreCase)) sregion = "Lead";
 	if(filename.Contains("Away",TString::kIgnoreCase) || filename.Contains("Sub",TString::kIgnoreCase)) sregion = "Sub";
 	if(filename.Contains("LeadJetNtrk",TString::kIgnoreCase)) sregion="LeadJetChargedAndNeutralNtrk";	// Lead Jet Ntrk (Charged+Neutral)
-	c->SaveAs("Unfold"+sregion+"NtrkVsJetPt_JPs_NFweightedembedMBVsNoWeightembedJP0.png");
+	//c->SaveAs("Unfold"+sregion+"NtrkVsJetPt_JPs_NFweightedembedMBVsNoWeightembedJP0.png");
 
 
 }
