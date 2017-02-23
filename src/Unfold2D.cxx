@@ -23,6 +23,7 @@
 #include "Unfold2D.hh"
 #include "CrossSectionPerpT.h"
 #include "ReWeightByNF.h"
+#include "ScaleByY.h"
 
 #if !defined(__CINT__) || defined(__MAKECINT__)
 #include <cmath>
@@ -39,6 +40,7 @@
 #include "TVectorD.h"
 #include "TLine.h"
 #include "TStyle.h"
+#include "TRandom.h"
 
 #include "RooUnfoldErrors.h"
 #include "RooUnfoldParms.h"
@@ -97,6 +99,7 @@ void Unfold2D::Help() {
 	cout<<"WIDEBIN = args[13];			// 1: for use wide pT bins (various bin size). 0: for use fine fixed pT bins"<<endl;
 	cout<<"flagjetweight = args[14];		// 1: if JPs (mix JP0, JP1, JP2), reweight 2D histograms with Neutral Fraction vs jet pT distribution same as MB. 0: no reweighting procedure"<<endl;
 	cout<<"						// if flagjetweight==1, WIDEBIN will be reset to 1, no mattter the input. Because, the reweighting procedure used wide jet pt bin, here needs to keep consistence"<<endl;
+	cout<<"flagscaley = args[15];		// 1: if JPs (mix JP0, JP1, JP2), scale each JP Y down to have same mean value as MB vs jet pT . 0: no scaling procedure"<<endl;
 
 	cout<<endl<<endl;
 
@@ -108,7 +111,7 @@ void Unfold2D::Help() {
 
 void Unfold2D::SetParms (const char* const* argv) 
 {
-	const int Npar = 14;
+	const int Npar = 16;
 	float args[Npar] = {0};
 	for(int i = 0; i<Npar; i++) 
 	{
@@ -170,17 +173,22 @@ void Unfold2D::SetParms (float* args)
 		WIDEBIN = true;			// When NF reweighting is used, NEED to use WIDEBIN = TRUE as this is what used for Reweighting procedure
 	}
 	else flagjetweight = false;
+
+	if(args[14]<=0 && args[15]>0) {			// When NF reweighting is used, NEED to use flagscaley == FALSE so that we won't over do correction
+		flagscaley = true;		// Scale <Y> in JP to be same as MB 
+	}
+	else flagscaley = false;
 }
 
 void Unfold2D::SetDefaultParms() 		// use default parameterization
 {
 	FlagDefaultCalled = 1;
 
-	float argsNF[15] = {1, 60, 100, 60, 100, 0, 60, 0, 1, 0, 1, 1, 4, 0, 0};	// neutralfrac
-	float argsNtrk[15] 	  = {1, 50, 40, 50, 40, 0, 100, -0.5, 39.5, 0, 1, 1, 4, 1, 1};	// TranNtrk, TranTotNtrk
-	float argsPtSum[15] = {1, 50, 500, 50, 500, 0, 100, 0, 50, 0, 1, 1, 4, 1, 1};		// PtSum
-	float argsPtAve[15] = {1, 50, 1000, 50, 1000, 0, 100, 0, 10, 0, 1, 1, 7, 1, 1};		// PtAve
-	//		method, ntx, nty, nmx, nmy, xlo, xhi, ylo, yhi, overflow, verbose, doerror, regparm, WIDEBIN, flagjetweight
+	float argsNF[16] = {1, 60, 100, 60, 100, 0, 60, 0, 1, 0, 1, 1, 4, 0, 0, 0};	// neutralfrac
+	float argsNtrk[16] 	  = {1, 50, 40, 50, 40, 0, 100, -0.5, 39.5, 0, 1, 1, 4, 1, 1, 0};	// TranNtrk, TranTotNtrk
+	float argsPtSum[16] = {1, 50, 500, 50, 500, 0, 100, 0, 50, 0, 1, 1, 4, 1, 1, 0};		// PtSum
+	float argsPtAve[16] = {1, 50, 1000, 50, 1000, 0, 100, 0, 10, 0, 1, 1, 7, 1, 1, 0};		// PtAve
+	//		method, ntx, nty, nmx, nmy, xlo, xhi, ylo, yhi, overflow, verbose, doerror, regparm, WIDEBIN, flagjetweight, flagscaley
 
 	if(YvariableName.Contains("PtAve")) SetParms(argsPtAve);
 	else if(YvariableName.Contains("PtSum")) SetParms(argsPtSum);
@@ -206,6 +214,7 @@ void Unfold2D::PrintParms()
 	cout<<"regparm = "<<regparm<<endl;
 	cout<<"WIDEBIN = "<<WIDEBIN<<endl;
 	cout<<"flagjetweight = "<<flagjetweight<<endl;
+	cout<<"flagscaley = "<<flagscaley<<endl;
 }
 
 //==============================================================================
@@ -225,6 +234,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 
 	Float_t Mcjneutralfrac;
 	Int_t Mcjconstntrk;
+	Int_t Mcjconstchargentrk;
 	Int_t  McLeadAreaNtrk;
 	Int_t  McSubAreaNtrk;
 	Int_t  McTranMaxNtrk;
@@ -252,6 +262,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 
 	Float_t Rcjneutralfrac;
 	Int_t Rcjconstntrk;
+	Int_t Rcjconstchargentrk;
 	Int_t  RcTranMaxNtrk;
 	Int_t  RcTranMinNtrk;
 	Int_t  RcLeadAreaNtrk;
@@ -290,7 +301,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 
 	for(int i = 0; i<NUMBEROFPT; i++) {
 		TString ifilename;
-		if(TrigName.Contains("JP")&&flagjetweight) {
+		if(TrigName.Contains("JP")&&(flagjetweight||flagscaley)) {
 		// if flagjetweight==1, JP hist is weighted by MB NF distribution. Then we shall use MB embeding data (no trigger effect). This means we don't unfold trigger effect on jet pt distribution, but the neutral jet trigger effect should be already corrected by weighting procedure. However, if we don't do weighting by MB Neutral Fraction dist, we could also use JP embedding to unfold all trigger effects together
 			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_McPt02.root",  "MB",   PTBINS[i],TranCharge.Data());
 		}
@@ -314,6 +325,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 		tree->SetBranchAddress("Mcj1pt",&McJet);
 		tree->SetBranchAddress("Mcj1neutralfrac",&Mcjneutralfrac);
 		tree->SetBranchAddress("Mcj1constntrk",&Mcjconstntrk);
+		tree->SetBranchAddress("Mcj1constchargentrk",&Mcjconstchargentrk);
 		tree->SetBranchAddress("McLeadAreaNtrk",&McLeadAreaNtrk);
 		tree->SetBranchAddress("McSubAreaNtrk",&McSubAreaNtrk);
 		tree->SetBranchAddress("McTranMaxNtrk",&McTranMaxNtrk);
@@ -343,6 +355,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 		tree->SetBranchAddress("Rcj1pt",&RcJet);
 		tree->SetBranchAddress("Rcj1neutralfrac",&Rcjneutralfrac);
 		tree->SetBranchAddress("Rcj1constntrk",&Rcjconstntrk);
+		tree->SetBranchAddress("Rcj1constchargentrk",&Rcjconstchargentrk);
 		tree->SetBranchAddress("RcLeadAreaNtrk",&RcLeadAreaNtrk);
 		tree->SetBranchAddress("RcSubAreaNtrk",&RcSubAreaNtrk);
 		tree->SetBranchAddress("RcTranMaxNtrk",&RcTranMaxNtrk);
@@ -400,11 +413,11 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 
 			flag = -999;
 			//////JPs
-			if(TrigName.Contains("JP",TString::kIgnoreCase)&&(!flagjetweight)) {
+			if(TrigName.Contains("JP",TString::kIgnoreCase)&&(!flagjetweight) && (!flagscaley)) {
 				if(flagIsTrigger && flagtrigmatch && (flagMatch2Lead||flagMatch2Sub) && (RcJet>0) && (Rcjneutralfrac<0.9) && (Rcjneutralfrac>0)) flag = 1; 		
 				else if(McJet>0 && (RcJet<=0 || (!flagtrigmatch)) ) flag = 0;		// non-zero Mc, zero Rc
 				else if((RcJet>0&&flagtrigmatch&&flagIsTrigger&&Rcjneutralfrac<0.9&&Rcjneutralfrac>0) && McJet<=0) flag = -1;		// non-zero Rc, zero Mc		additional neutral fraction here. It is also included in flagMatch2LeadGood and flagMatch2SubGood
-				//cout<<"flag = "<<flag<<endl;
+				//cout<<"flag = "<<flag<<endl;	
 			}
 			else {
 				//if(!flagIsTrigger) continue;			// no correction for trig now..		
@@ -430,7 +443,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 			{
 				if(McTranMaxNtrk<McTranMinNtrk) McPart = (float)McTranMaxNtrk;
 				else McPart = (float)McTranMinNtrk;
-				if(RcTranMaxNtrk>RcTranMinNtrk) RcPart = (float)RcTranMaxNtrk;
+				if(RcTranMaxNtrk<RcTranMinNtrk) RcPart = (float)RcTranMaxNtrk;
 				else RcPart = (float)RcTranMinNtrk;
 			}
 			else if(YvariableName.Contains("TranNtrk",TString::kIgnoreCase))
@@ -648,6 +661,11 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 				McPart = Mcjconstntrk;
 				RcPart = Rcjconstntrk;
 			}
+			else if(YvariableName.Contains("JetChargeNtrk",TString::kIgnoreCase))
+			{
+				McPart = Mcjconstchargentrk;
+				RcPart = Rcjconstchargentrk;
+			}
 			else // default: TranNtrk
 			{
 				McPart = 0.5*(McTranMaxNtrk+McTranMinNtrk);
@@ -774,10 +792,10 @@ Int_t Unfold2D::ReadResponseMatrix()
 	if(ExcludeOpt) SExclude = "_excluded";
 	TString SFineBin="";
 	if(!WIDEBIN) SFineBin = "_FineBin";
-	TString ifilename = Form("ResponseMatrix%s_%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data());	
+	TString ifilename = Form("ResponseMatrix%s_%s%s%s%s%s_McPt02.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data());	
 	if(flagjetweight) {
-		cout<<"INFO -------  Int_t Unfold2D::WriteTrain():  flagjetweight (args[14]) == 1. Use MB embedding for JP unfolding, which will be written"<<endl;
-		ifilename = Form("ResponseMatrix%s_%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),"MB",TranCharge.Data(),SExclude.Data(),SFineBin.Data());	
+		cout<<"INFO -------  Int_t Unfold2D::ReadResponseMatrix():  flagjetweight (args[14]) == 1. Use MB embedding for JP unfolding."<<endl;
+		ifilename = Form("ResponseMatrix%s_%s%s%s%s%s_McPt02.root",inputname.Data(),YvariableName.Data(),"MB",TranCharge.Data(),SExclude.Data(),SFineBin.Data());	
 	}
 	cout<<__PRETTY_FUNCTION__<<" Read in "<<ifilename<<endl;
 	ftrain = new TFile(ifilename);
@@ -830,6 +848,7 @@ Int_t Unfold2D::Fill4Unfold() {
 	Float_t InputPart;	
 
 	Int_t  InputJetNtrk;
+	Int_t  InputJetChargeNtrk;
 	Int_t  InputLeadAreaNtrk;
 	Int_t  InputSubAreaNtrk;
 	Int_t  InputTranMaxNtrk;
@@ -854,7 +873,8 @@ Int_t Unfold2D::Fill4Unfold() {
 		ifilename = TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_161209.root");
 	}
 	else {
-		ifilename = TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_161209.root");
+		//ifilename = TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_161209.root");
+		ifilename = TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_170127.root");
 	}
 	cout<<__PRETTY_FUNCTION__<<__func__<<" Reading in "<<ifilename<<endl;
 	TFile *fin = new TFile(ifilename);
@@ -864,6 +884,7 @@ Int_t Unfold2D::Fill4Unfold() {
 
 	ttree->SetBranchAddress("j1pt",&InputJet);
 	ttree->SetBranchAddress("j1constntrk",&InputJetNtrk);
+	ttree->SetBranchAddress("j1constchargentrk",&InputJetChargeNtrk);
 	ttree->SetBranchAddress("LeadAreaNtrk",&InputLeadAreaNtrk);
 	ttree->SetBranchAddress("SubAreaNtrk",&InputSubAreaNtrk);
 	ttree->SetBranchAddress("TranMaxNtrk",&InputTranMaxNtrk);
@@ -891,6 +912,17 @@ Int_t Unfold2D::Fill4Unfold() {
 		cout<<"."<<endl;
 	}
 
+	// Scale JPs to have same *Y* distribution per jet pt bin as MB 
+	ScaleByY *sby;
+	bool DoScaleByY = !flagjetweight && flagscaley && ifilename.Contains("ppJP_") && ifilename.Contains("FullJet",TString::kIgnoreCase) ; 
+	if( DoScaleByY ) {
+		cout<<"Scale "<<TrigName<<" "<<YvariableName<<" to be same mean value as MB"<<endl;
+		sby = new ScaleByY(YvariableName);
+		sby->Init4Read("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_TransCharged_MatchTrig_ppJP_160811P12id_R06_HadrCorr_VPDcut_161209.root","~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_TransCharged_ppMB_160811P12id_R06_HadrCorr_VPDcut_161209.root");
+		if(!sby->FillYRatios()) { cout<<"cannot fill ScaleByY:FillYRatios() in Unfold2D.cxx "<<endl; return 0;  }
+		cout<<"."<<endl;
+	}
+
 
 	// Jet weight or event weight		for now (2016.12.21), this weight is used to get JPs jet neutral fraction to be same as MB trigger one
 	TH1D *htmpx = (TH1D*)hMeas->ProjectionX("htmpx");		// htmpx is the InputJet distribution without reweighting; need to use same X-binning as hMeas. htmpx is used by ReWeightByNF class in order to insure the Nevts distribution to be same as before reweighting
@@ -907,6 +939,13 @@ Int_t Unfold2D::Fill4Unfold() {
 		if( flagjetweight && ifilename.Contains("ppJP_") && ifilename.Contains("FullJet",TString::kIgnoreCase) ) {
 			xweight = rwc->GetNFWeight(InputJet, InputJetNF);	
 		}
+
+		// brutally scale JP result to have same <Y> as MB 
+		float scaley = 1;
+		if( DoScaleByY ) {
+			scaley = sby->GetYScale(InputJet, InputJetNF);	
+		}
+
 
 		if(YvariableName.Contains("TranMaxNtrk",TString::kIgnoreCase))
 		{
@@ -988,6 +1027,9 @@ Int_t Unfold2D::Fill4Unfold() {
 		}
 		else if(YvariableName.Contains("TranPtAve",TString::kIgnoreCase)&&!(YvariableName.Contains("EventWise",TString::kIgnoreCase))) 		// Particle-wise variable, need to loop over Mc and Rc particles
 		{
+
+			if( DoScaleByY )  InputPart = InputPart*scaley;
+
 			for(int it = 0; it<InputTranMaxNtrk; it++) 
 			{
 				InputPart = InputTrkTranMaxPt[it];
@@ -1005,13 +1047,22 @@ Int_t Unfold2D::Fill4Unfold() {
 		{
 			InputPart = InputJetNtrk;
 		}
+		else if(YvariableName.Contains("JetChargeNtrk",TString::kIgnoreCase))
+		{
+			InputPart = InputJetChargeNtrk;
+		}
 		else // default: TranNtrk
 		{
 			InputPart = 0.5*(InputTranMaxNtrk+InputTranMinNtrk);
 		}
 
+
+
 		// Fill histogram
 		if( !(YvariableName.Contains("PtAve",TString::kIgnoreCase)&&(!YvariableName.Contains("EventWise",TString::kIgnoreCase))) ) {
+
+			if( DoScaleByY )  InputPart = InputPart*scaley;
+
 			hMeas->Fill(InputJet, InputPart, xweight);	
 			htmpx->Fill(InputJet);		// without weighting; will later be used by ReWeightByNF for adjusting to have same Nevts dist. before weighting
 		}
@@ -1221,7 +1272,7 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 	double totalnevents = 0;
 	for(int i = 0; i<NUMBEROFPT; i++) {
 		TString ifilename;
-		if(TrigName.Contains("JP")&&flagjetweight) {
+		if(TrigName.Contains("JP")&&(flagjetweight||flagscaley)) {
 		// if flagjetweight==true, JP hist is weighted by MB NF distribution. Then we shall use MB embeding data (no trigger effect). This means we don't unfold trigger effect on jet pt distribution, but the neutral jet trigger effect should be already corrected by weighting procedure. However, if we don't do weighting by MB Neutral Fraction dist, we could also use JP embedding to unfold all trigger effects together
 			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_McPt02.root",  "MB",   PTBINS[i],TranCharge.Data());
 		}
@@ -1295,7 +1346,7 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 			{
 				if(tMcTranMaxNtrk<tMcTranMinNtrk) tMcPart = (float)tMcTranMaxNtrk;
 				else tMcPart = (float)tMcTranMinNtrk;
-				if(tRcTranMaxNtrk>tRcTranMinNtrk) tRcPart = (float)tRcTranMaxNtrk;
+				if(tRcTranMaxNtrk<tRcTranMinNtrk) tRcPart = (float)tRcTranMaxNtrk;
 				else tRcPart = (float)tRcTranMinNtrk;
 			}
 			else if(YvariableName.Contains("TranNtrk",TString::kIgnoreCase))
@@ -1582,7 +1633,7 @@ Int_t Unfold2D::WriteTest()
 	if(ExcludeOpt) SExclude = "_excluded";
 	TString SFineBin="";
 	if(!WIDEBIN) SFineBin = "_FineBin";
-	ftout = new TFile(Form("ResponseMatrix%s_%s%s%s%s%d_McPt02.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data()),"RECREATE");
+	ftout = new TFile(Form("ResponseMatrix%s_%s%s%s%s%d.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data()),"RECREATE");
 	if(ftout) cout<<"Write to "<<ftout->GetName()<<endl;
 	hTrainTrue->Write();
 	hTrain->Write();
@@ -1610,10 +1661,10 @@ Int_t Unfold2D::WriteTrain()
 	TString SFineBin="";
 	if(!WIDEBIN) SFineBin = "_FineBin";
 	TString SIter="";
-	TString ifilename = Form("ResponseMatrix%s_%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data());
+	TString ifilename = Form("ResponseMatrix%s_%s%s%s%s%s_McPt02.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data());
 	if(flagjetweight) {
 		cout<<"INFO -------  Int_t Unfold2D::WriteTrain():  flagjetweight (args[14]) == 1. Use MB embedding for JP unfolding, which will be written"<<endl;
-		ifilename = Form("ResponseMatrix%s_%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),"MB",TranCharge.Data(),SExclude.Data(),SFineBin.Data());	
+		ifilename = Form("ResponseMatrix%s_%s%s%s%s%s_McPt02.root",inputname.Data(),YvariableName.Data(),"MB",TranCharge.Data(),SExclude.Data(),SFineBin.Data());	
 	}
 
 
@@ -1641,13 +1692,15 @@ Int_t Unfold2D::WriteUnfoldResult()
 	if(ExcludeOpt) SExclude = "_excluded";
 	TString SNFWeight="";
 	if(flagjetweight) SNFWeight = "_NFweight";
+	TString SYScale="";
+	if(!flagjetweight && flagscaley) SYScale = "_Yscale";	
 	TString SFineBin="";
 	if(!WIDEBIN) SFineBin = "_FineBin";
 	TString SIter="";
 	if( method==1 && (regparm!=4) ) {
 		SIter = Form("_Baye%d",regparm);
 	}
-	ftout = new TFile(Form("Unfolding%s_%s%s%s%s%s%s%s_McPt02.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SFineBin.Data(),SIter.Data()),"RECREATE");
+	ftout = new TFile(Form("Unfolding%s_%s%s%s%s%s%s%s%s_McPt02.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data()),"RECREATE");
 	hTrainTrue->Write();
 	hTrain->Write();
 	hTrainFake->Write();

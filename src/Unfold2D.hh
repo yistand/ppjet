@@ -58,6 +58,7 @@ private:
   Int_t    regparm;
   bool   WIDEBIN;
   bool	 flagjetweight;
+  bool	flagscaley;
 
   TString TrigName;
 
