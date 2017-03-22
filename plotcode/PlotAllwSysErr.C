@@ -172,8 +172,16 @@ TGraphAsymmErrors *Graph4UnfoldXErr(TProfile *pf) {
 void PlotAllwSysErr() {
 
 	const int NRegion = 3;
-	const char *Region[NRegion] = {"LeadArea","SubArea","TranTot"};	// they are actually normalized to density
 	const char *legtag[NRegion] = {"Toward","Away","Transverse"};
+
+	//const char *Variable = "Ntrk";			// Ntrk, PtAve
+	//const char *Region[NRegion] = {"LeadArea","SubArea","TranTot"};	// they are actually normalized to density
+
+	const char *Variable = "PtAve";			// Ntrk, PtAve
+	const char *Region[NRegion] = {"Lead","Sub","Tran"};	// they are actually normalized to density
+
+	const double XaxisMin = 2;
+	const double XaxisMax = 45;
 
 	int DefaultTh = 5;
 	TFile *f[NRegion];
@@ -183,19 +191,49 @@ void PlotAllwSysErr() {
 	TProfile *htpf[NRegion];
 	TGraphAsymmErrors *grreco[NRegion];
        	for(int i = 0; i<NRegion; i++) {
-		f[i] = new TFile(Form("SysErr4Unfolding_%sNtrkJPCharged_NFWeight_McPt02_embedMB_Baye%d.root",Region[i],DefaultTh));
-		hrecopf[i] = (TProfile*)f[i]->Get(Form("hreco_default%d_pfx",DefaultTh));
-		hmeaspf[i] = (TProfile*)f[i]->Get(Form("hmeas_pfx"));
-		httpf[i] = (TProfile*)f[i]->Get(Form("htraintrue_pfx"));
-		htpf[i] = (TProfile*)f[i]->Get(Form("htrain_pfx"));
-		grreco[i] = (TGraphAsymmErrors*)f[i]->Get(Form("gSysErr%s",legtag[i]));
+		f[i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_NFWeight_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
+		if(f[i]->IsOpen()) {
+			hrecopf[i] = (TProfile*)f[i]->Get(Form("hreco_default%d_pfx",DefaultTh));
+			hmeaspf[i] = (TProfile*)f[i]->Get(Form("hmeas_pfx"));
+			httpf[i] = (TProfile*)f[i]->Get(Form("htraintrue_pfx"));
+			htpf[i] = (TProfile*)f[i]->Get(Form("htrain_pfx"));
+			grreco[i] = (TGraphAsymmErrors*)f[i]->Get(Form("gSysErr%s",legtag[i]));
+		}
+		else {		// If cannot find the sys. err. one, open the unfold result file without sys. err. 
+			f[i] = new TFile(Form("Unfolding_%s%sJPCharged_NFWeight_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
+			if(f[i]->IsOpen()) {
+				cout<<"Instead Open "<<Form("Unfolding_%s%sJPCharged_NFWeight_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh)<<endl;
+				TH2F *hreco = (TH2F*)f[i]->Get("hreco");
+				TH2F *hmeas = (TH2F*)f[i]->Get("hmeas");
+				TH2F *htrain = (TH2F*)f[i]->Get("htrain");
+				TH2F *htraintrue = (TH2F*)f[i]->Get("htraintrue");
+
+				if(hreco)
+				hrecopf[i]=(TProfile*)hreco->ProfileX(Form("hreco_default%d_pfx",DefaultTh));
+				else cout<<"Cannot find hreco"<<endl;
+				if(hmeas)
+				hmeaspf[i]=(TProfile*)hmeas->ProfileX(Form("hmeas_pfx"));
+				else cout<<"Cannot find hmeas"<<endl;
+				if(htraintrue)
+				httpf[i]=(TProfile*)htraintrue->ProfileX(Form("htraintrue_pfx"));
+				else cout<<"Cannot find htraintrue"<<endl;
+				if(htrain)
+				htpf[i]=(TProfile*)htrain->ProfileX(Form("htrain_pfx"));
+				else cout<<"Cannot find htrain"<<endl;
+
+				grreco[i] = NULL;
+			}
+		}
 	}
 
 
 	// Unfolding x-position uncertainty
 	TGraphAsymmErrors *xgr[NRegion];
 	for(int i = 0; i<NRegion; i++) {
+		if(grreco[i])
 		xgr[i] = (TGraphAsymmErrors*) Graph4UnfoldXErr(grreco[i],hrecopf[i]);
+		else 
+		xgr[i] = NULL;
 	}
 
 	TCanvas *c = new TCanvas("c","c1",1000,800);
@@ -212,21 +250,30 @@ void PlotAllwSysErr() {
 	for(int i = 0; i<NRegion; i++) {
 		SetHistStyle(hrecopf[i],mcolor[i],mcolor[i],mstyle[i],1,msize[i],1);
 		SetHistStyle(httpf[i],mcolor[i],mcolor[i],mstyle[i],lstyle[i],msize[i],2);
+		if(!xgr[i]) continue;
 		xgr[i]->SetFillColor(bcolor[i]);
 		xgr[i]->SetLineColor(bcolor[i]);
 		xgr[i]->SetMarkerColor(bcolor[i]);
 	}
 
 	hrecopf[0]->GetXaxis()->SetTitle("Leading jet p_{T} (GeV/#it{c})");
-	hrecopf[0]->GetYaxis()->SetTitle("#LTN_{ch}/#delta#eta#delta#phi#GT");
+	if(!strcmp(Variable,"PtAve")) {
+		hrecopf[0]->GetYaxis()->SetTitle("#LTp_{T}#GT");
+	}
+	else {		// default: Ntrk
+		hrecopf[0]->GetYaxis()->SetTitle("#LTN_{ch}/#delta#eta#delta#phi#GT");
+	}
 	hrecopf[0]->SetMinimum(0);
 	hrecopf[0]->SetMaximum(3.1);
 
 	TH1D *htmp = (TH1D*) hrecopf[0]->Clone("htmp");
 	htmp->Reset();
+	htmp->GetXaxis()->SetRangeUser(0,45);
+	htmp->GetXaxis()->SetNdivisions(5);
 	htmp->Draw();
 
 	for(int i = 0; i<NRegion; i++) {
+		if(!grreco[i]) continue;
 		double *eylow;
 		eylow = new double[grreco[i]->GetN()];
 		for(int j = 0; j<grreco[i]->GetN(); j++) {
@@ -236,7 +283,20 @@ void PlotAllwSysErr() {
 		graphSystBand(grreco[i]->GetN()-1,grreco[i]->GetX()+1,grreco[i]->GetY()+1,0,0, eylow+1,  grreco[i]->GetEYhigh()+1,bcolor[i], 0,0);
 		//graphSystBox(grreco[i]->GetN(),grreco[i]->GetX(),grreco[i]->GetY(),0,0, eylow,  grreco[i]->GetEYhigh(),kGray+i, 50,0);
 	}
+	if(grreco[0]) 
+	{
+		double *eylow;
+		eylow = new double[grreco[0]->GetN()];
+		for(int j = 0; j<grreco[0]->GetN(); j++) {
+			eylow[j] = - grreco[0]->GetErrorYlow(j);
+		}
+		grreco[0]->SetFillColor(kGray+0);
+		//graphSystBand(grreco[0]->GetN()-1,grreco[0]->GetX()+1,grreco[0]->GetY()+1,0,0, eylow+1,  grreco[0]->GetEYhigh()+1,bcolor[0], 0,0);
+	}
+
+
 	for(int i = 0; i<NRegion; i++) {
+		if(!xgr[i]) continue;
 		double *eylow;
 		eylow = new double[xgr[i]->GetN()];
 		for(int j = 0; j<xgr[i]->GetN(); j++) {
@@ -246,6 +306,7 @@ void PlotAllwSysErr() {
 		//xgr[i]->Draw("psame");
 		//graphSystBand(xgr[i]->GetN()-1,xgr[i]->GetX()+1,xgr[i]->GetY()+1,0,0, eylow+1,  xgr[i]->GetEYhigh()+1,bcolor[i], 0,0);	// make sure use the same color as greco...
 	}
+	if(xgr[0])
 	{
 		double *eylow;
 		eylow = new double[xgr[0]->GetN()];
@@ -258,20 +319,22 @@ void PlotAllwSysErr() {
 	}
 
 	for(int i=0;i<NRegion; i++) {
-		hrecopf[i]->GetXaxis()->SetRangeUser(2,55);
+		hrecopf[i]->GetXaxis()->SetRangeUser(XaxisMin, XaxisMax);
 		hrecopf[i]->Draw("peX0same");
 	}
 
 
 	// Normalized ProfileX to density
-	float DeDpNorma = 1./(2.*2.*TMath::Pi()/3.);	// TranTot: 2 area; eta 2; phi pi/3
-	for(int i = 0; i<NRegion; i++) {
-		hmeaspf[i]->Scale(DeDpNorma);
-		httpf[i]->Scale(DeDpNorma);
-		htpf[i]->Scale(DeDpNorma);
+	if(!strcmp(Variable,"Ntrk")) {
+		float DeDpNorma = 1./(2.*2.*TMath::Pi()/3.);	// TranTot: 2 area; eta 2; phi pi/3
+		for(int i = 0; i<NRegion; i++) {
+			hmeaspf[i]->Scale(DeDpNorma);
+			httpf[i]->Scale(DeDpNorma);
+			htpf[i]->Scale(DeDpNorma);
+		}
 	}
 	for(int i=0;i<NRegion; i++) {
-		httpf[i]->GetXaxis()->SetRangeUser(2,55);
+		httpf[i]->GetXaxis()->SetRangeUser(XaxisMin, XaxisMax);
 		httpf[i]->Draw("histcsame");
 	}
 
@@ -300,6 +363,7 @@ void PlotAllwSysErr() {
 
 	// Print out data point
 	for(int i=0;i<NRegion; i++) {
+		if(!grreco[i]) continue;
 		cout<<legtag[i]<<": "<<endl;
 		for(int j = 0; j<hrecopf[i]->GetNbinsX(); j++) {
 			cout<<hrecopf[i]->GetBinCenter(j+1)<<" "<<hrecopf[i]->GetBinContent(j+1)<<" +/- "<<hrecopf[i]->GetBinError(j+1)<<" (stat);  "<<grreco[i]->GetY()[j]<<" +"<<grreco[i]->GetEYhigh()[j]<<" - "<<grreco[i]->GetEYlow()[j]<<" (sys)"<<"\t\t\t PYTHIA = "<<httpf[i]->GetBinContent(j+1)<<endl;
