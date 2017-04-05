@@ -60,6 +60,10 @@ private:
   bool	 flagjetweight;
   bool	flagscaley;
 
+  // Unfolding Options
+  bool NoFakeOpt;		// ==1: no fake, ==0: fake included (default)
+  bool NoLossOpt;		// ==1: no eff, ==0: eff included (default)
+
   TString TrigName;
 
   TString TranCharge;
@@ -89,8 +93,11 @@ private:
   TH1 *hReco;
   TH1D *hTrainX, *hTrainTrueX, *hTrainFakeX, *hTrueX, *hMeasX, *hRecoX, *hFakeX;
   TH1D *hTrainY, *hTrainTrueY, *hTrainFakeY, *hTrueY, *hMeasY, *hRecoY, *hFakeY;
-  TH2F *hCorr;
+  TH2F *hCorr;		
+  TH2F *hXRcVsMc, *hYRcVsMc;
   TProfile *pfxTrain; 
+  TProfile *pfxTrainTrue; 
+  TProfile *pfxMeas; 
   // Tree
   TTree *tree;
   // Tree branch
@@ -113,6 +120,10 @@ public:
   // Methods and functions
   void  Help();
   void  SetParms (const char* const* argv);
+  void  SetNoFake(bool val=true) {NoFakeOpt = val;}
+  void  SetNoLoss(bool val=true) {NoLossOpt = val;}
+  bool  GetNoFakeStatus() {return NoFakeOpt;}
+  bool  GetNoEffStatus() {return NoLossOpt;}
   int   Float2Int(float aFloat);
   void  SetParms (float* args);
   void  SetDefaultParms ();
@@ -128,6 +139,7 @@ public:
   Int_t ReadMeasHist4Unfold();
   void  Results();
   Int_t Unfold();
+  Int_t WriteHist4Unfold();	// for Debug
   Int_t WriteUnfoldResult();
   Int_t TrainAndTest();
   Int_t Fill4Test(int *Nevents);
@@ -150,6 +162,8 @@ public:
   static TH2F *InitWideX2DHisto(TString name, TString title, int Ny, double ylo, double yhi);
   static TH2F *InitWideX2DHisto(TString name, TString title, int Ny, double *ybins);
   TH2F *InitWideXY2DHisto(TString name, TString title);
+  TH2F *InitWideXX2DHisto(TString name, TString title);
+  TH2F *InitWideYY2DHisto(TString name, TString title);
   void SetXYname(TString xname, TString yname);
   void SetTrigName(TString tname);
   void SetTranCharge(TString tname);
