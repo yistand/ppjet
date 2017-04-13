@@ -500,17 +500,22 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 
 			if(YvariableName.Contains("TranMaxNtrk",TString::kIgnoreCase))
 			{
-				if(McTranMaxNtrk>McTranMinNtrk) McPart = (float)McTranMaxNtrk;
-				else McPart = (float)McTranMinNtrk;
-				if(RcTranMaxNtrk>RcTranMinNtrk) RcPart = (float)RcTranMaxNtrk;
-				else RcPart = (float)RcTranMinNtrk;
+				if(McTranMaxNtrk>McTranMinNtrk) McPart = static_cast<float>(McTranMaxNtrk);
+				else McPart = static_cast<float>(McTranMinNtrk);
+				if(RcTranMaxNtrk>RcTranMinNtrk) RcPart = static_cast<float>(RcTranMaxNtrk);
+				else RcPart = static_cast<float>(RcTranMinNtrk);
 			}
 			else if(YvariableName.Contains("TranMinNtrk",TString::kIgnoreCase)) 
 			{
-				if(McTranMaxNtrk<McTranMinNtrk) McPart = (float)McTranMaxNtrk;
-				else McPart = (float)McTranMinNtrk;
-				if(RcTranMaxNtrk<RcTranMinNtrk) RcPart = (float)RcTranMaxNtrk;
-				else RcPart = (float)RcTranMinNtrk;
+				if(McTranMaxNtrk<McTranMinNtrk) McPart = static_cast<float>(McTranMaxNtrk);
+				else McPart = static_cast<float>(McTranMinNtrk);
+				if(RcTranMaxNtrk<RcTranMinNtrk) RcPart = static_cast<float>(RcTranMaxNtrk);
+				else RcPart = static_cast<float>(RcTranMinNtrk);
+			}
+			else if(YvariableName.Contains("TranDiffNtrk",TString::kIgnoreCase)) 
+			{
+				McPart = fabs(McTranMaxNtrk-McTranMinNtrk);
+				RcPart = fabs(RcTranMaxNtrk-RcTranMinNtrk);
 			}
 			else if(YvariableName.Contains("TranNtrk",TString::kIgnoreCase))
 			{
@@ -1111,13 +1116,17 @@ Int_t Unfold2D::Fill4Unfold() {
 
 		if(YvariableName.Contains("TranMaxNtrk",TString::kIgnoreCase))
 		{
-			if(InputTranMaxNtrk>InputTranMinNtrk) InputPart = (float)InputTranMaxNtrk;
-			else InputPart = (float)InputTranMinNtrk;
+			if(InputTranMaxNtrk>InputTranMinNtrk) InputPart = static_cast<float>(InputTranMaxNtrk);
+			else InputPart = static_cast<float>(InputTranMinNtrk);
 		}
 		else if(YvariableName.Contains("TranMinNtrk",TString::kIgnoreCase)) 
 		{
-			if(InputTranMaxNtrk<InputTranMinNtrk) InputPart = (float)InputTranMaxNtrk;
-			else InputPart = (float)InputTranMinNtrk;
+			if(InputTranMaxNtrk<InputTranMinNtrk) InputPart = static_cast<float>(InputTranMaxNtrk);
+			else InputPart = static_cast<float>(InputTranMinNtrk);
+		}
+		else if(YvariableName.Contains("TranDiffNtrk",TString::kIgnoreCase)) 
+		{
+			InputPart = fabs(InputTranMaxNtrk-InputTranMinNtrk);
 		}
 		else if(YvariableName.Contains("TranNtrk",TString::kIgnoreCase))
 		{
@@ -1540,17 +1549,22 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 			// Read tMcPart and tRcPart
 			if(YvariableName.Contains("TranMaxNtrk",TString::kIgnoreCase))
 			{
-				if(tMcTranMaxNtrk>tMcTranMinNtrk) tMcPart = (float)tMcTranMaxNtrk;
-				else tMcPart = (float)tMcTranMinNtrk;
-				if(tRcTranMaxNtrk>tRcTranMinNtrk) tRcPart = (float)tRcTranMaxNtrk;
-				else tRcPart = (float)tRcTranMinNtrk;
+				if(tMcTranMaxNtrk>tMcTranMinNtrk) tMcPart = static_cast<float>(tMcTranMaxNtrk);
+				else tMcPart = static_cast<float>(tMcTranMinNtrk);
+				if(tRcTranMaxNtrk>tRcTranMinNtrk) tRcPart = static_cast<float>(tRcTranMaxNtrk);
+				else tRcPart = static_cast<float>(tRcTranMinNtrk);
 			}
 			else if(YvariableName.Contains("TranMinNtrk",TString::kIgnoreCase)) 
 			{
-				if(tMcTranMaxNtrk<tMcTranMinNtrk) tMcPart = (float)tMcTranMaxNtrk;
-				else tMcPart = (float)tMcTranMinNtrk;
-				if(tRcTranMaxNtrk<tRcTranMinNtrk) tRcPart = (float)tRcTranMaxNtrk;
-				else tRcPart = (float)tRcTranMinNtrk;
+				if(tMcTranMaxNtrk<tMcTranMinNtrk) tMcPart = static_cast<float>(tMcTranMaxNtrk);
+				else tMcPart = static_cast<float>(tMcTranMinNtrk);
+				if(tRcTranMaxNtrk<tRcTranMinNtrk) tRcPart = static_cast<float>(tRcTranMaxNtrk);
+				else tRcPart = static_cast<float>(tRcTranMinNtrk);
+			}
+			else if(YvariableName.Contains("TranDiffNtrk",TString::kIgnoreCase)) 
+			{
+				tMcPart = fabs(tMcTranMaxNtrk-tMcTranMinNtrk);
+				tRcPart = fabs(tRcTranMaxNtrk-tRcTranMinNtrk);
 			}
 			else if(YvariableName.Contains("TranNtrk",TString::kIgnoreCase))
 			{
