@@ -57,6 +57,7 @@ UnderlyingAna::UnderlyingAna ( double R,
 
 	// Constituent Selector for jet finding
 	sUconst	    = select_const_rap && select_const_ptmin;		
+	//sUconst	    = select_const_rap && fastjet::SelectorPtMin(0.5);		// for pT>0.5, the default shall be 0.2GeV/c  ly 170410 
 	
 	// Jet candidate selectors
 	// -----------------------
@@ -191,6 +192,7 @@ int UnderlyingAna::Init() {
 	ResultTree->Branch("vz",&vz, "vz/D");
 	ResultTree->Branch("rho",&rho, "rho/F");
 	ResultTree->Branch("rhoerr",&rhoerr, "rhoerr/F");
+	ResultTree->Branch("eventweight",&eventweight, "eventweight/D");
 
 	ResultTree->Branch("j1pt",&j1pt, "j1pt/F");
 	ResultTree->Branch("jaspt",&jaspt, "jaspt/F");
@@ -210,6 +212,14 @@ int UnderlyingAna::Init() {
 
 	ResultTree->Branch("j1neutralfrac",&j1neutralfrac, "j1neutralfrac/F");
 	ResultTree->Branch("j1r1pt",&j1r1pt, "j1r1pt/F");
+
+	ResultTree->Branch("j1constntrk",&j1constntrk, "j1constntrk/I");
+	ResultTree->Branch("j1constcharge",j1constcharge, "j1constcharge[j1constntrk]/I");
+	ResultTree->Branch("j1constpt",j1constpt, "j1constpt[j1constntrk]/F");
+	ResultTree->Branch("j1constphi",j1constphi, "j1constphi[j1constntrk]/F");
+	ResultTree->Branch("j1consteta",j1consteta, "j1consteta[j1constntrk]/F");
+	ResultTree->Branch("j1constchargentrk",&j1constchargentrk, "j1constchargentrk/I");
+	
 
 
 	ResultTree->Branch("j3pt",&j3pt, "j3pt/F");
@@ -298,7 +308,8 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 		int ineventid, int inrunid, double inrefmult, double invz,
 		//TStarJetPicoReader &reader,
 	 	//Int_t mEffUn,	
-		const std::vector<std::pair<float,float> > &ToMatch
+		const std::vector<std::pair<float,float> > &ToMatch,
+		double ineventweight
 		//Double_t EventClassifier
 
 		//TH1D* LeadJetPt, TH1D* SubJetPt
@@ -325,6 +336,7 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	runid = inrunid;
 	refmult = inrefmult;	
 	vz = invz;
+	eventweight = ineventweight;
 	//eventid = reader.GetEvent()->GetHeader()->GetEventId();	
 	//runid = reader.GetEvent()->GetHeader()->GetRunId();
 	//refmult = reader.GetEvent()->GetHeader()->GetGReferenceMultiplicity();
@@ -336,6 +348,15 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	j1area_err=0, jasarea_err=0, j2area_err=0;
 	j1neutralfrac=0;
 	j1r1pt=0;
+
+	j1constntrk = 0;
+	for(int i = 0; i<MAXARRAYLENGTH; i++) {
+		j1constcharge[i]=-999;
+		j1constpt[i]=-999;
+		j1constphi[i]=-999;
+		j1consteta[i]=-999;
+	}
+	j1constchargentrk = 0;
 
 	rho=0, rhoerr=0;
 
@@ -414,7 +435,8 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	// NO background subtraction && NO jet eta requirement. This is used for --> when the hardest jet outside jet eta coverage, but inside underlying event study eta coverage, it could end up in any toward, away, transverse regions and disturb the study by selecting different regions. Therefore it is better to not use these events.
 	JetAnalyzer *nosjetJA = new JetAnalyzer( Jconstituents, jet_def);
 	std::vector<fastjet::PseudoJet> nosjetJAResult = fastjet::sorted_by_pt(nosjetJA->inclusive_jets());
-	if(nosjetJAResult.size()>0&&JAResult.size()>0&&nosjetJAResult.at(0).delta_R(JAResult.at(0))>R) {
+	if(nosjetJAResult.size()>0&&JAResult.size()>0&&((fabs(nosjetJAResult.at(0).eta())>max_rap)||(nosjetJAResult.at(0).delta_R(JAResult.at(0))>R/2.))) {	// use smaller distance..  2017.04.15 found previous (below) check method doesn't work proper, there still will be hardest jet outside eta acceptance
+	//if(nosjetJAResult.size()>0&&JAResult.size()>0&&nosjetJAResult.at(0).delta_R(JAResult.at(0))>R) {
 		//std::cout<<"SKIP EVENt: hardest jet pt = "<<nosjetJAResult.at(0).pt()<<" phi = "<<nosjetJAResult.at(0).phi()<<" eta = "<<nosjetJAResult.at(0).eta()<<" outside jet eta coverage\t";	
 		//std::cout<<"inside jet pt = "<<JAResult.at(0).pt()<<" phi = "<<JAResult.at(0).phi()<<" eta = "<<JAResult.at(0).eta()<<" inside jet eta coverage"<<std::endl;	
 		return 0;
@@ -441,12 +463,14 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 
 	// ---------------------------------------------------------
 	// Do leading jets match to the one fired the trigger?
+	//std::cout<<"mNeedToMatchTrig = "<<mNeedToMatchTrig<<" ToMatch.size()="<<ToMatch.size()<<std::endl;
 	if ( mNeedToMatchTrig ){
 		if( ToMatch.size()==0) return 0; 		// event should not be fired 
 		int flagtrigmatch = 0;
 		for(unsigned int ito = 0; ito<ToMatch.size() ; ito++) {		// note: if using iteractor for vector, need 'const_iteractor' for const vector
 			//if(IsMatched(JAResult.at(0), ToMatch.at(i), R)) {
 			if(sqrt(pow(JAResult.at(0).eta()-ToMatch.at(ito).first,2)+pow(JetAnalyzer::phimod2pi(JAResult.at(0).phi()-ToMatch.at(ito).second),2))<R)    {
+			//if(fabs(JAResult.at(0).eta()-ToMatch.at(ito).first)<0.5 && fabs(JetAnalyzer::phimod2pi(JAResult.at(0).phi()-ToMatch.at(ito).second))<0.5)    {	// require trigger jet inside jet patch 20161006 --> conclusion: not much change
 				flagtrigmatch=1;
 				//std::cout<<"Jet at (eta,phi)=("<<JAResult.at(0).eta()<<","<<JAResult.at(0).phi()<<") in R="<<R<<" with ("<<ToMatch.at(ito).first<<","<<ToMatch.at(ito).second<<")"<<std::endl;	
 				break;
@@ -513,6 +537,17 @@ int UnderlyingAna::AnalyzeAndFill ( const std::vector<fastjet::PseudoJet>& parti
 	j1area = JAResult.at(0).area();
 	j1area_err = JAResult.at(0).area_error();
 	//if(j1pt<10) return 0;	
+
+	std::vector<fastjet::PseudoJet> j1constituents = NoGhosts(JAResult.at(0).constituents());
+	j1constntrk = j1constituents.size();
+	j1constchargentrk = 0;
+	for(int j1co = 0; j1co<j1constntrk ; j1co++) {
+		j1constcharge[j1co] = j1constituents[j1co].user_info<JetAnalysisUserInfo>().GetQuarkCharge()/3;	// QuarkCharge unit e/3
+		j1constpt[j1co] = j1constituents[j1co].pt();
+		j1constphi[j1co] = j1constituents[j1co].phi();
+		j1consteta[j1co] = j1constituents[j1co].eta();
+		if(j1constituents[j1co].user_info<JetAnalysisUserInfo>().GetQuarkCharge()!=0) j1constchargentrk++;
+	}
 
 	// For leading jet, how much is the jet pt if increase R to R = 1
 	// find the jet

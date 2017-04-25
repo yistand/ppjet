@@ -91,6 +91,7 @@ private :
   int runid;
   double refmult; 
   double vz;
+  double eventweight;
 
 
   // Jet-finding from fastjet
@@ -102,6 +103,13 @@ private :
   float j1area_err, jasarea_err, j2area_err;
   float j1neutralfrac;
   float j1r1pt;			// leading jet with R = 1
+
+  int j1constntrk;		// consitituents belong to leading jet
+  int j1constcharge[100];
+  float j1constpt[100]; 
+  float j1constphi[100]; 
+  float j1consteta[100]; 
+  int j1constchargentrk;		// charged consitituents belong to leading jet
 
   float rho, rhoerr;
 
@@ -283,7 +291,8 @@ public:
 			int ineventid, int inrunid, double inrefmult, double invz,
 			//TStarJetPicoReader &reader,
 	 		//Int_t mEffUn,	
-			const std::vector<std::pair<float,float> > &ToMatch
+			const std::vector<std::pair<float,float> > &ToMatch,
+			double ineventweight=1
 		      	//Double_t EventClassifier = 0
 
 		       //TH1D* LeadJetPt=0, TH1D* SubJetPt=0, 
