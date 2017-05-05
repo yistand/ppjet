@@ -64,7 +64,8 @@ using std::cos;
 //==============================================================================
 //double Unfold2D::Wptbins[] = {0,2,3,4,5,7,9,11,15,20,25,35,45,55,65,100};
 //double Unfold2D::Wptbins[] = {0,2,3,4,5,7,9,11,15,20,25,35,45,55,100};
-double Unfold2D::Wptbins[] = {0,2,3,4,5,7,9,11,15,20,25,35,45,55};
+//TEST double Unfold2D::Wptbins[] = {0,2,3,4,5,7,9,11,15,20,25,35,45,55};
+double Unfold2D::Wptbins[] = {0,1,3,5,7,9,11,15,20,25,35,45,55};// TEST
 
 void Unfold2D::Help() {
 
@@ -113,7 +114,7 @@ void Unfold2D::Help() {
 // Constructors and destructor
 //==============================================================================
 
-Unfold2D::Unfold2D (TString name): inputname(name), XvariableName("X"), YvariableName("Y"), TrigName("JP2"), TranCharge("Charged"), ExcludeOpt(0), NoFakeOpt(false), NoLossOpt(false)
+Unfold2D::Unfold2D (TString name): inputname(name), XvariableName("X"), YvariableName("Y"), TrigName("JP2"), TranCharge("Charged"), ExcludeOpt(0), NoFakeOpt(false), NoLossOpt(false), CHANGEPRIOR(0), OPT_TPCSYS(false), OPT_TPCSYSPM(false), OPT_TPCSYSABS(false), OPT_RC02MC05(false)
 {
 	Reset();
 	SetDefaultParms();
@@ -121,7 +122,7 @@ Unfold2D::Unfold2D (TString name): inputname(name), XvariableName("X"), Yvariabl
 }
 
 Unfold2D::Unfold2D (const char* name, int argc, const char* const* argv)
-: inputname(name), XvariableName("X"), YvariableName("Y"), TrigName("JP2"), TranCharge("Charged"), ExcludeOpt(0), NoFakeOpt(false), NoLossOpt(false)
+: inputname(name), XvariableName("X"), YvariableName("Y"), TrigName("JP2"), TranCharge("Charged"), ExcludeOpt(0), NoFakeOpt(false), NoLossOpt(false), CHANGEPRIOR(0), OPT_TPCSYS(false), OPT_TPCSYSPM(false), OPT_TPCSYSABS(false), OPT_RC02MC05(false)
 {
 	Reset();
 	if(argc<14){ Help(); return; }
@@ -342,17 +343,25 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 	//// fortest to remove 8 events cause a large fluctuation 
 	//int countremove = 0;
 
+	TString STpcSys="";
+	if(OPT_TPCSYS) {
+		if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
+		else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
+		else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
+		else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
+	}
+
 	for(int i = 0; i<NUMBEROFPT; i++) {
 		TString ifilename;
 		if(TrigName.Contains("JP")&&(flagjetweight||flagscaley)) {
 		// if flagjetweight==1, JP hist is weighted by MB NF distribution. Then we shall use MB embeding data (no trigger effect). This means we don't unfold trigger effect on jet pt distribution, but the neutral jet trigger effect should be already corrected by weighting procedure. However, if we don't do weighting by MB Neutral Fraction dist, we could also use JP embedding to unfold all trigger effects together
-			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_McPt02.root",  "MB",   PTBINS[i],TranCharge.Data());
+			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_McPt02%s.root",  "MB",   PTBINS[i],TranCharge.Data(),STpcSys.Data());
 		}
 		else if(ExcludeOpt&&TrigName.Contains("JP")) {
-			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_excluded_McPt02.root",TrigName.Data(),PTBINS[i],TranCharge.Data());
+			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_excluded_McPt02%s.root",TrigName.Data(),PTBINS[i],TranCharge.Data(),STpcSys.Data());
 		}
 		else {
-			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_McPt02.root",TrigName.Data(),PTBINS[i],TranCharge.Data());
+			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_McPt02%s.root",TrigName.Data(),PTBINS[i],TranCharge.Data(),STpcSys.Data());
 		}
 		cout<<"Read in "<<ifilename<<endl;
 		ftrain = new TFile(ifilename);
@@ -447,11 +456,12 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 		if(verbose && Nevents[i]>tree->GetEntries()) {cout<<__PRETTY_FUNCTION__<<": pT bin "<<PTBINS[i]<<" Read # of events["<<i<<"] = "<<tree->GetEntries()<<endl; }
 
 		// Weight per pT bin
-		weight = XSEC[i]/Nevents[i];
+		double xsecweight = XSEC[i]/Nevents[i];
 		if(Nevents[i]>tree->GetEntries()) {		// use all events, then NUMBEROFEVENT from include/CrossSectionPerpT.h
-			weight = XSEC[i]/NUMBEROFEVENT[i];
+			xsecweight = XSEC[i]/NUMBEROFEVENT[i];
 			if(verbose) { cout<<__PRETTY_FUNCTION__<<": pT bin "<<PTBINS[i]<<" Use "<<NUMBEROFEVENT[i]<<" for NUMBEROFEVENT in weight = XSEC["<<i<<"]/NUMBEROFEVENT["<<i<<"]"<<endl;}
 		}
+		weight = xsecweight;
 
 		//// if Dijest 
 		//TRandom3 *rndm = new TRandom3();
@@ -459,6 +469,11 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 
 		for (Int_t j= 0; j<Nevents[i] && j<tree->GetEntries(); j++) {		// loop over entries
 			tree->GetEntry(j);
+
+
+			if(CHANGEPRIOR) {		// if need to change prio, use weight to change. In JP unfolded, we used (170412) MB pythia, but applied NF weight to JP data. However, as the jet shape dramatic different from truth, it pulled the unfolding. In order to avoid this situation, we reweighted the pythia MB particle-level to have same jet pt as measured data. So we don't start too far away
+				weight = xsecweight*Weight2ChargePrior(Mcjpt);
+			}
 
 			//// if Dijet 
 			//if(Mcjaspt<=0) {
@@ -498,306 +513,330 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 				else if(RcJet>0 && Rcjneutralfrac<0.9 && Rcjneutralfrac>0 && (McJet<=0 || !(flagMatch2Lead||flagMatch2Sub)) ) flag = -1;		// fake events: non-zero Rc, zero Mc; or non-zero Rc, non-zero Mc but Rc not matched to Mc leading/sublead
 			}
 
-			if(YvariableName.Contains("TranMaxNtrk",TString::kIgnoreCase))
-			{
-				if(McTranMaxNtrk>McTranMinNtrk) McPart = static_cast<float>(McTranMaxNtrk);
-				else McPart = static_cast<float>(McTranMinNtrk);
-				if(RcTranMaxNtrk>RcTranMinNtrk) RcPart = static_cast<float>(RcTranMaxNtrk);
-				else RcPart = static_cast<float>(RcTranMinNtrk);
-			}
-			else if(YvariableName.Contains("TranMinNtrk",TString::kIgnoreCase)) 
-			{
-				if(McTranMaxNtrk<McTranMinNtrk) McPart = static_cast<float>(McTranMaxNtrk);
-				else McPart = static_cast<float>(McTranMinNtrk);
-				if(RcTranMaxNtrk<RcTranMinNtrk) RcPart = static_cast<float>(RcTranMaxNtrk);
-				else RcPart = static_cast<float>(RcTranMinNtrk);
-			}
-			else if(YvariableName.Contains("TranDiffNtrk",TString::kIgnoreCase)) 
-			{
-				McPart = fabs(McTranMaxNtrk-McTranMinNtrk);
-				RcPart = fabs(RcTranMaxNtrk-RcTranMinNtrk);
-			}
-			else if(YvariableName.Contains("TranNtrk",TString::kIgnoreCase))
-			{
-				McPart = 0.5*(McTranMaxNtrk+McTranMinNtrk);
-				RcPart = 0.5*(RcTranMaxNtrk+RcTranMinNtrk);
-			}	
-			else if(YvariableName.Contains("TranTotNtrk",TString::kIgnoreCase))
-			{
-				McPart = McTranMaxNtrk+McTranMinNtrk;
-				RcPart = RcTranMaxNtrk+RcTranMinNtrk;
-			}	
-			else if(YvariableName.Contains("TranMaxPtSum",TString::kIgnoreCase))
-			{
-				if(McTranMaxPtSum>McTranMinPtSum) McPart = McTranMaxPtSum;
-				else McPart = McTranMinPtSum;
-				if(RcTranMaxPtSum>RcTranMinPtSum) RcPart = RcTranMaxPtSum;
-				else RcPart = RcTranMinPtSum;
-			}
-			else if(YvariableName.Contains("TranMinPtSum",TString::kIgnoreCase)) 
-			{
-				if(McTranMaxPtSum<McTranMinPtSum) McPart = McTranMaxPtSum;
-				else McPart = McTranMinPtSum;
-				if(RcTranMaxPtSum>RcTranMinPtSum) RcPart = RcTranMaxPtSum;
-				else RcPart = RcTranMinPtSum;
-			}
-			else if(YvariableName.Contains("TranPtSum",TString::kIgnoreCase))
-			{
-				McPart = 0.5*(McTranMaxPtSum+McTranMinPtSum);
-				RcPart = 0.5*(RcTranMaxPtSum+RcTranMinPtSum);
-			}
-			else if(YvariableName.Contains("TranTotPtSum",TString::kIgnoreCase))
-			{
-				McPart = McTranMaxPtSum+McTranMinPtSum;
-				RcPart = RcTranMaxPtSum+RcTranMinPtSum;
-			}
-			else if(YvariableName.Contains("TranMaxPtAveEventWise",TString::kIgnoreCase))
-			{
-				float McTranMaxPtAve = 1.*McTranMaxPtSum/McTranMaxNtrk;
-				float McTranMinPtAve = 1.*McTranMinPtSum/McTranMinNtrk;
-				if(McTranMaxPtAve>McTranMinPtAve) McPart = McTranMaxPtAve;
-				else McPart = McTranMinPtAve;
-				float RcTranMaxPtAve = 1.*RcTranMaxPtSum/RcTranMaxNtrk;
-				float RcTranMinPtAve = 1.*RcTranMinPtSum/RcTranMinNtrk;
-				if(RcTranMaxPtAve>RcTranMinPtAve) RcPart = RcTranMaxPtAve;
-				else RcPart = RcTranMinPtAve;
-			}
-			else if(YvariableName.Contains("TranMinPtAveEventWise",TString::kIgnoreCase)) 
-			{
-				float McTranMaxPtAve = 1.*McTranMaxPtSum/McTranMaxNtrk;
-				float McTranMinPtAve = 1.*McTranMinPtSum/McTranMinNtrk;
-				if(McTranMaxPtAve<McTranMinPtAve) McPart = McTranMaxPtAve;
-				else McPart = McTranMinPtAve;
-				float RcTranMaxPtAve = 1.*RcTranMaxPtSum/RcTranMaxNtrk;
-				float RcTranMinPtAve = 1.*RcTranMinPtSum/RcTranMinNtrk;
-				if(RcTranMaxPtAve>RcTranMinPtAve) RcPart = RcTranMaxPtAve;
-				else RcPart = RcTranMinPtAve;
-			}
-			else if(YvariableName.Contains("TranPtAveEventWise",TString::kIgnoreCase))
-			{
-				McPart = (McTranMaxPtSum+McTranMinPtSum)/(McTranMaxNtrk+McTranMinNtrk);
-				RcPart = (RcTranMaxPtSum+RcTranMinPtSum)/(RcTranMaxNtrk+RcTranMinNtrk);
-			}
-			else if(YvariableName.Contains("TranTotPtAveEventWise",TString::kIgnoreCase))
-			{
-				McPart = (McTranMaxPtSum+McTranMinPtSum)/(McTranMaxNtrk+McTranMinNtrk);
-				RcPart = (RcTranMaxPtSum+RcTranMinPtSum)/(RcTranMaxNtrk+RcTranMinNtrk);
-			}
-			else if(YvariableName.Contains("LeadAreaNtrk",TString::kIgnoreCase)) 
-			{
-				McPart = McLeadAreaNtrk;
-				RcPart = RcLeadAreaNtrk;
-			}
-			else if(YvariableName.Contains("SubAreaNtrk",TString::kIgnoreCase)) 
-			{
-				McPart = McSubAreaNtrk;
-				RcPart = RcSubAreaNtrk;
-			}
-			else if(YvariableName.Contains("LeadAreaPtSum",TString::kIgnoreCase)) 
-			{
-				McPart = McLeadAreaPtSum;
-				RcPart = RcLeadAreaPtSum;
-			}
-			else if(YvariableName.Contains("SubAreaPtSum",TString::kIgnoreCase)) 
-			{
-				McPart = McSubAreaPtSum;
-				RcPart = RcSubAreaPtSum;
-			}
-			else if(YvariableName.Contains("LeadAreaPtAveEventWise",TString::kIgnoreCase)) 
-			{
-				McPart = McLeadAreaPtSum/McLeadAreaNtrk;
-				RcPart = RcLeadAreaPtSum/RcLeadAreaNtrk;
-			}
-			else if(YvariableName.Contains("SubAreaPtAveEventWise",TString::kIgnoreCase)) 
-			{
-				McPart = McSubAreaPtSum/McSubAreaNtrk;
-				RcPart = RcSubAreaPtSum/RcSubAreaNtrk;
-			}
-			else if(YvariableName.Contains("NeutralFrac",TString::kIgnoreCase)) 
-			{
-				McPart = Mcjneutralfrac;
-				RcPart = Rcjneutralfrac;
-			}
-			else if(YvariableName.Contains("PtAve",TString::kIgnoreCase)&&!(YvariableName.Contains("EventWise",TString::kIgnoreCase))) 		// Particle-wise variable, need to loop over Mc and Rc particles
-			{
-				std::vector<float> vMcTrkTotPt;
-				std::vector<float> vMcTrkTotPhi;
-				std::vector<float> vMcTrkTotEta;
-				std::vector<int> vMcTrkTotId;
-				std::vector<float> vRcTrkTotPt;
-				std::vector<float> vRcTrkTotPhi;
-				std::vector<float> vRcTrkTotEta;
-				std::vector<int> vRcTrkTotId;
-
-				std::vector<int> vMcTrkTotMatchedId;
-
-				//cout<<endl;
-				//cout<<"McJet = "<<McJet<<endl;
-				//cout<<"RcJet = "<<RcJet<<endl;
-				//cout<<" "<<McTranMaxNtrk+McTranMinNtrk<<" McTran"<<endl;
-				//cout<<" "<<RcTranMaxNtrk+RcTranMinNtrk<<" RcTran"<<endl;
-
-				// Merge TranMax and TranMin
-				// Mc
-				if(flag!=-1) 	// one-to-one Mc jet to Rc jet Or no Rc jet, only Mc jet
-				{
-					if(YvariableName.Contains("LeadPtAve",TString::kIgnoreCase)) {
-						for(int im = 0; im<McLeadAreaNtrk; im++) 
-						{
-							vMcTrkTotPt.push_back(McTrkLeadAreaPt[im]);
-							vMcTrkTotPhi.push_back(McTrkLeadAreaPhi[im]);
-							vMcTrkTotEta.push_back(McTrkLeadAreaEta[im]);
-							vMcTrkTotId.push_back(McTrkLeadAreaId[im]);
-							vMcTrkTotMatchedId.push_back(0);			// assuming not matched
-						}
+			if(OPT_RC02MC05) {		// MC pt>0.5 only
+				if(!(YvariableName.Contains("TranTotNtrk"),TString::kIgnoreCase)) {
+					cout<<"WARNING!!!!!!!!!! in "<<__PRETTY_FUNCTION__<<" OPT_RC02MC05=true is only implemented for TranTotNtrk only. Will reset OPT_RC02MC05 = false instead for "<<YvariableName<<endl;
+					OPT_RC02MC05 = false;
+				}
+				else {
+					RcPart = RcTranMaxNtrk+RcTranMinNtrk;		// RC part not change, still pT>0.2
+					
+					McPart = 0;					// MC part only count pT>0.5 particles
+					for(int im = 0; im<McTranMaxNtrk; im++) {
+						if(McTrkTranMaxPt[im]>0.5) McPart+=1;
 					}
-					else if(YvariableName.Contains("SubPtAve",TString::kIgnoreCase)) {
-						for(int im = 0; im<McSubAreaNtrk; im++) 
-						{
-							vMcTrkTotPt.push_back(McTrkSubAreaPt[im]);
-							vMcTrkTotPhi.push_back(McTrkSubAreaPhi[im]);
-							vMcTrkTotEta.push_back(McTrkSubAreaEta[im]);
-							vMcTrkTotId.push_back(McTrkSubAreaId[im]);
-							vMcTrkTotMatchedId.push_back(0);			// assuming not matched
-						}
-					}
-					else {	// default is TranPtAve
-						for(int im = 0; im<McTranMaxNtrk; im++) 
-						{
-							vMcTrkTotPt.push_back(McTrkTranMaxPt[im]);
-							vMcTrkTotPhi.push_back(McTrkTranMaxPhi[im]);
-							vMcTrkTotEta.push_back(McTrkTranMaxEta[im]);
-							vMcTrkTotId.push_back(McTrkTranMaxId[im]);
-							vMcTrkTotMatchedId.push_back(0);			// assuming not matched
-						}
-						for(int im = 0; im<McTranMinNtrk; im++) 
-						{
-							vMcTrkTotPt.push_back(McTrkTranMinPt[im]);
-							vMcTrkTotPhi.push_back(McTrkTranMinPhi[im]);
-							vMcTrkTotEta.push_back(McTrkTranMinEta[im]);
-							vMcTrkTotId.push_back(McTrkTranMinId[im]);
-							vMcTrkTotMatchedId.push_back(0);			// assuming not matched
-						}
+					for(int im = 0; im<McTranMinNtrk; im++) {
+						if(McTrkTranMinPt[im]>0.5) McPart+=1;
 					}
 				}
+			}
+			else {
 
-
-
-				// Rc
-				if(flag!=0) 	// ! No RcJet: one-to-one Rc jet to Mc jet Or Fake Rc jet, no Mc jet
+				if(YvariableName.Contains("TranMaxNtrk",TString::kIgnoreCase))
 				{
-					if(YvariableName.Contains("LeadPtAve",TString::kIgnoreCase)) {
-						for(int ir = 0; ir<RcLeadAreaNtrk; ir++) 
-						{
-							vRcTrkTotPt.push_back(RcTrkLeadAreaPt[ir]);
-							vRcTrkTotPhi.push_back(RcTrkLeadAreaPhi[ir]);
-							vRcTrkTotEta.push_back(RcTrkLeadAreaEta[ir]);
-							vRcTrkTotId.push_back(RcTrkLeadAreaId[ir]);
-						}
-					}
-					else if(YvariableName.Contains("SubPtAve",TString::kIgnoreCase)) {
-						for(int ir = 0; ir<RcSubAreaNtrk; ir++) 
-						{
-							vRcTrkTotPt.push_back(RcTrkSubAreaPt[ir]);
-							vRcTrkTotPhi.push_back(RcTrkSubAreaPhi[ir]);
-							vRcTrkTotEta.push_back(RcTrkSubAreaEta[ir]);
-							vRcTrkTotId.push_back(RcTrkSubAreaId[ir]);
-						}
-					}
-					else {  // default: TranPtAve
-						for(int ir = 0; ir<RcTranMaxNtrk; ir++) 
-						{
-							vRcTrkTotPt.push_back(RcTrkTranMaxPt[ir]);
-							vRcTrkTotPhi.push_back(RcTrkTranMaxPhi[ir]);
-							vRcTrkTotEta.push_back(RcTrkTranMaxEta[ir]);
-							vRcTrkTotId.push_back(RcTrkTranMaxId[ir]);
-						}
-						for(int ir = 0; ir<RcTranMinNtrk; ir++) 
-						{
-							vRcTrkTotPt.push_back(RcTrkTranMinPt[ir]);
-							vRcTrkTotPhi.push_back(RcTrkTranMinPhi[ir]);
-							vRcTrkTotEta.push_back(RcTrkTranMinEta[ir]);
-							vRcTrkTotId.push_back(RcTrkTranMinId[ir]);
-						}
-					}
+					if(McTranMaxNtrk>McTranMinNtrk) McPart = static_cast<float>(McTranMaxNtrk);
+					else McPart = static_cast<float>(McTranMinNtrk);
+					if(RcTranMaxNtrk>RcTranMinNtrk) RcPart = static_cast<float>(RcTranMaxNtrk);
+					else RcPart = static_cast<float>(RcTranMinNtrk);
 				}
-
-
-
-				
-				// Loop over Rc
-				if(flag!=0) 	// ! No RcJet: one-to-one Mc jet to Mc jet Or Fake Rc jet, no Mc jet
+				else if(YvariableName.Contains("TranMinNtrk",TString::kIgnoreCase)) 
 				{
-					for(int ir = 0; ir<vRcTrkTotPt.size(); ir++)
+					if(McTranMaxNtrk<McTranMinNtrk) McPart = static_cast<float>(McTranMaxNtrk);
+					else McPart = static_cast<float>(McTranMinNtrk);
+					if(RcTranMaxNtrk<RcTranMinNtrk) RcPart = static_cast<float>(RcTranMaxNtrk);
+					else RcPart = static_cast<float>(RcTranMinNtrk);
+				}
+				else if(YvariableName.Contains("TranDiffNtrk",TString::kIgnoreCase)) 
+				{
+					McPart = fabs(McTranMaxNtrk-McTranMinNtrk);
+					RcPart = fabs(RcTranMaxNtrk-RcTranMinNtrk);
+				}
+				else if(YvariableName.Contains("TranNtrk",TString::kIgnoreCase))
+				{
+					McPart = 0.5*(McTranMaxNtrk+McTranMinNtrk);
+					RcPart = 0.5*(RcTranMaxNtrk+RcTranMinNtrk);
+				}	
+				else if(YvariableName.Contains("TranTotNtrk",TString::kIgnoreCase))
+				{
+					McPart = McTranMaxNtrk+McTranMinNtrk;
+					RcPart = RcTranMaxNtrk+RcTranMinNtrk;
+				}	
+				else if(YvariableName.Contains("TranMaxPtSum",TString::kIgnoreCase))
+				{
+					if(McTranMaxPtSum>McTranMinPtSum) McPart = McTranMaxPtSum;
+					else McPart = McTranMinPtSum;
+					if(RcTranMaxPtSum>RcTranMinPtSum) RcPart = RcTranMaxPtSum;
+					else RcPart = RcTranMinPtSum;
+				}
+				else if(YvariableName.Contains("TranMinPtSum",TString::kIgnoreCase)) 
+				{
+					if(McTranMaxPtSum<McTranMinPtSum) McPart = McTranMaxPtSum;
+					else McPart = McTranMinPtSum;
+					if(RcTranMaxPtSum>RcTranMinPtSum) RcPart = RcTranMaxPtSum;
+					else RcPart = RcTranMinPtSum;
+				}
+				else if(YvariableName.Contains("TranPtSum",TString::kIgnoreCase))
+				{
+					McPart = 0.5*(McTranMaxPtSum+McTranMinPtSum);
+					RcPart = 0.5*(RcTranMaxPtSum+RcTranMinPtSum);
+				}
+				else if(YvariableName.Contains("TranTotPtSum",TString::kIgnoreCase))
+				{
+					McPart = McTranMaxPtSum+McTranMinPtSum;
+					RcPart = RcTranMaxPtSum+RcTranMinPtSum;
+				}
+				else if(YvariableName.Contains("TranMaxPtAveEventWise",TString::kIgnoreCase))
+				{
+					float McTranMaxPtAve = 1.*McTranMaxPtSum/McTranMaxNtrk;
+					float McTranMinPtAve = 1.*McTranMinPtSum/McTranMinNtrk;
+					if(McTranMaxPtAve>McTranMinPtAve) McPart = McTranMaxPtAve;
+					else McPart = McTranMinPtAve;
+					float RcTranMaxPtAve = 1.*RcTranMaxPtSum/RcTranMaxNtrk;
+					float RcTranMinPtAve = 1.*RcTranMinPtSum/RcTranMinNtrk;
+					if(RcTranMaxPtAve>RcTranMinPtAve) RcPart = RcTranMaxPtAve;
+					else RcPart = RcTranMinPtAve;
+				}
+				else if(YvariableName.Contains("TranMinPtAveEventWise",TString::kIgnoreCase)) 
+				{
+					float McTranMaxPtAve = 1.*McTranMaxPtSum/McTranMaxNtrk;
+					float McTranMinPtAve = 1.*McTranMinPtSum/McTranMinNtrk;
+					if(McTranMaxPtAve<McTranMinPtAve) McPart = McTranMaxPtAve;
+					else McPart = McTranMinPtAve;
+					float RcTranMaxPtAve = 1.*RcTranMaxPtSum/RcTranMaxNtrk;
+					float RcTranMinPtAve = 1.*RcTranMinPtSum/RcTranMinNtrk;
+					if(RcTranMaxPtAve>RcTranMinPtAve) RcPart = RcTranMaxPtAve;
+					else RcPart = RcTranMinPtAve;
+				}
+				else if(YvariableName.Contains("TranPtAveEventWise",TString::kIgnoreCase))
+				{
+					McPart = (McTranMaxPtSum+McTranMinPtSum)/(McTranMaxNtrk+McTranMinNtrk);
+					RcPart = (RcTranMaxPtSum+RcTranMinPtSum)/(RcTranMaxNtrk+RcTranMinNtrk);
+				}
+				else if(YvariableName.Contains("TranTotPtAveEventWise",TString::kIgnoreCase))
+				{
+					McPart = (McTranMaxPtSum+McTranMinPtSum)/(McTranMaxNtrk+McTranMinNtrk);
+					RcPart = (RcTranMaxPtSum+RcTranMinPtSum)/(RcTranMaxNtrk+RcTranMinNtrk);
+				}
+				else if(YvariableName.Contains("LeadAreaNtrk",TString::kIgnoreCase)) 
+				{
+					McPart = McLeadAreaNtrk;
+					RcPart = RcLeadAreaNtrk;
+				}
+				else if(YvariableName.Contains("SubAreaNtrk",TString::kIgnoreCase)) 
+				{
+					McPart = McSubAreaNtrk;
+					RcPart = RcSubAreaNtrk;
+				}
+				else if(YvariableName.Contains("LeadAreaPtSum",TString::kIgnoreCase)) 
+				{
+					McPart = McLeadAreaPtSum;
+					RcPart = RcLeadAreaPtSum;
+				}
+				else if(YvariableName.Contains("SubAreaPtSum",TString::kIgnoreCase)) 
+				{
+					McPart = McSubAreaPtSum;
+					RcPart = RcSubAreaPtSum;
+				}
+				else if(YvariableName.Contains("LeadAreaPtAveEventWise",TString::kIgnoreCase)) 
+				{
+					McPart = McLeadAreaPtSum/McLeadAreaNtrk;
+					RcPart = RcLeadAreaPtSum/RcLeadAreaNtrk;
+				}
+				else if(YvariableName.Contains("SubAreaPtAveEventWise",TString::kIgnoreCase)) 
+				{
+					McPart = McSubAreaPtSum/McSubAreaNtrk;
+					RcPart = RcSubAreaPtSum/RcSubAreaNtrk;
+				}
+				else if(YvariableName.Contains("NeutralFrac",TString::kIgnoreCase)) 
+				{
+					McPart = Mcjneutralfrac;
+					RcPart = Rcjneutralfrac;
+				}
+				else if(YvariableName.Contains("PtAve",TString::kIgnoreCase)&&!(YvariableName.Contains("EventWise",TString::kIgnoreCase))) 		// Particle-wise variable, need to loop over Mc and Rc particles
+				{
+					std::vector<float> vMcTrkTotPt;
+					std::vector<float> vMcTrkTotPhi;
+					std::vector<float> vMcTrkTotEta;
+					std::vector<int> vMcTrkTotId;
+					std::vector<float> vRcTrkTotPt;
+					std::vector<float> vRcTrkTotPhi;
+					std::vector<float> vRcTrkTotEta;
+					std::vector<int> vRcTrkTotId;
+
+					std::vector<int> vMcTrkTotMatchedId;
+
+					//cout<<endl;
+					//cout<<"McJet = "<<McJet<<endl;
+					//cout<<"RcJet = "<<RcJet<<endl;
+					//cout<<" "<<McTranMaxNtrk+McTranMinNtrk<<" McTran"<<endl;
+					//cout<<" "<<RcTranMaxNtrk+RcTranMinNtrk<<" RcTran"<<endl;
+
+					// Merge TranMax and TranMin
+					// Mc
+					if(flag!=-1) 	// one-to-one Mc jet to Rc jet Or no Rc jet, only Mc jet
 					{
-						RcPart = vRcTrkTotPt.at(ir);
+						if(YvariableName.Contains("LeadPtAve",TString::kIgnoreCase)) {
+							for(int im = 0; im<McLeadAreaNtrk; im++) 
+							{
+								vMcTrkTotPt.push_back(McTrkLeadAreaPt[im]);
+								vMcTrkTotPhi.push_back(McTrkLeadAreaPhi[im]);
+								vMcTrkTotEta.push_back(McTrkLeadAreaEta[im]);
+								vMcTrkTotId.push_back(McTrkLeadAreaId[im]);
+								vMcTrkTotMatchedId.push_back(0);			// assuming not matched
+							}
+						}
+						else if(YvariableName.Contains("SubPtAve",TString::kIgnoreCase)) {
+							for(int im = 0; im<McSubAreaNtrk; im++) 
+							{
+								vMcTrkTotPt.push_back(McTrkSubAreaPt[im]);
+								vMcTrkTotPhi.push_back(McTrkSubAreaPhi[im]);
+								vMcTrkTotEta.push_back(McTrkSubAreaEta[im]);
+								vMcTrkTotId.push_back(McTrkSubAreaId[im]);
+								vMcTrkTotMatchedId.push_back(0);			// assuming not matched
+							}
+						}
+						else {	// default is TranPtAve
+							for(int im = 0; im<McTranMaxNtrk; im++) 
+							{
+								vMcTrkTotPt.push_back(McTrkTranMaxPt[im]);
+								vMcTrkTotPhi.push_back(McTrkTranMaxPhi[im]);
+								vMcTrkTotEta.push_back(McTrkTranMaxEta[im]);
+								vMcTrkTotId.push_back(McTrkTranMaxId[im]);
+								vMcTrkTotMatchedId.push_back(0);			// assuming not matched
+							}
+							for(int im = 0; im<McTranMinNtrk; im++) 
+							{
+								vMcTrkTotPt.push_back(McTrkTranMinPt[im]);
+								vMcTrkTotPhi.push_back(McTrkTranMinPhi[im]);
+								vMcTrkTotEta.push_back(McTrkTranMinEta[im]);
+								vMcTrkTotId.push_back(McTrkTranMinId[im]);
+								vMcTrkTotMatchedId.push_back(0);			// assuming not matched
+							}
+						}
+					}
 
-						hTrain->Fill(RcJet, RcPart, weight);		
-						pfxTrain->Fill(RcJet, RcPart, weight);
-						
-						// Find the Mc id matched to Rc id
-						int iter_matched = -1;
-						iter_matched = Unfold2D::Find(vMcTrkTotId, vRcTrkTotId.at(ir));
-						
-						if(iter_matched!=-1 && flag==1) 	// match succesfully Rc Id to Mc Id	 && Rc jet Matched to Mc jet
+
+
+					// Rc
+					if(flag!=0) 	// ! No RcJet: one-to-one Rc jet to Mc jet Or Fake Rc jet, no Mc jet
+					{
+						if(YvariableName.Contains("LeadPtAve",TString::kIgnoreCase)) {
+							for(int ir = 0; ir<RcLeadAreaNtrk; ir++) 
+							{
+								vRcTrkTotPt.push_back(RcTrkLeadAreaPt[ir]);
+								vRcTrkTotPhi.push_back(RcTrkLeadAreaPhi[ir]);
+								vRcTrkTotEta.push_back(RcTrkLeadAreaEta[ir]);
+								vRcTrkTotId.push_back(RcTrkLeadAreaId[ir]);
+							}
+						}
+						else if(YvariableName.Contains("SubPtAve",TString::kIgnoreCase)) {
+							for(int ir = 0; ir<RcSubAreaNtrk; ir++) 
+							{
+								vRcTrkTotPt.push_back(RcTrkSubAreaPt[ir]);
+								vRcTrkTotPhi.push_back(RcTrkSubAreaPhi[ir]);
+								vRcTrkTotEta.push_back(RcTrkSubAreaEta[ir]);
+								vRcTrkTotId.push_back(RcTrkSubAreaId[ir]);
+							}
+						}
+						else {  // default: TranPtAve
+							for(int ir = 0; ir<RcTranMaxNtrk; ir++) 
+							{
+								vRcTrkTotPt.push_back(RcTrkTranMaxPt[ir]);
+								vRcTrkTotPhi.push_back(RcTrkTranMaxPhi[ir]);
+								vRcTrkTotEta.push_back(RcTrkTranMaxEta[ir]);
+								vRcTrkTotId.push_back(RcTrkTranMaxId[ir]);
+							}
+							for(int ir = 0; ir<RcTranMinNtrk; ir++) 
+							{
+								vRcTrkTotPt.push_back(RcTrkTranMinPt[ir]);
+								vRcTrkTotPhi.push_back(RcTrkTranMinPhi[ir]);
+								vRcTrkTotEta.push_back(RcTrkTranMinEta[ir]);
+								vRcTrkTotId.push_back(RcTrkTranMinId[ir]);
+							}
+						}
+					}
+
+
+					
+					// Loop over Rc
+					if(flag!=0) 	// ! No RcJet: one-to-one Mc jet to Mc jet Or Fake Rc jet, no Mc jet
+					{
+						for(int ir = 0; ir<vRcTrkTotPt.size(); ir++)
 						{
-							McPart = vMcTrkTotPt.at(iter_matched);
-							vMcTrkTotMatchedId.at(iter_matched) = 1;		// Mark the matched MC
-							response->Fill(RcJet, RcPart, McJet, McPart, weight);
-							hXRcVsMc->Fill(McJet, RcJet, weight);
-							hYRcVsMc->Fill(McPart, RcPart, weight);
+							RcPart = vRcTrkTotPt.at(ir);
+
+							hTrain->Fill(RcJet, RcPart, weight);		
+							pfxTrain->Fill(RcJet, RcPart, weight);
 							
-							//cout<<"Match RcJet = "<<RcJet<<" RcPart = "<<RcPart<<" RcPhi = "<< vRcTrkTotPhi.at(ir) << " RcEta = "<< vRcTrkTotEta.at(ir) <<" McJet = "<<McJet<<" McPart = "<<McPart<<" McPhi = "<< vMcTrkTotPhi.at(iter_matched)<<" McEta = "<<vMcTrkTotEta.at(iter_matched)<<" weight = "<<weight<<endl;
-						}
-						else if(!NoFakeOpt) 		// No Mc Id or No matched Mc jet
-						{
-							hTrainFake->Fill(RcJet, RcPart, weight);
-							response->Fake(RcJet, RcPart, weight);
-							hXRcVsMc->Fill(-1, RcJet, weight);
-							hYRcVsMc->Fill(-1, RcPart, weight);
-							//cout<<"Fake RcJet = "<<RcJet<<" RcPart = "<<RcPart<<" RcPhi = "<< vRcTrkTotPhi.at(ir) << " RcEta = "<< vRcTrkTotEta.at(ir)<<" weight = "<<weight<<endl;
+							// Find the Mc id matched to Rc id
+							int iter_matched = -1;
+							iter_matched = Unfold2D::Find(vMcTrkTotId, vRcTrkTotId.at(ir));
+							
+							if(iter_matched!=-1 && flag==1) 	// match succesfully Rc Id to Mc Id	 && Rc jet Matched to Mc jet
+							{
+								McPart = vMcTrkTotPt.at(iter_matched);
+								vMcTrkTotMatchedId.at(iter_matched) = 1;		// Mark the matched MC
+								response->Fill(RcJet, RcPart, McJet, McPart, weight);
+								hXRcVsMc->Fill(McJet, RcJet, weight);
+								hYRcVsMc->Fill(McPart, RcPart, weight);
+								
+								//cout<<"Match RcJet = "<<RcJet<<" RcPart = "<<RcPart<<" RcPhi = "<< vRcTrkTotPhi.at(ir) << " RcEta = "<< vRcTrkTotEta.at(ir) <<" McJet = "<<McJet<<" McPart = "<<McPart<<" McPhi = "<< vMcTrkTotPhi.at(iter_matched)<<" McEta = "<<vMcTrkTotEta.at(iter_matched)<<" weight = "<<weight<<endl;
+							}
+							else if(!NoFakeOpt) 		// No Mc Id or No matched Mc jet
+							{
+								hTrainFake->Fill(RcJet, RcPart, weight);
+								response->Fake(RcJet, RcPart, weight);
+								hXRcVsMc->Fill(-1, RcJet, weight);
+								hYRcVsMc->Fill(-1, RcPart, weight);
+								//cout<<"Fake RcJet = "<<RcJet<<" RcPart = "<<RcPart<<" RcPhi = "<< vRcTrkTotPhi.at(ir) << " RcEta = "<< vRcTrkTotEta.at(ir)<<" weight = "<<weight<<endl;
+							}
 						}
 					}
-				}
 
-				// Loop over Mc 
-				if(flag!=-1) 
-				{
-					for(int im = 0; im<vMcTrkTotPt.size(); im++)
+					// Loop over Mc 
+					if(flag!=-1) 
 					{
-						McPart = vMcTrkTotPt.at(im);
-
-						hTrainTrue->Fill(McJet, McPart, weight);
-						pfxTrainTrue->Fill(McJet, McPart, weight);
-
-						if((!vMcTrkTotMatchedId.at(im) || flag==0) && !NoLossOpt) 		// Not matched to Rc Id or No good Rc Jet
+						for(int im = 0; im<vMcTrkTotPt.size(); im++)
 						{
-							response->Miss(McJet, McPart, weight);
-							hXRcVsMc->Fill(McJet, -1, weight);
-							hYRcVsMc->Fill(McPart, -1, weight);
-							//cout<<"Miss McJet = "<<McJet<<" McPart = "<<McPart<<" McPhi = "<< vMcTrkTotPhi.at(im)<<" McEta = "<<vMcTrkTotEta.at(im)<<" weight = "<<weight<<endl;
+							McPart = vMcTrkTotPt.at(im);
+
+							hTrainTrue->Fill(McJet, McPart, weight);
+							pfxTrainTrue->Fill(McJet, McPart, weight);
+
+							if((!vMcTrkTotMatchedId.at(im) || flag==0) && !NoLossOpt) 		// Not matched to Rc Id or No good Rc Jet
+							{
+								response->Miss(McJet, McPart, weight);
+								hXRcVsMc->Fill(McJet, -1, weight);
+								hYRcVsMc->Fill(McPart, -1, weight);
+								//cout<<"Miss McJet = "<<McJet<<" McPart = "<<McPart<<" McPhi = "<< vMcTrkTotPhi.at(im)<<" McEta = "<<vMcTrkTotEta.at(im)<<" weight = "<<weight<<endl;
+							}
+
 						}
-
 					}
+
 				}
+				else if(YvariableName.Contains("JetNtrk",TString::kIgnoreCase))
+				{
+					McPart = Mcjconstntrk;
+					RcPart = Rcjconstntrk;
+				}
+				else if(YvariableName.Contains("JetChargeNtrk",TString::kIgnoreCase))
+				{
+					McPart = Mcjconstchargentrk;
+					RcPart = Rcjconstchargentrk;
+				}
+				else // default: TranNtrk
+				{
+					McPart = 0.5*(McTranMaxNtrk+McTranMinNtrk);
+					RcPart = 0.5*(RcTranMaxNtrk+RcTranMinNtrk);
+					
+					cout<<"WARNING!!!!!!!!!! in "<<__PRETTY_FUNCTION__<<" "<<YvariableName<<" is not valid YvariableName name. Will use TranNtrk instead!"<<endl;
+					YvariableName = "TranNtrk";
+				}
+			}	//end if else OPT_RC02MC05
 
-			}
-			else if(YvariableName.Contains("JetNtrk",TString::kIgnoreCase))
-			{
-				McPart = Mcjconstntrk;
-				RcPart = Rcjconstntrk;
-			}
-			else if(YvariableName.Contains("JetChargeNtrk",TString::kIgnoreCase))
-			{
-				McPart = Mcjconstchargentrk;
-				RcPart = Rcjconstchargentrk;
-			}
-			else // default: TranNtrk
-			{
-				McPart = 0.5*(McTranMaxNtrk+McTranMinNtrk);
-				RcPart = 0.5*(RcTranMaxNtrk+RcTranMinNtrk);
-			}
 
+			// Fill histograms
 			if( !(YvariableName.Contains("PtAve",TString::kIgnoreCase)&&(!YvariableName.Contains("EventWise",TString::kIgnoreCase))) ) {
 				if(flag==1) {			// one-to-one Mc to Rc matched
 					hTrainTrue->Fill(McJet, McPart, weight);	
@@ -952,10 +991,23 @@ Int_t Unfold2D::ReadResponseMatrix()
 	if(NoFakeOpt) SNoFake="NoFake";
 	TString SNoLoss="";
 	if(NoLossOpt) SNoLoss="NoLoss";
-	TString ifilename = Form("ResponseMatrix%s_%s%s%s%s%s_Mc%s%sPt02.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SNoFake.Data(),SNoLoss.Data());	
+	TString SPrior="";
+	if(CHANGEPRIOR) SPrior="mPrior";
+	TString STpcSys="";
+	if(OPT_TPCSYS) {
+		if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
+		else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
+		else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
+		else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
+	}
+	TString Spt="Pt02";
+	if(OPT_RC02MC05) {
+		Spt="PtRC02MC05";
+	}
+	TString ifilename = Form("ResponseMatrix%s_%s%s%s%s%s%s_Mc%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data());	
 	if(flagjetweight) {
 		cout<<"INFO -------  Int_t Unfold2D::ReadResponseMatrix():  flagjetweight (args[14]) == 1. Use MB embedding for JP unfolding."<<endl;
-		ifilename = Form("ResponseMatrix%s_%s%s%s%s%s_Mc%s%sPt02.root",inputname.Data(),YvariableName.Data(),"MB",TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SNoFake.Data(),SNoLoss.Data());	
+		ifilename = Form("ResponseMatrix%s_%s%s%s%s%s%s_Mc%s%s%s%s.root",inputname.Data(),YvariableName.Data(),"MB",TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data());	
 	}
 	cout<<__PRETTY_FUNCTION__<<" Read in "<<ifilename<<endl;
 	ftrain = new TFile(ifilename);
@@ -1037,11 +1089,13 @@ Int_t Unfold2D::Fill4Unfold() {
 
 	TString ifilename;
 	if(TrigName.Contains("MB")) {
-		ifilename = TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_161209.root");
+		//ifilename = TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_161209.root");
+		ifilename = TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_170418.root");
 	}
 	else {
 		//ifilename = TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_161209.root");
-		ifilename = TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_170127.root");
+		//ifilename = TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_170127.root");
+		ifilename = TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_170418.root");
 	}
 	cout<<__PRETTY_FUNCTION__<<__func__<<" Reading in "<<ifilename<<endl;
 	TFile *fin = new TFile(ifilename);
@@ -1071,22 +1125,32 @@ Int_t Unfold2D::Fill4Unfold() {
 
 	// Reweight JPs to have same Neutral Fraction distribution per jet pt bin as MB 
 	ReWeightByNF *rwc;
+	bool WriteNFfile = false;
 	if( flagjetweight && ifilename.Contains("ppJP_") && ifilename.Contains("FullJet",TString::kIgnoreCase) ) {
 		cout<<"Do per jet reweight";
 		rwc = new ReWeightByNF();
-		rwc->Init4Read("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_TransCharged_MatchTrig_ppJP_160811P12id_R06_HadrCorr_VPDcut_161209.root","~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_TransCharged_ppMB_160811P12id_R06_HadrCorr_VPDcut_161209.root");
-		rwc->FillNFRatios();
+		if(!rwc->ReadNFfile(Form("NFWeight_NoTofMatch_FullJet_TransCharged_160811P12id_R06_HadrCorr_VPDcut_170418.root"))) {
+			//rwc->Init4Read("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_TransCharged_MatchTrig_ppJP_160811P12id_R06_HadrCorr_VPDcut_161209.root","~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_TransCharged_ppMB_160811P12id_R06_HadrCorr_VPDcut_161209.root");
+			rwc->Init4Read("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_TransCharged_MatchTrig_ppJP_160811P12id_R06_HadrCorr_VPDcut_170418.root","~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_TransCharged_ppMB_160811P12id_R06_HadrCorr_VPDcut_170418.root");
+			rwc->FillNFRatios();
+			WriteNFfile = true;
+		}
 		cout<<"."<<endl;
 	}
 
 	// Scale JPs to have same *Y* distribution per jet pt bin as MB 
 	ScaleByY *sby;
 	bool DoScaleByY = !flagjetweight && flagscaley && ifilename.Contains("ppJP_") && ifilename.Contains("FullJet",TString::kIgnoreCase) ; 
+	bool WriteYfile = false;
 	if( DoScaleByY ) {
 		cout<<"Scale "<<TrigName<<" "<<YvariableName<<" to be same mean value as MB"<<endl;
 		sby = new ScaleByY(YvariableName);
-		sby->Init4Read("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_TransCharged_MatchTrig_ppJP_160811P12id_R06_HadrCorr_VPDcut_161209.root","~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_TransCharged_ppMB_160811P12id_R06_HadrCorr_VPDcut_161209.root");
-		if(!sby->FillYRatios()) { cout<<"cannot fill ScaleByY:FillYRatios() in Unfold2D.cxx "<<endl; return 0;  }
+		if(!sby->ReadYfile(Form("Scale%s_NoTofMatch_FullJet_TransCharged_160811P12id_R06_HadrCorr_VPDcut_170418.root",YvariableName.Data()))) {	// if scaleY root file exist, no need to read again
+			//sby->Init4Read("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_TransCharged_MatchTrig_ppJP_160811P12id_R06_HadrCorr_VPDcut_161209.root","~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_TransCharged_ppMB_160811P12id_R06_HadrCorr_VPDcut_161209.root");
+			sby->Init4Read("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_TransCharged_MatchTrig_ppJP_160811P12id_R06_HadrCorr_VPDcut_170418.root","~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_TransCharged_ppMB_160811P12id_R06_HadrCorr_VPDcut_170418.root");
+			if(!sby->FillYRatios()) { cout<<"cannot fill ScaleByY:FillYRatios() in Unfold2D.cxx "<<endl; return 0;  }
+			WriteYfile = true;
+		}
 		cout<<"."<<endl;
 	}
 
@@ -1253,6 +1317,8 @@ Int_t Unfold2D::Fill4Unfold() {
 		else // default: TranNtrk
 		{
 			InputPart = 0.5*(InputTranMaxNtrk+InputTranMinNtrk);
+			cout<<"WARNING!!!!!!!!!! in "<<__PRETTY_FUNCTION__<<" "<<YvariableName<<" is not valid YvariableName name. Will use TranNtrk instead!"<<endl;
+			YvariableName = "TranNtrk";
 		}
 
 
@@ -1280,6 +1346,13 @@ Int_t Unfold2D::Fill4Unfold() {
 	hMeasX= ProjectionX (hMeas, "hMeasX", "Measured X");
 	hMeasY= ProjectionY (hMeas, "hMeasY", "Measured Y");
 
+	if(WriteNFfile && rwc!=NULL) {
+		rwc->WriteNF("NFWeight_NoTofMatch_FullJet_TransCharged_160811P12id_R06_HadrCorr_VPDcut_170418.root");
+	}
+
+	if(WriteYfile && sby!=NULL) {
+		sby->WriteY(Form("Scale%s_NoTofMatch_FullJet_TransCharged_160811P12id_R06_HadrCorr_VPDcut_170418.root",YvariableName.Data()));
+	}
 
 	return 1;
 }
@@ -1290,7 +1363,8 @@ Int_t Unfold2D::Fill4Unfold() {
 //==============================================================================
 Int_t Unfold2D::ReadMeasHist4Unfold() {
 
-	TString ifilename = TString("~/Scratch/pp200Y12_jetunderlying/leadjetpthist4NoTofMatch_FullJet_Trans")+TranCharge+TString("_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_161209_NoLossCorr.root");
+	//TString ifilename = TString("~/Scratch/pp200Y12_jetunderlying/leadjetpthist4NoTofMatch_FullJet_Trans")+TranCharge+TString("_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_161209_NoLossCorr.root");
+	TString ifilename = TString("~/Scratch/pp200Y12_jetunderlying/leadjetpthist4NoTofMatch_FullJet_Trans")+TranCharge+TString("_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_170418_NoLossCorr.root");
 	cout<<__PRETTY_FUNCTION__<<" Read in "<<ifilename<<endl;
 	TFile *fin = new TFile(ifilename);
 	if(!fin) {
@@ -1478,6 +1552,13 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 	Float_t tRcTranMinPtSum;
 
 
+	TString STpcSys="";
+	if(OPT_TPCSYS) {
+		if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
+		else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
+		else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
+		else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
+	}
 
 
 	double totalxsec = 0;
@@ -1486,13 +1567,13 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 		TString ifilename;
 		if(TrigName.Contains("JP")&&(flagjetweight||flagscaley)) {
 		// if flagjetweight==true, JP hist is weighted by MB NF distribution. Then we shall use MB embeding data (no trigger effect). This means we don't unfold trigger effect on jet pt distribution, but the neutral jet trigger effect should be already corrected by weighting procedure. However, if we don't do weighting by MB Neutral Fraction dist, we could also use JP embedding to unfold all trigger effects together
-			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_McPt02.root",  "MB",   PTBINS[i],TranCharge.Data());
+			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_McPt02%s.root",  "MB",   PTBINS[i],TranCharge.Data(),STpcSys.Data());
 		}
 		else if(ExcludeOpt&&TrigName.Contains("JP")) {		
-			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_excluded_McPt02.root",TrigName.Data(),PTBINS[i],TranCharge.Data());
+			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_excluded_McPt02%s.root",TrigName.Data(),PTBINS[i],TranCharge.Data(),STpcSys.Data());
 		}
 		else {
-			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_McPt02.root",TrigName.Data(),PTBINS[i],TranCharge.Data());
+			ifilename = Form("/home/fas/caines/ly247/Scratch/embedPythia/%s/pt%s_underMcVsEmbed_FullJetTrans%s_McPt02%s.root",TrigName.Data(),PTBINS[i],TranCharge.Data(),STpcSys.Data());
 		}
 
 		cout<<"Read in "<<ifilename<<endl;
@@ -1547,121 +1628,130 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 
 
 			// Read tMcPart and tRcPart
-			if(YvariableName.Contains("TranMaxNtrk",TString::kIgnoreCase))
-			{
-				if(tMcTranMaxNtrk>tMcTranMinNtrk) tMcPart = static_cast<float>(tMcTranMaxNtrk);
-				else tMcPart = static_cast<float>(tMcTranMinNtrk);
-				if(tRcTranMaxNtrk>tRcTranMinNtrk) tRcPart = static_cast<float>(tRcTranMaxNtrk);
-				else tRcPart = static_cast<float>(tRcTranMinNtrk);
+			if(OPT_RC02MC05) {              // MC pt>0.5 only
+				cout<<"ERR!! in "<<__PRETTY_FUNCTION__<<" OPT_RC02MC05=true is only implemented for Real data, not Test data. Will reset OPT_RC02MC05 = false instead"<<endl;
+				OPT_RC02MC05 = false;
 			}
-			else if(YvariableName.Contains("TranMinNtrk",TString::kIgnoreCase)) 
-			{
-				if(tMcTranMaxNtrk<tMcTranMinNtrk) tMcPart = static_cast<float>(tMcTranMaxNtrk);
-				else tMcPart = static_cast<float>(tMcTranMinNtrk);
-				if(tRcTranMaxNtrk<tRcTranMinNtrk) tRcPart = static_cast<float>(tRcTranMaxNtrk);
-				else tRcPart = static_cast<float>(tRcTranMinNtrk);
-			}
-			else if(YvariableName.Contains("TranDiffNtrk",TString::kIgnoreCase)) 
-			{
-				tMcPart = fabs(tMcTranMaxNtrk-tMcTranMinNtrk);
-				tRcPart = fabs(tRcTranMaxNtrk-tRcTranMinNtrk);
-			}
-			else if(YvariableName.Contains("TranNtrk",TString::kIgnoreCase))
-			{
-				tMcPart = 0.5*(tMcTranMaxNtrk+tMcTranMinNtrk);
-				tRcPart = 0.5*(tRcTranMaxNtrk+tRcTranMinNtrk);
-			}	
-			else if(YvariableName.Contains("TranTotNtrk",TString::kIgnoreCase))
-			{
-				tMcPart = tMcTranMaxNtrk+tMcTranMinNtrk;
-				tRcPart = tRcTranMaxNtrk+tRcTranMinNtrk;
-			}	
-			else if(YvariableName.Contains("TranMaxPtSum",TString::kIgnoreCase))
-			{
-				if(tMcTranMaxPtSum>tMcTranMinPtSum) tMcPart = tMcTranMaxPtSum;
-				else tMcPart = tMcTranMinPtSum;
-				if(tRcTranMaxPtSum>tRcTranMinPtSum) tRcPart = tRcTranMaxPtSum;
-				else tRcPart = tRcTranMinPtSum;
-			}
-			else if(YvariableName.Contains("TranMinPtSum",TString::kIgnoreCase)) 
-			{
-				if(tMcTranMaxPtSum<tMcTranMinPtSum) tMcPart = tMcTranMaxPtSum;
-				else tMcPart = tMcTranMinPtSum;
-				if(tRcTranMaxPtSum>tRcTranMinPtSum) tRcPart = tRcTranMaxPtSum;
-				else tRcPart = tRcTranMinPtSum;
-			}
-			else if(YvariableName.Contains("TranPtSum",TString::kIgnoreCase))
-			{
-				tMcPart = 0.5*(tMcTranMaxPtSum+tMcTranMinPtSum);
-				tRcPart = 0.5*(tRcTranMaxPtSum+tRcTranMinPtSum);
-			}
-			else if(YvariableName.Contains("TranTotPtSum",TString::kIgnoreCase))
-			{
-				tMcPart = tMcTranMaxPtSum+tMcTranMinPtSum;
-				tRcPart = tRcTranMaxPtSum+tRcTranMinPtSum;
-			}
-			else if(YvariableName.Contains("TranMaxPtAve",TString::kIgnoreCase))
-			{
-				float tMcTranMaxPtAve = 1.*tMcTranMaxPtSum/tMcTranMaxNtrk;
-				float tMcTranMinPtAve = 1.*tMcTranMinPtSum/tMcTranMinNtrk;
-				if(tMcTranMaxPtAve>tMcTranMinPtAve) tMcPart = tMcTranMaxPtAve;
-				else tMcPart = tMcTranMinPtAve;
-				float tRcTranMaxPtAve = 1.*tRcTranMaxPtSum/tRcTranMaxNtrk;
-				float tRcTranMinPtAve = 1.*tRcTranMinPtSum/tRcTranMinNtrk;
-				if(tRcTranMaxPtAve>tRcTranMinPtAve) tRcPart = tRcTranMaxPtAve;
-				else tRcPart = tRcTranMinPtAve;
-			}
-			else if(YvariableName.Contains("TranMinPtAve",TString::kIgnoreCase)) 
-			{
-				float tMcTranMaxPtAve = 1.*tMcTranMaxPtSum/tMcTranMaxNtrk;
-				float tMcTranMinPtAve = 1.*tMcTranMinPtSum/tMcTranMinNtrk;
-				if(tMcTranMaxPtAve<tMcTranMinPtAve) tMcPart = tMcTranMaxPtAve;
-				else tMcPart = tMcTranMinPtAve;
-				float tRcTranMaxPtAve = 1.*tRcTranMaxPtSum/tRcTranMaxNtrk;
-				float tRcTranMinPtAve = 1.*tRcTranMinPtSum/tRcTranMinNtrk;
-				if(tRcTranMaxPtAve>tRcTranMinPtAve) tRcPart = tRcTranMaxPtAve;
-				else tRcPart = tRcTranMinPtAve;
-			}
-			else if(YvariableName.Contains("TranPtAve",TString::kIgnoreCase))
-			{
-				tMcPart = (tMcTranMaxPtSum+tMcTranMinPtSum)/(tMcTranMaxNtrk+tMcTranMinNtrk);
-				tRcPart = (tRcTranMaxPtSum+tRcTranMinPtSum)/(tRcTranMaxNtrk+tRcTranMinNtrk);
-			}
-			else if(YvariableName.Contains("LeadAreaNtrk",TString::kIgnoreCase)) 
-			{
-				tMcPart = tMcLeadAreaNtrk;
-				tRcPart = tRcLeadAreaNtrk;
-			}
-			else if(YvariableName.Contains("SubAreaNtrk",TString::kIgnoreCase)) 
-			{
-				tMcPart = tMcSubAreaNtrk;
-				tRcPart = tRcSubAreaNtrk;
-			}
-			else if(YvariableName.Contains("LeadAreaPtSum",TString::kIgnoreCase)) 
-			{
-				tMcPart = tMcLeadAreaPtSum;
-				tRcPart = tRcLeadAreaPtSum;
-			}
-			else if(YvariableName.Contains("SubAreaPtSum",TString::kIgnoreCase)) 
-			{
-				tMcPart = tMcSubAreaPtSum;
-				tRcPart = tRcSubAreaPtSum;
-			}
-			else if(YvariableName.Contains("LeadAreaPtAve",TString::kIgnoreCase)) 
-			{
-				tMcPart = tMcLeadAreaPtSum/tMcLeadAreaNtrk;
-				tRcPart = tRcLeadAreaPtSum/tRcLeadAreaNtrk;
-			}
-			else if(YvariableName.Contains("SubAreaPtAve",TString::kIgnoreCase)) 
-			{
-				tMcPart = tMcSubAreaPtSum/tMcSubAreaNtrk;
-				tRcPart = tRcSubAreaPtSum/tRcSubAreaNtrk;
-			}
-			else // default: TranNtrk
-			{
-				tMcPart = 0.5*(tMcTranMaxNtrk+tMcTranMinNtrk);
-				tRcPart = 0.5*(tRcTranMaxNtrk+tRcTranMinNtrk);
-			}
+			else {	
+				if(YvariableName.Contains("TranMaxNtrk",TString::kIgnoreCase))
+				{
+					if(tMcTranMaxNtrk>tMcTranMinNtrk) tMcPart = static_cast<float>(tMcTranMaxNtrk);
+					else tMcPart = static_cast<float>(tMcTranMinNtrk);
+					if(tRcTranMaxNtrk>tRcTranMinNtrk) tRcPart = static_cast<float>(tRcTranMaxNtrk);
+					else tRcPart = static_cast<float>(tRcTranMinNtrk);
+				}
+				else if(YvariableName.Contains("TranMinNtrk",TString::kIgnoreCase)) 
+				{
+					if(tMcTranMaxNtrk<tMcTranMinNtrk) tMcPart = static_cast<float>(tMcTranMaxNtrk);
+					else tMcPart = static_cast<float>(tMcTranMinNtrk);
+					if(tRcTranMaxNtrk<tRcTranMinNtrk) tRcPart = static_cast<float>(tRcTranMaxNtrk);
+					else tRcPart = static_cast<float>(tRcTranMinNtrk);
+				}
+				else if(YvariableName.Contains("TranDiffNtrk",TString::kIgnoreCase)) 
+				{
+					tMcPart = fabs(tMcTranMaxNtrk-tMcTranMinNtrk);
+					tRcPart = fabs(tRcTranMaxNtrk-tRcTranMinNtrk);
+				}
+				else if(YvariableName.Contains("TranNtrk",TString::kIgnoreCase))
+				{
+					tMcPart = 0.5*(tMcTranMaxNtrk+tMcTranMinNtrk);
+					tRcPart = 0.5*(tRcTranMaxNtrk+tRcTranMinNtrk);
+				}	
+				else if(YvariableName.Contains("TranTotNtrk",TString::kIgnoreCase))
+				{
+					tMcPart = tMcTranMaxNtrk+tMcTranMinNtrk;
+					tRcPart = tRcTranMaxNtrk+tRcTranMinNtrk;
+				}	
+				else if(YvariableName.Contains("TranMaxPtSum",TString::kIgnoreCase))
+				{
+					if(tMcTranMaxPtSum>tMcTranMinPtSum) tMcPart = tMcTranMaxPtSum;
+					else tMcPart = tMcTranMinPtSum;
+					if(tRcTranMaxPtSum>tRcTranMinPtSum) tRcPart = tRcTranMaxPtSum;
+					else tRcPart = tRcTranMinPtSum;
+				}
+				else if(YvariableName.Contains("TranMinPtSum",TString::kIgnoreCase)) 
+				{
+					if(tMcTranMaxPtSum<tMcTranMinPtSum) tMcPart = tMcTranMaxPtSum;
+					else tMcPart = tMcTranMinPtSum;
+					if(tRcTranMaxPtSum>tRcTranMinPtSum) tRcPart = tRcTranMaxPtSum;
+					else tRcPart = tRcTranMinPtSum;
+				}
+				else if(YvariableName.Contains("TranPtSum",TString::kIgnoreCase))
+				{
+					tMcPart = 0.5*(tMcTranMaxPtSum+tMcTranMinPtSum);
+					tRcPart = 0.5*(tRcTranMaxPtSum+tRcTranMinPtSum);
+				}
+				else if(YvariableName.Contains("TranTotPtSum",TString::kIgnoreCase))
+				{
+					tMcPart = tMcTranMaxPtSum+tMcTranMinPtSum;
+					tRcPart = tRcTranMaxPtSum+tRcTranMinPtSum;
+				}
+				else if(YvariableName.Contains("TranMaxPtAve",TString::kIgnoreCase))
+				{
+					float tMcTranMaxPtAve = 1.*tMcTranMaxPtSum/tMcTranMaxNtrk;
+					float tMcTranMinPtAve = 1.*tMcTranMinPtSum/tMcTranMinNtrk;
+					if(tMcTranMaxPtAve>tMcTranMinPtAve) tMcPart = tMcTranMaxPtAve;
+					else tMcPart = tMcTranMinPtAve;
+					float tRcTranMaxPtAve = 1.*tRcTranMaxPtSum/tRcTranMaxNtrk;
+					float tRcTranMinPtAve = 1.*tRcTranMinPtSum/tRcTranMinNtrk;
+					if(tRcTranMaxPtAve>tRcTranMinPtAve) tRcPart = tRcTranMaxPtAve;
+					else tRcPart = tRcTranMinPtAve;
+				}
+				else if(YvariableName.Contains("TranMinPtAve",TString::kIgnoreCase)) 
+				{
+					float tMcTranMaxPtAve = 1.*tMcTranMaxPtSum/tMcTranMaxNtrk;
+					float tMcTranMinPtAve = 1.*tMcTranMinPtSum/tMcTranMinNtrk;
+					if(tMcTranMaxPtAve<tMcTranMinPtAve) tMcPart = tMcTranMaxPtAve;
+					else tMcPart = tMcTranMinPtAve;
+					float tRcTranMaxPtAve = 1.*tRcTranMaxPtSum/tRcTranMaxNtrk;
+					float tRcTranMinPtAve = 1.*tRcTranMinPtSum/tRcTranMinNtrk;
+					if(tRcTranMaxPtAve>tRcTranMinPtAve) tRcPart = tRcTranMaxPtAve;
+					else tRcPart = tRcTranMinPtAve;
+				}
+				else if(YvariableName.Contains("TranPtAve",TString::kIgnoreCase))
+				{
+					tMcPart = (tMcTranMaxPtSum+tMcTranMinPtSum)/(tMcTranMaxNtrk+tMcTranMinNtrk);
+					tRcPart = (tRcTranMaxPtSum+tRcTranMinPtSum)/(tRcTranMaxNtrk+tRcTranMinNtrk);
+				}
+				else if(YvariableName.Contains("LeadAreaNtrk",TString::kIgnoreCase)) 
+				{
+					tMcPart = tMcLeadAreaNtrk;
+					tRcPart = tRcLeadAreaNtrk;
+				}
+				else if(YvariableName.Contains("SubAreaNtrk",TString::kIgnoreCase)) 
+				{
+					tMcPart = tMcSubAreaNtrk;
+					tRcPart = tRcSubAreaNtrk;
+				}
+				else if(YvariableName.Contains("LeadAreaPtSum",TString::kIgnoreCase)) 
+				{
+					tMcPart = tMcLeadAreaPtSum;
+					tRcPart = tRcLeadAreaPtSum;
+				}
+				else if(YvariableName.Contains("SubAreaPtSum",TString::kIgnoreCase)) 
+				{
+					tMcPart = tMcSubAreaPtSum;
+					tRcPart = tRcSubAreaPtSum;
+				}
+				else if(YvariableName.Contains("LeadAreaPtAve",TString::kIgnoreCase)) 
+				{
+					tMcPart = tMcLeadAreaPtSum/tMcLeadAreaNtrk;
+					tRcPart = tRcLeadAreaPtSum/tRcLeadAreaNtrk;
+				}
+				else if(YvariableName.Contains("SubAreaPtAve",TString::kIgnoreCase)) 
+				{
+					tMcPart = tMcSubAreaPtSum/tMcSubAreaNtrk;
+					tRcPart = tRcSubAreaPtSum/tRcSubAreaNtrk;
+				}
+				else // default: TranNtrk
+				{
+					tMcPart = 0.5*(tMcTranMaxNtrk+tMcTranMinNtrk);
+					tRcPart = 0.5*(tRcTranMaxNtrk+tRcTranMinNtrk);
+					cout<<"WARNING!!!!!!!!!! in "<<__PRETTY_FUNCTION__<<" "<<YvariableName<<" is not valid YvariableName name. Will use TranNtrk instead!"<<endl;
+					YvariableName = "TranNtrk";
+				}
+			}// end if else OPT_RC02MC05
+
 
 			// Fill histograms according to flag
 			if(tflag==1) {			// one-to-one tMc to tRc matched
@@ -1854,10 +1944,19 @@ Int_t Unfold2D::WriteTest()
 	if(NoFakeOpt) SNoFake="NoFake";
 	TString SNoLoss="";
 	if(NoLossOpt) SNoLoss="NoLoss";
+	TString SPrior="";
+	if(CHANGEPRIOR) SPrior="mPrior";
 	TString SMethod="";
 	if(method==3) SMethod="_BinByBin";
 	else if(method==2) SMethod="_SVD";
-	ftout = new TFile(Form("ResponseMatrix%s_%s%s%s%s%s%s_Mc%s%sPt02.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SMethod.Data(),SNoFake.Data(),SNoLoss.Data()),"RECREATE");
+	TString STpcSys="";
+	if(OPT_TPCSYS) {
+		if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
+		else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
+		else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
+		else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
+	}
+	ftout = new TFile(Form("ResponseMatrix%s_%s%s%s%s%s%s%s_Mc%s%sPt02%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SMethod.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),STpcSys.Data()),"RECREATE");
 	if(ftout) cout<<"Write to "<<ftout->GetName()<<endl;
 	hTrainTrue->Write();
 	hTrain->Write();
@@ -1891,10 +1990,23 @@ Int_t Unfold2D::WriteTrain()
 	if(NoFakeOpt) SNoFake="NoFake";
 	TString SNoLoss="";
 	if(NoLossOpt) SNoLoss="NoLoss";
-	TString ifilename = Form("ResponseMatrix%s_%s%s%s%s%s_Mc%s%sPt02.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SNoFake.Data(),SNoLoss.Data());
+	TString SPrior="";
+        if(CHANGEPRIOR) SPrior="mPrior";
+	TString STpcSys="";
+	if(OPT_TPCSYS) {
+		if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
+		else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
+		else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
+		else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
+	}
+	TString Spt="Pt02";
+	if(OPT_RC02MC05) {
+		Spt="PtRC02MC05";
+	}
+	TString ifilename = Form("ResponseMatrix%s_%s%s%s%s%s%s_Mc%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data());
 	if(flagjetweight) {
 		cout<<"INFO -------  Int_t Unfold2D::WriteTrain():  flagjetweight (args[14]) == 1. Use MB embedding for JP unfolding, which will be written"<<endl;
-		ifilename = Form("ResponseMatrix%s_%s%s%s%s%s_Mc%s%sPt02.root",inputname.Data(),YvariableName.Data(),"MB",TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SNoFake.Data(),SNoLoss.Data());	
+		ifilename = Form("ResponseMatrix%s_%s%s%s%s%s%s_Mc%s%s%s%s.root",inputname.Data(),YvariableName.Data(),"MB",TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data());	
 	}
 
 
@@ -1933,11 +2045,24 @@ Int_t Unfold2D::WriteHist4Unfold()
 	if(NoFakeOpt) SNoFake="NoFake";
 	TString SNoLoss="";
 	if(NoLossOpt) SNoLoss="NoLoss";
+        TString SPrior="";
+        if(CHANGEPRIOR) SPrior="mPrior";
 	TString SIter="";
 	if( method==1 && (regparm!=4) ) {
 		SIter = Form("_Baye%d",regparm);
 	}
-	ftout = new TFile(Form("Hist%s_%s%s%s%s%s%s%s%s_Mc%s%sPt02.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data(),SNoFake.Data(),SNoLoss.Data()),"RECREATE");
+	TString STpcSys="";
+	if(OPT_TPCSYS) {
+		if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
+		else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
+		else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
+		else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
+	}
+	TString Spt="Pt02";
+	if(OPT_RC02MC05) {
+		Spt="PtRC02MC05";
+	}
+	ftout = new TFile(Form("Hist%s_%s%s%s%s%s%s%s%s%s_Mc%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data()),"RECREATE");
 	hMeas->Write();
 	if(hTrainTrue) hTrainTrue->Write();
 	if(hTrain)hTrain->Write();
@@ -1971,6 +2096,8 @@ Int_t Unfold2D::WriteUnfoldResult()
 	if(NoFakeOpt) SNoFake="NoFake";
 	TString SNoLoss="";
 	if(NoLossOpt) SNoLoss="NoLoss";
+        TString SPrior="";
+        if(CHANGEPRIOR) SPrior="mPrior";
 	TString SIter="";
 	if( method==1 && (regparm!=4) ) {
 		SIter = Form("_Baye%d",regparm);
@@ -1981,7 +2108,19 @@ Int_t Unfold2D::WriteUnfoldResult()
 	else if(method==2) {
 		SIter = "_SVD";
 	}
-	ftout = new TFile(Form("Unfolding%s_%s%s%s%s%s%s%s%s_Mc%s%sPt02.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data(),SNoFake.Data(),SNoLoss.Data()),"RECREATE");
+	TString STpcSys="";
+	if(OPT_TPCSYS) {
+		if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
+		else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
+		else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
+		else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
+	}
+	TString Spt="Pt02";
+	if(OPT_RC02MC05) {
+		Spt="PtRC02MC05";
+	}
+	//TEST TEST ftout = new TFile(Form("Unfolding%s_%s%s%s%s%s%s%s%s%s_Mc%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data()),"RECREATE");
+	ftout = new TFile(Form("Unfolding%s_%s%s%s%s%s%s%s%s%s_12JetBinv2_Mc%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data()),"RECREATE");	// TEST
 	hTrainTrue->Write();
 	hTrain->Write();
 	hTrainFake->Write();
@@ -1993,9 +2132,74 @@ Int_t Unfold2D::WriteUnfoldResult()
 	if(pfxTrain) pfxTrain->Write();
 	if(pfxTrainTrue) pfxTrainTrue->Write();
 	if(pfxMeas) pfxMeas->Write();
+	if(hpriorratio) hpriorratio->Write();
 
 	return 1;
 }
+
+//==============================================================================
+// Apply event weight to change prior for unfolding
+// use the ratio of measured jet pt / pythia MC jet pt
+//==============================================================================
+
+float Unfold2D::Weight2ChargePrior(float jetpt) 
+{
+	int pbin = -1;
+	if(!hpriorratio)  {
+		TString SExclude="";
+		if(ExcludeOpt) SExclude = "_excluded";
+		TString SNFWeight="";
+		if(flagjetweight) SNFWeight = "_NFweight";
+		TString SYScale="";
+		if(!flagjetweight && flagscaley) SYScale = "_Yscale";	
+		TString SFineBin="";
+		if(!WIDEBIN) SFineBin = "_FineBin";
+		TString SNoFake="";
+		if(NoFakeOpt) SNoFake="NoFake";
+		TString SNoLoss="";
+		if(NoLossOpt) SNoLoss="NoLoss";
+		TString STpcSys="";
+		if(OPT_TPCSYS) {
+			if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
+			else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
+			else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
+			else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
+		}
+		TString Spt="Pt02";
+		if(OPT_RC02MC05) {
+			Spt="PtRC02MC05";
+		}
+		TFile *fprior = new TFile(Form("Unfolding%s_%s%s%s%s%s%s%s_Mc%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data()));
+		if(!fprior->IsOpen()) {
+			fprior = new TFile(Form("Hist%s_%s%s%s%s%s%s%s_Mc%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data()));
+		}
+		if(!fprior->IsOpen()) {
+			cout<<"WARNING!! void Unfold2D::Weight2ChargePrior(float jetpt): Can not find root file to read "<<endl;
+			return 1;
+		}
+		cout<<"Read "<<fprior->GetName()<<" to Change Prior."<<endl;
+		TH2F *phtraintrue = (TH2F*)fprior->Get("htraintrue");
+		TH2F *phtrain = (TH2F*)fprior->Get("htrain");
+		TH2F *phmeas = (TH2F*)fprior->Get("hmeas");
+		TH1F *phtraintrue_px = (TH1F*)phtraintrue->ProjectionX("phtraintrue_px");
+		TH1F *phtrain_px = (TH1F*)phtrain->ProjectionX("phtrain_px");
+		TH1F *phmeas_px = (TH1F*)phmeas->ProjectionX("phmeas_px");
+		hpriorratio = (TH1F*) phmeas_px->Clone("hpriorratio");
+		//hpriorratio->Divide(phtraintrue_px);
+		hpriorratio->Divide(phtrain_px);
+	}
+	pbin = hpriorratio->FindBin(jetpt);
+
+	if(pbin<=0 || pbin>hpriorratio->GetNbinsX()) { cout<<"WARNING!! void Unfold2D::Weight2ChargePrior(float jetpt): "<<jetpt<<" not in hpriorratio x range. "<<endl; return 1;  }
+	
+	float ratio = hpriorratio->GetBinContent(pbin);
+
+	return ratio;
+}
+
+
+
+
 //==============================================================================
 // Utility routines
 //==============================================================================
@@ -2033,7 +2237,7 @@ Int_t Unfold2D::CheckParms()
 
 TH1D* Unfold2D::ProjectionX (const TH1* h, const char* name, const char* title, Option_t* opt)
 {
-	const TH2* h2= dynamic_cast<const TH2*>(h);
+	const TH2* h2= static_cast<const TH2*>(h);
 	TH1D* h1= h2->ProjectionX (name, 1, h->GetNbinsY(), opt);
 	if (title) h1->SetTitle (title);
 	return h1;
@@ -2041,7 +2245,7 @@ TH1D* Unfold2D::ProjectionX (const TH1* h, const char* name, const char* title, 
 
 TH1D* Unfold2D::ProjectionY (const TH1* h, const char* name, const char* title, Option_t* opt)
 {
-	const TH2* h2= dynamic_cast<const TH2*>(h);
+	const TH2* h2= static_cast<const TH2*>(h);
 	TH1D* h1= h2->ProjectionY (name, 1, h->GetNbinsX(), opt);
 	if (title) h1->SetTitle (title);
 	return h1;
@@ -2049,7 +2253,7 @@ TH1D* Unfold2D::ProjectionY (const TH1* h, const char* name, const char* title, 
 
 TProfile* Unfold2D::ProfileX (const TH1* h, const char* name, const char* title, Option_t* opt)
 {
-	const TH2* h2= dynamic_cast<const TH2*>(h);
+	const TH2* h2= static_cast<const TH2*>(h);
 	TProfile* h1= h2->ProfileX (name, 1, h->GetNbinsY(), opt);
 	if (title) h1->SetTitle (title);
 	return h1;
@@ -2113,6 +2317,49 @@ void Unfold2D::SetTranCharge(TString tname) {
 
 void Unfold2D::SetExcludeJPTrig(Int_t exclude) {
 	ExcludeOpt = exclude;
+}
+
+void Unfold2D::SetChangePrior(Int_t change) {
+	CHANGEPRIOR = change;
+	cout<<"Set CHANGEPRIOR = "<<CHANGEPRIOR<<endl;
+}
+
+void Unfold2D::SetTpcSys(int opt_tpcsys, int opt_tpcsyspm, int opt_tpcsysabs) {
+	//cout<<"opt_tpcsys = "<<opt_tpcsys<<" opt_tpcsyspm = "<<opt_tpcsyspm<<" opt_tpcsysabs = "<<opt_tpcsysabs<<endl;
+	if(opt_tpcsys>0) {
+		OPT_TPCSYS = true;
+	}
+	else {
+		OPT_TPCSYS = false;
+	}
+	if(!OPT_TPCSYS) return;
+	cout<<"Set OPT_TPCSYS = "<<OPT_TPCSYS<<" to apply "<<endl;
+	if(opt_tpcsyspm>0) {
+		OPT_TPCSYSPM = true;
+		cout<<" + ";
+	}
+	else {
+		OPT_TPCSYSPM = false;
+		cout<<" - ";
+	}
+	if(opt_tpcsysabs>0) {
+		OPT_TPCSYSABS = true;
+		cout<<" absolute ";
+	}
+	else {
+		OPT_TPCSYSABS = false;
+		cout<<" relative ";
+	}
+	cout<<" 5% TPC tracking sys. err"<<endl;
+
+}
+
+void Unfold2D::SetRc02Mc05(int opt_rc02mc05) {
+	if(opt_rc02mc05>0) {
+		OPT_RC02MC05 = true;
+		cout<<"OPT_RC02MC05 = true. Only unfold to pT>0.5GeV/c."<<endl;
+	}
+	else OPT_RC02MC05 = false;
 }
 
 void Unfold2D::Legend (TLegend*& legend, TH1* truth, TH1* fake, TH1* meas, TH1* reco, TF1* ff, TF1* tf)
@@ -2270,7 +2517,6 @@ TH2F* Unfold2D::InitWideXY2DHisto(TString name, TString title)
 		//ptavebins[198] = 20;
 
 
-		
 		// if Mc unfolded to pT->0.2
 		const int Nptavebins = 50;
 		double ptavebins[Nptavebins+1];
@@ -2290,6 +2536,21 @@ TH2F* Unfold2D::InitWideXY2DHisto(TString name, TString title)
 			ptavebins[i] = 6+(i-47)*2;
 		}
 		ptavebins[50] = 20;
+	
+		/*
+		const int Nptavebins = 16;
+                double ptavebins[Nptavebins+1];
+		for(int i = 0; i<10; i++) {
+			ptavebins[i] = 2+i*0.2;
+		}
+		for(int i = 10; i<14; i++) {
+			ptavebins[i] = 4+(i-9)*0.5;
+		}
+		for(int i = 14; i<16; i++) {
+			ptavebins[i] = 6+(i-13)*2;
+		}
+		ptavebins[16] = 20;
+		*/
 
 		h = new TH2F(name, title, WNbins, Wptbins, Nptavebins, ptavebins);
 		cout<<Nptavebins<<" bins"<<endl;
