@@ -21,7 +21,7 @@
 #include <string>
 
 
-#define MAXARRAYLENGTH  3000
+#define MAXARRAYLENGTH  4000
 
 
 class underlying_McVsEmbed
@@ -121,6 +121,7 @@ class underlying_McVsEmbed
 		float Mcj1constpt[300];	
 		float Mcj1constphi[300];	
 		float Mcj1consteta[300];	
+		int Mcj1constchargentrk;
 
 
 
@@ -141,6 +142,7 @@ class underlying_McVsEmbed
 		float Rcj1constpt[300];	
 		float Rcj1constphi[300];	
 		float Rcj1consteta[300];	
+		int Rcj1constchargentrk;
 
 		// any Mc level jet matched with Rcj1: the n-th hardest matched, pt, phi, eta of the matched MC jet
 		int MatchedNthMcj;

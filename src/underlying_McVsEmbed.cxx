@@ -72,6 +72,8 @@ underlying_McVsEmbed::underlying_McVsEmbed (	double R,
 	//2017.01.10  McsUconst     = select_const_rap; // fastjet::SelectorIdentity(); //select_const_ptmin;		For underlying event quantities, still apply detector eta cut
 	McsUconst     = select_const_rap && select_const_ptmin;		 
 	RcsUconst     = select_const_rap && select_const_ptmin;				// detector eta acceptance
+	//McsUconst     = select_const_rap && fastjet::SelectorPtMin(0.5);		 	// for pT>0.5, the default shall be 0.2 ly 170410 
+	//RcsUconst     = select_const_rap && fastjet::SelectorPtMin(0.5);				// detector eta acceptance						// for pT>0.5, the default shall be 0.2 ly 170410 
 
 
 	// Jet candidate selectors
@@ -218,6 +220,7 @@ int underlying_McVsEmbed::Init()
 	ResultTree->Branch("Mcj1constpt",Mcj1constpt, "Mcj1constpt[Mcj1constntrk]/F");
 	ResultTree->Branch("Mcj1constphi",Mcj1constphi, "Mcj1constphi[Mcj1constntrk]/F");
 	ResultTree->Branch("Mcj1consteta",Mcj1consteta, "Mcj1consteta[Mcj1constntrk]/F");
+	ResultTree->Branch("Mcj1constchargentrk",&Mcj1constchargentrk, "Mcj1constchargentrk/I");
 
 	// Mc underlying 
 	ResultTree->Branch("McLeadAreaPtSum",&McLeadAreaPt,"McLeadAreaPtSum/F");
@@ -285,6 +288,7 @@ int underlying_McVsEmbed::Init()
 	ResultTree->Branch("Rcj1constpt",Rcj1constpt, "Rcj1constpt[Rcj1constntrk]/F");
 	ResultTree->Branch("Rcj1constphi",Rcj1constphi, "Rcj1constphi[Rcj1constntrk]/F");
 	ResultTree->Branch("Rcj1consteta",Rcj1consteta, "Rcj1consteta[Rcj1constntrk]/F");
+	ResultTree->Branch("Rcj1constchargentrk",&Rcj1constchargentrk, "Rcj1constchargentrk/I");
 
 
 	// Rc underlying events
@@ -393,6 +397,7 @@ int underlying_McVsEmbed::Make (	const std::vector<fastjet::PseudoJet>& Mcpartic
 	Mcj3eta=-999, Mcj4eta=-999;
 
 	Mcj1constntrk=0;
+	Mcj1constchargentrk=0;
 
 
 	Rcj1pt=0, Rcjaspt=0, Rcj2pt=0;
@@ -409,6 +414,8 @@ int underlying_McVsEmbed::Make (	const std::vector<fastjet::PseudoJet>& Mcpartic
 	Rcj3eta=-999, Rcj4eta=-999;
 
 	Rcj1constntrk=0;
+	Rcj1constchargentrk=0;
+
 
 	MatchedNthMcj=-1, MatchedMcjpt=0, MatchedMcjphi=-999, MatchedMcjeta=-999;
 	LeadInMatchedMcjpt=0, LeadInMatchedMcjphi=-999, LeadInMatchedMcjeta=-999;
@@ -702,10 +709,12 @@ int underlying_McVsEmbed::Make (	const std::vector<fastjet::PseudoJet>& Mcpartic
 		fastjet::Selector McNoGhosts = !fastjet::SelectorIsPureGhost();
 		std::vector<fastjet::PseudoJet> Mcconstituents = McNoGhosts(McJAResult.at(0).constituents());
 		Mcj1constntrk = Mcconstituents.size();
+		Mcj1constchargentrk = 0;
 		for(unsigned int jco = 0; jco<Mcj1constntrk; jco++) {
 			Mcj1constpt[jco] = Mcconstituents[jco].perp();
 			Mcj1consteta[jco] = Mcconstituents[jco].eta();
 			Mcj1constphi[jco] = Mcconstituents[jco].phi_std();
+			if(Mcconstituents[jco].user_info<JetAnalysisUserInfo>().GetQuarkCharge()!=0) Mcj1constchargentrk++;
 		}
 			
 		
@@ -737,10 +746,12 @@ int underlying_McVsEmbed::Make (	const std::vector<fastjet::PseudoJet>& Mcpartic
 		fastjet::Selector RcNoGhosts = !fastjet::SelectorIsPureGhost();
 		std::vector<fastjet::PseudoJet> Rcconstituents = RcNoGhosts(RcJAResult.at(0).constituents());
 		Rcj1constntrk = Rcconstituents.size();
+		Rcj1constchargentrk = 0;
 		for(unsigned int jco = 0; jco<Rcj1constntrk; jco++) {
 			Rcj1constpt[jco] = Rcconstituents[jco].perp();
 			Rcj1consteta[jco] = Rcconstituents[jco].eta();
 			Rcj1constphi[jco] = Rcconstituents[jco].phi_std();
+			if(Rcconstituents[jco].user_info<JetAnalysisUserInfo>().GetQuarkCharge()!=0) Rcj1constchargentrk++;
 		}
 			
 
@@ -823,7 +834,6 @@ int underlying_McVsEmbed::Make (	const std::vector<fastjet::PseudoJet>& Mcpartic
 		LoopUnderlying(Rcj1phi, RcUconstituents, RcLeadAreaNtrk, RcSubAreaNtrk, RcTranMaxNtrk, RcTranMinNtrk, RcLeadAreaPt, RcSubAreaPt, RcTranMaxPt, RcTranMinPt, RcTrkLeadAreaPt, RcTrkLeadAreaPhi, RcTrkLeadAreaEta, RcTrkSubAreaPt, RcTrkSubAreaPhi, RcTrkSubAreaEta, RcTrkTranMaxPt, RcTrkTranMaxPhi, RcTrkTranMaxEta, RcTrkTranMinPt, RcTrkTranMinPhi, RcTrkTranMinEta, RcTrkLeadAreaMcId, RcTrkSubAreaMcId, RcTrkTranMaxMcId, RcTrkTranMinMcId);	
 		RcTranPt = (RcTranMaxPt+RcTranMinPt)/2.;
 	}
-
 
 
 	ResultTree->Fill();
