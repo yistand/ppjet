@@ -18,6 +18,7 @@
 #include <TH1.h>
 #include <TH2.h>
 #include <TH3.h>
+#include <TF1.h>
 #include <TProfile.h>
 #include <TFile.h>
 #include <TLorentzVector.h>
@@ -60,6 +61,17 @@ using namespace fastjet;
 
 typedef std::pair<float, float> EtaPhiPair;
 
+float Gettpcefferr(float pt, float tpcefferr=0.05) {		// return the relatively error
+
+	if(pt>0.5) return tpcefferr/0.875;
+	TF1 *f1 = new TF1("f1","[0]*(exp(-pow([1]/x,[2])))",0,20);
+	f1->SetParameters(0.874739, 0.156624, 5.67316);
+	float def = f1->Eval(pt);
+
+	f1->Delete();
+	if(def<=0) return 0;
+	return tpcefferr/def;
+}
 
 
 float CorrectBemcVzEta(float geoEta, float PrimVertexZ, float radius = 224){	// bemc r_int  = 224 cm
@@ -218,7 +230,7 @@ TStarJetPicoReader SetupMcReader ( TChain* chain){
 
 int main ( int argc, const char** argv ) {
 
-	const char *defaults[] = {"PicoUnderMcVsEmbed","pt2_3_UnderMcVsEmbedMatchTrig.root","ppJP","/home/fas/caines/ly247/Scratch/embedPythia/160808/pp12Pico_pt2_3_13047003_2_1D5BF037780AD6F889C7689DEF3E2321_0.root", "1"};		// IMPORTNANT: for input file, should always run one pt bin at each time for proper cross section weight later on	// Code name, output file, TrigName, input file, sys err (TPC tracking efficiency uncertainty 5%)
+	const char *defaults[] = {"PicoUnderMcVsEmbed","pt35_-1_UnderMcVsEmbedMatchTrig.root","ppJP","/home/fas/caines/ly247/Scratch/embedPythia/160808/pp12Pico_pt35_-1_13059079_1_1D5BF037780AD6F889C7689DEF3E2321_351.root", "1"};		// IMPORTNANT: for input file, should always run one pt bin at each time for proper cross section weight later on	// Code name, output file, TrigName, input file, sys err (TPC tracking efficiency uncertainty 5%)
 
 
 	if ( argc==1 ) {
@@ -324,7 +336,7 @@ int main ( int argc, const char** argv ) {
 
 
 
-	//cout<<"SetupReader for McPico"<<endl;	
+	//cout<<"SetupReader for McPico"<<endl;		
 	TStarJetPicoReader Mcreader = SetupMcReader( Mcchain); 
 
 	// Initialize analysis class
@@ -339,10 +351,10 @@ int main ( int argc, const char** argv ) {
 	if(AddTpcEffErr) std::cout<<"INFO: Add TPC tracking efficiency Uncertainty"<<endl;
 
 	// For systematically study 
-	float tpcefferr = 0.05;				// relative 5% uncertainty on TPC efficiency mean
+	float tpcefferr = 0.05;				// absolute or relative 5% uncertainty on TPC efficiency mean
 
-
-	OutFileName.ReplaceAll(".root",Form("_TpcErrPlus%.2f.root",tpcefferr));
+	//if(AddTpcEffErr) OutFileName.ReplaceAll(".root",Form("_TpcErrAbs%.2f.root",tpcefferr));		// WARNNING!! need to check whether we're using Abs or relatively error
+	if(AddTpcEffErr) OutFileName.ReplaceAll(".root",Form("_TpcErrPlusAbs%.2f.root",tpcefferr));		// WARNNING!! need to check whether we're using Abs or relatively error
 
 	std::cout<<"OutFileName="<<OutFileName<<std::endl;
 
@@ -479,7 +491,9 @@ int main ( int argc, const char** argv ) {
 				Mcsv = Mccontainer->Get(mcip);  // Note that TStarJetVector contains more info
 
 				if( AddTpcEffErr && (Mcsv->GetCharge()!=0)) {
-					if( TpcTracking->Rndm()<tpcefferr )  continue;			// throw away 5% particles randomly on MC level. Effectivley increase TPC tracking efficiency...
+					//if( TpcTracking->Rndm()<tpcefferr )  continue;			// throw away relatively 5% particles randomly on MC level. Effectivley increase TPC tracking efficiency...	Plus
+					if( TpcTracking->Rndm()<Gettpcefferr(Mcsv->perp(), tpcefferr) )  continue;                      // throw away absolute 5% particles randomly on MC level	Plus
+
 				}
 
 				Mcpj=MakePseudoJet( Mcsv );
@@ -561,7 +575,8 @@ int main ( int argc, const char** argv ) {
 
 
 					//if( AddTpcEffErr && (sv->GetCharge()!=0)) {
-					//	if( TpcTracking->Rndm()<tpcefferr )  continue;			// throw away 5% particles randomly on RC level
+					//	//if( TpcTracking->Rndm()<tpcefferr )  continue;			// throw away relative 5% particles randomly on RC level	Minus
+					//	if( TpcTracking->Rndm()<Gettpcefferr(sv->perp(), tpcefferr) )  continue;			// throw away absolute 5% particles randomly on RC level	Minus
 					//}
 
 
