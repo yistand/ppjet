@@ -60,6 +60,14 @@ private:
   bool	 flagjetweight;
   bool	flagscaley;
 
+  // MC root file options
+  bool OPT_TPCSYS;
+  bool OPT_TPCSYSPM;		// true for plus, false for minus 
+  bool OPT_TPCSYSABS;		// true use absolute, false use relative 5%
+
+  // RC>0.2, Mc>0.5, in order to compare with other experiments
+  bool OPT_RC02MC05;
+
   // Unfolding Options
   bool NoFakeOpt;		// ==1: no fake, ==0: fake included (default)
   bool NoLossOpt;		// ==1: no eff, ==0: eff included (default)
@@ -70,7 +78,10 @@ private:
 
   Int_t ExcludeOpt;
 
-  static const int WNbins = 13;
+  Int_t CHANGEPRIOR;
+
+  //TEST static const int WNbins = 13;
+  static const int WNbins = 12;	// TEST
   static double Wptbins[WNbins+1];
 
   static const int MAXARRAY = 500;
@@ -98,6 +109,7 @@ private:
   TProfile *pfxTrain; 
   TProfile *pfxTrainTrue; 
   TProfile *pfxMeas; 
+  TH1F *hpriorratio;	// if need to change prior, use ratio of measured JP data/pythia MB MC leading jet pt distribution
   // Tree
   TTree *tree;
   // Tree branch
@@ -107,6 +119,8 @@ private:
   float RcJet, RcPart;
   int flag;		// 1: true event with Mc and Rc matched, 0: true Mc, no Rc, -1: no Mc, fake Rc
   double weight;	// weighted by cross section / number of the events in that pT bin.
+
+  
 
   // Output file for training response matrix
   TFile *ftout;
@@ -144,6 +158,7 @@ public:
   Int_t TrainAndTest();
   Int_t Fill4Test(int *Nevents);
   Int_t WriteTest();
+  float Weight2ChargePrior(float jetpt);
   virtual void  Reset();
   virtual void  Init();
   virtual Int_t CheckParms();
@@ -168,6 +183,9 @@ public:
   void SetTrigName(TString tname);
   void SetTranCharge(TString tname);
   void SetExcludeJPTrig(Int_t exclude);
+  void SetChangePrior(Int_t change);
+  void SetTpcSys(int opt_tpcsys, int opt_tpcsyspm, int opt_tpcsysabs);	// TPC tracking 5% efficiency study (opt_tpcsys==1), use absolute (opt_tpcsysabs==1) or relative plus(opt_tpcsyspm==1) or minus 5% 
+  void SetRc02Mc05(int opt_rc02mc05);	// RC>0.2, Mc>0.5, in order to compare with other experiments only unfolded to pt>0.5
   int Find(std::vector<int> vec, int val);
 
 };

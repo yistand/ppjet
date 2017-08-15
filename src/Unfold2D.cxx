@@ -236,14 +236,16 @@ void Unfold2D::SetDefaultParms() 		// use default parameterization
 void Unfold2D::PrintParms() 
 {
 	cout<<"method = "<<method<<endl;
-	cout<<"ntx = "<<ntx<<endl;
-	cout<<"nty = "<<nty<<endl;
-	cout<<"nmx = "<<nmx<<endl;
-	cout<<"nmy = "<<nmy<<endl;
-	cout<<"xlo = "<<xlo<<endl;
-	cout<<"xhi = "<<xhi<<endl;
-	cout<<"ylo = "<<ylo<<endl;
-	cout<<"yhi = "<<yhi<<endl;
+	if(!WIDEBIN) {			// WIDEBIN will change those binning values
+		cout<<"ntx = "<<ntx<<endl;
+		cout<<"nty = "<<nty<<endl;
+		cout<<"nmx = "<<nmx<<endl;
+		cout<<"nmy = "<<nmy<<endl;
+		cout<<"xlo = "<<xlo<<endl;
+		cout<<"xhi = "<<xhi<<endl;
+		cout<<"ylo = "<<ylo<<endl;
+		cout<<"yhi = "<<yhi<<endl;
+	}
 	cout<<"overflow = "<<overflow<<endl;
 	cout<<"verbose = "<<verbose<<endl;
 	cout<<"doerror = "<<doerror<<endl;
@@ -514,11 +516,11 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 			}
 
 			if(OPT_RC02MC05) {		// MC pt>0.5 only
-				if(!(YvariableName.Contains("TranTotNtrk"),TString::kIgnoreCase)) {
-					cout<<"WARNING!!!!!!!!!! in "<<__PRETTY_FUNCTION__<<" OPT_RC02MC05=true is only implemented for TranTotNtrk only. Will reset OPT_RC02MC05 = false instead for "<<YvariableName<<endl;
+				if(!(YvariableName.Contains("TranTotNtrk",TString::kIgnoreCase)||(YvariableName.Contains("TranPtAve",TString::kIgnoreCase)&&!(YvariableName.Contains("EventWise",TString::kIgnoreCase))))) {
+					cout<<"WARNING!!!!!!!!!! in "<<__PRETTY_FUNCTION__<<" OPT_RC02MC05=true is only implemented for TranTotNtrk or particle-wise TranPtAve only. Will reset OPT_RC02MC05 = false instead for "<<YvariableName<<endl;
 					OPT_RC02MC05 = false;
 				}
-				else {
+				else if(YvariableName.Contains("TranTotNtrk",TString::kIgnoreCase)) {
 					RcPart = RcTranMaxNtrk+RcTranMinNtrk;		// RC part not change, still pT>0.2
 					
 					McPart = 0;					// MC part only count pT>0.5 particles
@@ -529,8 +531,10 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 						if(McTrkTranMinPt[im]>0.5) McPart+=1;
 					}
 				}
+				// we will deal with PtAve later in the loop
 			}
-			else {
+			{	// as we need to deal with PtAve for OPT_RC02MC05==true case, we just continue here 
+			//else {
 
 				if(YvariableName.Contains("TranMaxNtrk",TString::kIgnoreCase))
 				{
@@ -556,7 +560,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 					McPart = 0.5*(McTranMaxNtrk+McTranMinNtrk);
 					RcPart = 0.5*(RcTranMaxNtrk+RcTranMinNtrk);
 				}	
-				else if(YvariableName.Contains("TranTotNtrk",TString::kIgnoreCase))
+				else if(!OPT_RC02MC05 && YvariableName.Contains("TranTotNtrk",TString::kIgnoreCase))	// as we change OPT_RC02MC05 routine, now OPT_RC02MC05 can be true here...
 				{
 					McPart = McTranMaxNtrk+McTranMinNtrk;
 					RcPart = RcTranMaxNtrk+RcTranMinNtrk;
@@ -698,6 +702,8 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 						else {	// default is TranPtAve
 							for(int im = 0; im<McTranMaxNtrk; im++) 
 							{
+								if(OPT_RC02MC05 && McTrkTranMaxPt[im]<0.5) continue;		// deal with TranPtAve for OPT_RC02MC05 case
+
 								vMcTrkTotPt.push_back(McTrkTranMaxPt[im]);
 								vMcTrkTotPhi.push_back(McTrkTranMaxPhi[im]);
 								vMcTrkTotEta.push_back(McTrkTranMaxEta[im]);
@@ -706,6 +712,8 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 							}
 							for(int im = 0; im<McTranMinNtrk; im++) 
 							{
+								if(OPT_RC02MC05 && McTrkTranMinPt[im]<0.5) continue;		// deal with TranPtAve for OPT_RC02MC05 case
+
 								vMcTrkTotPt.push_back(McTrkTranMinPt[im]);
 								vMcTrkTotPhi.push_back(McTrkTranMinPhi[im]);
 								vMcTrkTotEta.push_back(McTrkTranMinEta[im]);
@@ -2563,7 +2571,6 @@ TH2F* Unfold2D::InitWideXY2DHisto(TString name, TString title)
 		//h = new TH2F(name, title, ntx, xbins, Nptavebins, ptavebins);
 	
 	}
-
 	else 
 	{
 		h = InitWideX2DHisto(name, title, nty, ylo, yhi);
