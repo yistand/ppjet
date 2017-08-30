@@ -80,8 +80,8 @@ private:
 
   Int_t CHANGEPRIOR;
 
-  //TEST static const int WNbins = 13;
-  static const int WNbins = 12;	// TEST
+  //static const int WNbins = 13;
+  static const int WNbins = 12;
   static double Wptbins[WNbins+1];
 
   static const int MAXARRAY = 500;
@@ -159,6 +159,7 @@ public:
   Int_t Fill4Test(int *Nevents);
   Int_t WriteTest();
   float Weight2ChargePrior(float jetpt);
+  float Weight2ChargePrior(TF1 *f1, float jetpt);
   virtual void  Reset();
   virtual void  Init();
   virtual Int_t CheckParms();

@@ -64,8 +64,8 @@ using std::cos;
 //==============================================================================
 //double Unfold2D::Wptbins[] = {0,2,3,4,5,7,9,11,15,20,25,35,45,55,65,100};
 //double Unfold2D::Wptbins[] = {0,2,3,4,5,7,9,11,15,20,25,35,45,55,100};
-//TEST double Unfold2D::Wptbins[] = {0,2,3,4,5,7,9,11,15,20,25,35,45,55};
-double Unfold2D::Wptbins[] = {0,1,3,5,7,9,11,15,20,25,35,45,55};// TEST
+//double Unfold2D::Wptbins[] = {0,2,3,4,5,7,9,11,15,20,25,35,45,55};	//12JetBin
+double Unfold2D::Wptbins[] = {0,1,3,5,7,9,11,15,20,25,35,45,55};// 12JetBinv2
 
 void Unfold2D::Help() {
 
@@ -464,17 +464,27 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 			if(verbose) { cout<<__PRETTY_FUNCTION__<<": pT bin "<<PTBINS[i]<<" Use "<<NUMBEROFEVENT[i]<<" for NUMBEROFEVENT in weight = XSEC["<<i<<"]/NUMBEROFEVENT["<<i<<"]"<<endl;}
 		}
 		weight = xsecweight;
+		//weight = XSEC[i]/tree->GetEntries();			// 	in case we want to do half for train half for test, weight need to be same
+		//cout<<"train weight = "<<weight<<endl;			// 
 
 		//// if Dijest 
 		//TRandom3 *rndm = new TRandom3();
 		//rndm->SetSeed(0);
 
 		for (Int_t j= 0; j<Nevents[i] && j<tree->GetEntries(); j++) {		// loop over entries
+		//for (Int_t j= 0; j<tree->GetEntries(); j+=2) {		// in case we want to do half for train half for test, *random* select (even and odd for train, test)
 			tree->GetEntry(j);
 
 
 			if(CHANGEPRIOR) {		// if need to change prio, use weight to change. In JP unfolded, we used (170412) MB pythia, but applied NF weight to JP data. However, as the jet shape dramatic different from truth, it pulled the unfolding. In order to avoid this situation, we reweighted the pythia MB particle-level to have same jet pt as measured data. So we don't start too far away
 				weight = xsecweight*Weight2ChargePrior(Mcjpt);
+				//If use a function form to change prior
+				//TF1 *func1 = new TF1("func1","exp(-[0]*x)");
+				//func1->SetParameter(0,0.1);
+				//weight = xsecweight*Weight2ChargePrior(func1, Mcjpt);	
+				//func1->Delete();	// need to delete *new*
+				//Or use the default function: 
+				//weight = xsecweight*Weight2ChargePrior(NULL, Mcjpt);	
 			}
 
 			//// if Dijet 
@@ -509,10 +519,14 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 				//
 				// use ReWeightByNF which requires Rcjneutralfrac!=0 or 0.9	2017.01.04
 				if((flagMatch2Lead||flagMatch2Sub) && RcJet>0 && Rcjneutralfrac<0.9 && Rcjneutralfrac>0)      flag = 1; 				
-				//else if(McJet>0 && RcJet<=0) flag = 0;		// non-zero Mc, zero Rc
 				else if(McJet>0 && (RcJet<=0 || !(Rcjneutralfrac<0.9 && Rcjneutralfrac>0)) ) flag = 0;		// inefficiency events: non-zero Mc, zero Rc; or  non-zero Mc, non-zero Rc But Rc does not pass Rc jneutralfrac cuts
-				//else if(RcJet>0 && Rcjneutralfrac<0.9 && Rcjneutralfrac>0 && McJet<=0) flag = -1;		// non-zero Rc, zero Mc			
 				else if(RcJet>0 && Rcjneutralfrac<0.9 && Rcjneutralfrac>0 && (McJet<=0 || !(flagMatch2Lead||flagMatch2Sub)) ) flag = -1;		// fake events: non-zero Rc, zero Mc; or non-zero Rc, non-zero Mc but Rc not matched to Mc leading/sublead
+
+				// simply case 
+				//if(flagMatch2Lead||flagMatch2Sub) flag = 1; 								
+				//else if(McJet>=0 && RcJet<=0) flag = 0;		// non-zero Mc, zero Rc			
+				//else if(RcJet>=0 && McJet<=0) flag = -1;		// non-zero Rc, zero Mc		
+				
 			}
 
 			if(OPT_RC02MC05) {		// MC pt>0.5 only
@@ -1477,7 +1491,9 @@ Int_t Unfold2D::TrainAndTest ()
 	response = new RooUnfoldResponse ("response", "");
 	response->Setup (hTrain, hTrainTrue);
 
-	int Nevents[NUMBEROFPT] = {600000,200000,300000,150000,150000,150000,80000,50000,40000,38000,12000};
+	//int Nevents[NUMBEROFPT] = {600000,200000,300000,150000,150000,150000,80000,50000,40000,38000,12000};
+	//int Nevents[NUMBEROFPT] = {1050000,300000,300000,150000,150000,150000,80000,50000,40000,38000,12000};
+	int Nevents[NUMBEROFPT] = {1550000,450000,450000,220000,220000,220000,120000,75000,60000,58000,17000};
 	//for(int i=0; i<NUMBEROFPT; i++) {
 	//	cout<<Nevents[i]<<endl;
 	//}
@@ -1550,6 +1566,7 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 	Float_t tMcTranMaxPtSum;
 	Float_t tMcTranMinPtSum;
 
+	Float_t tRcjneutralfrac;
 	Int_t  tRcTranMaxNtrk;
 	Int_t  tRcTranMinNtrk;
 	Int_t  tRcLeadAreaNtrk;
@@ -1605,6 +1622,7 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 		ttree->SetBranchAddress("McTranMinPtSum",&tMcTranMinPtSum);
 
 		ttree->SetBranchAddress("Rcj1pt",&tRcJet);
+		ttree->SetBranchAddress("Rcj1neutralfrac",&tRcjneutralfrac);
 		ttree->SetBranchAddress("RcLeadAreaNtrk",&tRcLeadAreaNtrk);
 		ttree->SetBranchAddress("RcSubAreaNtrk",&tRcSubAreaNtrk);
 		ttree->SetBranchAddress("RcTranMaxNtrk",&tRcTranMaxNtrk);
@@ -1618,21 +1636,34 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 
 		// Weight per pT bin
 		tweight = XSEC[i]/(ttree->GetEntries()-Nevents[i]);
+		//tweight = XSEC[i]/(ttree->GetEntries());				//	in case we want to do half for train half for test, weight need to be same
+		//cout<<"test weight = "<<tweight<<endl;				
 		totalxsec+=XSEC[i];
 		totalnevents+=(ttree->GetEntries()-Nevents[i]);
 
 		cout<<"From "<<Nevents[i]<<" to "<<ttree->GetEntries()<<endl;
 		for (Int_t j=Nevents[i];j<ttree->GetEntries() ; j++) {			// Caution!!! Need to update loop if needed
+		//for (Int_t j=1;j<ttree->GetEntries() ; j+=2) {			// in case we want to do half for train half for test, *random* select (even and odd for train, test)	
 			ttree->GetEntry(j);
 
-			if(!tflagIsTrigger) continue;			// no correction for trig now..
+			//as it is not in use in Train filling, we also comment it out here..  if(!tflagIsTrigger) continue;			// uncomment for no correction for trig now..
 			tflag = -999;
-			if(tflagtrigmatch && (tflagMatch2Lead||tflagMatch2Sub) ) tflag = 1; 
-			else if(tMcJet>0 && (tRcJet<=0 || !tflagtrigmatch) ) tflag = 0;		// non-zero tMc, zero tRc
-			else if((tRcJet>0&&tflagtrigmatch) && tMcJet<=0) tflag = -1;		// non-zero tRc, zero tMc
-			//if(tflagMatch2Lead||tflagMatch2Sub) tflag = 1; 
-			//else if(tMcJet>=0 && tRcJet<=0) tflag = 0;		// non-zero Mc, zero Rc
-			//else if(tRcJet>=0 && tMcJet<=0) tflag = -1;		// non-zero Rc, zero Mc
+			if(TrigName.Contains("JP")&&!(flagjetweight||flagscaley)) {
+				if(tflagtrigmatch && (tflagMatch2Lead||tflagMatch2Sub) ) tflag = 1; 
+				else if(tMcJet>0 && (tRcJet<=0 || !tflagtrigmatch) ) tflag = 0;		// non-zero tMc, zero tRc
+				else if((tRcJet>0&&tflagtrigmatch) && tMcJet<=0) tflag = -1;		// non-zero tRc, zero tMc
+			}
+			else {
+				//// simply case. check with Train Fill to see what is in use
+				//if(tflagMatch2Lead||tflagMatch2Sub) tflag = 1; 							
+				//else if(tMcJet>=0 && tRcJet<=0) tflag = 0;		// non-zero Mc, zero Rc
+				//else if(tRcJet>=0 && tMcJet<=0) tflag = -1;		// non-zero Rc, zero Mc
+				
+				//check with Train Fill to see what is in use
+				if((tflagMatch2Lead||tflagMatch2Sub) && tRcJet>0 && tRcjneutralfrac<0.9 && tRcjneutralfrac>0) tflag = 1; 
+				else if(tMcJet>=0 && (tRcJet<=0 || !(tRcjneutralfrac<0.9 && tRcjneutralfrac>0))) tflag = 0;		// non-zero Mc, zero Rc
+				else if(tRcJet>0 && tRcjneutralfrac<0.9 && tRcjneutralfrac>0 && (tMcJet<=0 || !(tflagMatch2Lead||tflagMatch2Sub)) ) tflag = -1;		// fake events: non-zero Rc, zero Mc; or non-zero Rc, non-zero Mc but Rc not matched to Mc leading/sublead
+			}
 
 
 			// Read tMcPart and tRcPart
@@ -1741,12 +1772,12 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 					tMcPart = tMcSubAreaPtSum;
 					tRcPart = tRcSubAreaPtSum;
 				}
-				else if(YvariableName.Contains("LeadAreaPtAve",TString::kIgnoreCase)) 
+				else if(YvariableName.Contains("LeadAreaPtAve",TString::kIgnoreCase)||YvariableName.Contains("LeadPtAve",TString::kIgnoreCase)) 
 				{
 					tMcPart = tMcLeadAreaPtSum/tMcLeadAreaNtrk;
 					tRcPart = tRcLeadAreaPtSum/tRcLeadAreaNtrk;
 				}
-				else if(YvariableName.Contains("SubAreaPtAve",TString::kIgnoreCase)) 
+				else if(YvariableName.Contains("SubAreaPtAve",TString::kIgnoreCase)||YvariableName.Contains("SubPtAve",TString::kIgnoreCase)) 
 				{
 					tMcPart = tMcSubAreaPtSum/tMcSubAreaNtrk;
 					tRcPart = tRcSubAreaPtSum/tRcSubAreaNtrk;
@@ -1782,7 +1813,7 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 
 	//Scale the histogram to simulate statistic of how many events. Note: sumw2() is called after wards, otherwise it would serve the purpose of simulate the statistic . 
 	//double toscale = totalnevents/totalxsec;
-	double toscale = 100e6/totalxsec;		// say if we have 100M MB data. how does the real unfolding probably looks like
+	double toscale = 1; // 100e6/totalxsec;		// say if we have 100M MB data. how does the real unfolding probably looks like
 	hMeas->Scale(toscale);
 	hTrue->Scale(toscale);
 	hFake->Scale(toscale);
@@ -1964,7 +1995,7 @@ Int_t Unfold2D::WriteTest()
 		else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
 		else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
 	}
-	ftout = new TFile(Form("ResponseMatrix%s_%s%s%s%s%s%s%s_Mc%s%sPt02%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SMethod.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),STpcSys.Data()),"RECREATE");
+	ftout = new TFile(Form("TrainTest%s_%s%s%s%s%s%s%s_Mc%s%sPt02%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SMethod.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),STpcSys.Data()),"RECREATE");
 	if(ftout) cout<<"Write to "<<ftout->GetName()<<endl;
 	hTrainTrue->Write();
 	hTrain->Write();
@@ -2127,8 +2158,9 @@ Int_t Unfold2D::WriteUnfoldResult()
 	if(OPT_RC02MC05) {
 		Spt="PtRC02MC05";
 	}
-	//TEST TEST ftout = new TFile(Form("Unfolding%s_%s%s%s%s%s%s%s%s%s_Mc%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data()),"RECREATE");
-	ftout = new TFile(Form("Unfolding%s_%s%s%s%s%s%s%s%s%s_12JetBinv2_Mc%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data()),"RECREATE");	// TEST
+	//ftout = new TFile(Form("Unfolding%s_%s%s%s%s%s%s%s%s%s_Mc%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data()),"RECREATE");
+	ftout = new TFile(Form("Unfolding%s_%s%s%s%s%s%s%s%s%s_12JetBinv2_Mc%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data()),"RECREATE");	// 12JetBinv2
+	//ftout = new TFile(Form("Unfolding%s_%s%s%s%s%s%s%s%s%s_12JetBinv2_pTBinv2_Mc%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data()),"RECREATE");	// 12JetBinv2 and can profile to 0.5 instead of 0.48 GeV/c for tranptave pt binnning
 	hTrainTrue->Write();
 	hTrain->Write();
 	hTrainFake->Write();
@@ -2201,6 +2233,28 @@ float Unfold2D::Weight2ChargePrior(float jetpt)
 	if(pbin<=0 || pbin>hpriorratio->GetNbinsX()) { cout<<"WARNING!! void Unfold2D::Weight2ChargePrior(float jetpt): "<<jetpt<<" not in hpriorratio x range. "<<endl; return 1;  }
 	
 	float ratio = hpriorratio->GetBinContent(pbin);
+
+	return ratio;
+}
+
+
+//==============================================================================
+// Apply event weight to change prior for unfolding
+// use a user defined function to generate weigth
+//==============================================================================
+
+float Unfold2D::Weight2ChargePrior(TF1 *f1, float jetpt) 
+{
+	float ratio = 1; 
+	if(!f1) {
+		f1 = new TF1("f1","exp(-[0]*x)",Wptbins[0],Wptbins[WNbins]);
+		f1->SetParameter(0,0.1);
+		ratio = f1->Eval(jetpt);
+		f1->Delete();
+	}
+	else {
+		ratio = f1->Eval(jetpt);
+	}
 
 	return ratio;
 }
@@ -2544,6 +2598,31 @@ TH2F* Unfold2D::InitWideXY2DHisto(TString name, TString title)
 			ptavebins[i] = 6+(i-47)*2;
 		}
 		ptavebins[50] = 20;
+	
+		//// if Mc unfolded to pT->0.2
+		//// AND if we want to profile to pT>0.5 later on
+		//const int Nptavebins = 50;
+		//double ptavebins[Nptavebins+1];
+		//for(int i = 0; i<7; i++) {
+		//	ptavebins[i] = 0.2+i*0.04;
+		//}
+		//ptavebins[7] = 0.5;
+		//for(int i = 8; i<26; i++) {
+		//	ptavebins[i] = 0.2+i*0.04;
+		//}
+		//for(int i = 26; i<34; i++) {
+		//	ptavebins[i] = 1.2+(i-25)*0.1;
+		//}
+		//for(int i = 34; i<44; i++) {
+		//	ptavebins[i] = 2+(i-33)*0.2;
+		//}
+		//for(int i = 44; i<48; i++) {
+		//	ptavebins[i] = 4+(i-43)*0.5;
+		//}
+		//for(int i = 48; i<50; i++) {
+		//	ptavebins[i] = 6+(i-47)*2;
+		//}
+		//ptavebins[50] = 20;
 	
 		/*
 		const int Nptavebins = 16;
