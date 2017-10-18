@@ -11,6 +11,7 @@
 
 #include <TH1.h>
 #include <TH2.h>
+#include <TF1.h>
 #include <TProfile.h>
 #include <TFile.h>
 #include <TString.h>
@@ -28,7 +29,7 @@
 using namespace std;
 #endif
 
-void MainUnfold2D(TString ToUnfold="LeadAreaNtrk",const char* iter="5", const char* jetweight="1", const char* scaley = "0", const char *tpcsys="0", const char *tpcsyspm="0", const char *tpcsysabs="0", const char *Rc02Mc05="0") {
+void MainUnfold2D(TString ToUnfold="LeadAreaNtrk",const char* iter="5", const char* jetweight="1", const char* scaley = "0", const char *tpcsys="0", const char *tpcsyspm="0", const char *tpcsysabs="0", const char *Rc02Mc05="0", const char *bemcsys="0", const char *bemcsyspm="0", const char *MIP="0", const char *dovzweight="0") {
 // tpcsys, tpcsyspm, tpcsysabs:
 // if tpcsys==1, do TPC tracking efficiency uncertainty check: +/- (tpcsyspm) relative or absolute (tpcsysabs==0or1) 5%
 // default tpcsys=0, don't apply TPC tracking sys. err. to unfolding training data
@@ -36,6 +37,20 @@ void MainUnfold2D(TString ToUnfold="LeadAreaNtrk",const char* iter="5", const ch
 // Rc02Mc05:
 // 	==1: Use RC pt>0.2, MC pt>0.5. Unfold to pt->0.5 using measured pt->0.2 data.
 // 	==0: default, pt>0.2 for both RC and MC
+//
+// bemcsys, bemcsyspm
+// if bemcsys==1, do BEMC tower gain uncertainty check: +/- (bemcsys) relative 4%
+// default bemcsys=0, don't use bemc gain sys. err. to unfodling training response martix 
+//
+// MIP:
+// 	==1: Use MIP for tower correction root file
+// 	==0: default, use hadronic 100% root file
+//
+// dovzweight:
+// 	==1: weight Rc Vz has the same Vz distribution as real data for JP and MB depending on what is used in unfolding matrix
+
+	cout<<"ToUnfold	iter	 jetweight	scaley	tpcsys	tpcsyspm	tpcsysabs	Rc02Mc05	bemcsys	bemcsyspm	MIP	dovzweight"<<endl;
+	cout<<ToUnfold<<" "<<iter<<" "<< jetweight<<" "<<scaley<<" "<<tpcsys<<" "<<tpcsyspm<<" "<<tpcsysabs<<" "<<Rc02Mc05<<" "<<bemcsys<<" "<<bemcsyspm<<" "<<MIP<<" "<<dovzweight<<endl;
 
 	Unfold2D *uf2;
 
@@ -57,14 +72,18 @@ void MainUnfold2D(TString ToUnfold="LeadAreaNtrk",const char* iter="5", const ch
 	uf2->SetTrigName("JP");						// MB JP0 JP1 JP2
 	uf2->SetExcludeJPTrig(0);					// Embedding JP trigger exclude overlap or not. use 0 if unsure
 	uf2->SetTranCharge("Charged");					// Charged Neutral for underlying particles
-	//uf2->SetChangePrior(1);					// 1: for JP unfolding, use JP measured shape as prior for pythia MC level. 0: don't change pythia prior 
+	//uf2->SetChangePrior(0);					// 1: for JP unfolding, use JP measured shape as prior for pythia MC level. 0: don't change pythia prior 
 	uf2->SetTpcSys(atoi(tpcsys),atoi(tpcsyspm), atoi(tpcsysabs));			// TPC tracking 5% efficiency study, use absolute or relative +/- 5%
+	uf2->SetBemcSys(atoi(bemcsys),atoi(bemcsyspm));			// BEMC gain 4% efficiency study 
 
 	uf2->SetRc02Mc05(atoi(Rc02Mc05));		// Use  measured pt>0.2 data to unfold back to pt>0.5
+	uf2->SetMIP(atoi(MIP));				// if true, read MIP root file
+	uf2->SetDoRcVzWeight(atoi(dovzweight));		// if true, weight Rc Vz to be same as real data
 
 	uf2->PrintParms();
 	//uf2->SetNoFake(true);
 	//uf2->SetNoLoss(true);
+
 /*
 	uf2->TrainAndTest();
 	uf2->Results();
@@ -85,7 +104,6 @@ void MainUnfold2D(TString ToUnfold="LeadAreaNtrk",const char* iter="5", const ch
 */
 	
 
-
 	//---- Use Fill4Unfold() to read in data tree and fill the histogram or use ReadMeasHist4Unfold() if the histogram is ready been fill by Fill4Unfold() in root file.
 	// Recommend to use Fill4Unfold() instead of ReadMeasHist4Unfold(). THere is unsolved rebin to wide bin issue
 	uf2->Fill4Unfold();
@@ -95,7 +113,6 @@ void MainUnfold2D(TString ToUnfold="LeadAreaNtrk",const char* iter="5", const ch
 	uf2->Results();
 	uf2->WriteUnfoldResult();
 
-
 	cout<<"Bye .. "<<endl;
 
 }
@@ -103,6 +120,8 @@ void MainUnfold2D(TString ToUnfold="LeadAreaNtrk",const char* iter="5", const ch
 
 #ifndef __CINT__
 int main ( int argc, const char** argv) { 		// Main program when run stand-alone
+
+	cout<<"argc = "<<argc<<endl;
 
 	if( argc == 1) {
 		MainUnfold2D(); 
@@ -147,6 +166,27 @@ int main ( int argc, const char** argv) { 		// Main program when run stand-alone
 		TString YName = arguments.at(0);
 		MainUnfold2D(YName, argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8]);
 	}
+	else if( argc == 10) {
+		vector<string> arguments(argv + 1, argv + argc);
+		TString YName = arguments.at(0);
+		MainUnfold2D(YName, argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9]);
+	}
+	else if( argc == 11) {
+		vector<string> arguments(argv + 1, argv + argc);
+		TString YName = arguments.at(0);
+		MainUnfold2D(YName, argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9], argv[10]);
+	}
+	else if( argc == 12) {
+		vector<string> arguments(argv + 1, argv + argc);
+		TString YName = arguments.at(0);
+		MainUnfold2D(YName, argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9], argv[10], argv[11]);
+	}
+	else if( argc == 13) {
+		vector<string> arguments(argv + 1, argv + argc);
+		TString YName = arguments.at(0);
+		MainUnfold2D(YName, argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9], argv[10], argv[11], argv[12]);
+	}
+
 
 	return 0; 
 

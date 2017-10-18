@@ -131,7 +131,7 @@ bool readinbadrunlist(std::set<int> & badrun, TString csvfile="./include/pp200Y1
 
 
 // Helper to deal with repetitive stuff
-TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const double RefMultCut ){
+TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const double RefMultCut , int USEMIP=0){
 	//TStarJetPicoDefinitions::SetDebugLevel(10); // 10 for more output, 0 for less output
 
 	TStarJetPicoReader reader;
@@ -144,7 +144,7 @@ TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const dou
 	// Additional cuts 
 	evCuts->SetVertexZCut (AjParameters::VzCut);
 	evCuts->SetRefMultCut ( RefMultCut );
-	evCuts->SetVertexZDiffCut( AjParameters::VzDiffCut );		
+	evCuts->SetVertexZDiffCut( AjParameters::VzDiffCut );			
 	//evCuts->SetVertexZDiffCut( 999999 );	// pAu. 2017.04.15 no VzDiffCut for pp JP data
 
 	evCuts->SetMaxEventPtCut ( AjParameters::MaxEventPtCut );
@@ -179,9 +179,11 @@ TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const dou
 	}
 
 	// Tower energy correction (subtract associated charged particle deposit energy). By default, it is MIP correction (comment out the following 3 lines)
-	reader.SetApplyFractionHadronicCorrection(kTRUE);
-	reader.SetFractionHadronicCorrection(0.9999);
-	reader.SetRejectTowerElectrons( kFALSE );
+	if(USEMIP==0) {
+		reader.SetApplyFractionHadronicCorrection(kTRUE);
+		reader.SetFractionHadronicCorrection(0.9999);
+		reader.SetRejectTowerElectrons( kFALSE );
+	}
 
 
 	std::cout << "Using these tower cuts:" << std::endl;
@@ -200,8 +202,8 @@ int main ( int argc, const char** argv ) {
 
 	// Set up some convenient default
 	// ------------------------------
-	const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/FullJet_TransCharged_MatchTrig_ppJP2.root","ppJP2","/home/hep/caines/ly247/Scratch/pp12JP2Pico_151018/*.root", "0", "0" };
-	// {Code name, to be discard but needed since argv will use command name as the [0], output file name, triggername, intput file list, for variable IntTowScale to scale tower as systematics study, which effiencey file to use }
+	const char *defaults[] = {"PicoJetUnderlyingActivity","/home/hep/caines/ly247/Scratch/pp200Y12_jetunderlying/FullJet_TransCharged_MatchTrig_ppJP2.root","ppJP2","/home/hep/caines/ly247/Scratch/pp12JP2Pico_151018/*.root", "0", "0" ,"0"};
+	// {Code name, to be discard but needed since argv will use command name as the [0], output file name, triggername, intput file list, for variable IntTowScale to scale tower as systematics study, which effiencey file to use }, MIP (1) or not (0, default)
 	//
 	// output file name can include(optional): 
 	// 	"R0.6" (default) OR "R0.4" OR "R0.2";
@@ -264,6 +266,10 @@ int main ( int argc, const char** argv ) {
 	if(TriggerName.EqualTo("pAuBHT2")) TrigFlagId = 1518;		//// BHT2               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
 	if(TriggerName.EqualTo("pAuJP2")) TrigFlagId = 1540;		//// JP2               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
 
+	// MIP or not. Default not MIP. use Hadronic Corrections
+	int UseMIP = abs(arguments.at(5).compare("0"));
+	if(UseMIP==1) OutFileName="MIP_"+OutFileName; 		
+	if(OutFileName.Contains("MIP")) UseMIP = 1;		// mip option can also be set by outfilename
 
 	cout<<"Chain data: "<<arguments.at(2).data()<<" for "<<ChainName<<endl;
 	TChain* chain = new TChain( ChainName );
@@ -317,7 +323,8 @@ int main ( int argc, const char** argv ) {
 
 	cout<<"SetupReader for pico"<<endl;
 	double RefMultCut = 0;
-	TStarJetPicoReader reader = SetupReader( chain, TriggerName, RefMultCut );			// #ly note: Events & Tracks & Towers cuts are set here
+	if(UseMIP==1) std::cout<<"INFO: MIP is used"<<std::endl;
+	TStarJetPicoReader reader = SetupReader( chain, TriggerName, RefMultCut, UseMIP );			// #ly note: Events & Tracks & Towers cuts are set here
 	//reader.SetTrackPileUpCut(kTRUE);		// #ly	tpc track matching to bemc or tof
 	reader.SetTrackPileUpCut(2);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
 	if( OutFileName.Contains ("NoTofMatch") ) {

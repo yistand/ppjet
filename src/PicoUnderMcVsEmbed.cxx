@@ -36,6 +36,7 @@
 #include <utility>	// std::pair, std::make_pair
 #include <iostream>
 #include <fstream>
+#include <sstream>	// stringstream
 #include <set>
 #include <cmath>
 #include <exception>
@@ -126,7 +127,7 @@ bool readinbadrunlist(std::set<int> & badrun, TString csvfile="./include/pp200Y1
 
 // Helper to deal with repetitive stuff
 // Reader for Rc (reconstructed)
-TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const double RefMultCut ){
+TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const double RefMultCut , int USEMIP=0){
 	//TStarJetPicoDefinitions::SetDebugLevel(10); // 10 for more output, 0 for less output
 
 	TStarJetPicoReader reader;
@@ -168,9 +169,11 @@ TStarJetPicoReader SetupReader ( TChain* chain, TString TriggerString, const dou
 	towerCuts->AddBadTowers("./include/pp200Y12_badtower.list");		// #LY CHECK where is the bad tower list
 
 	// Tower energy correction (subtract associated charged particle deposit energy). By default, it is MIP correction (comment out the following 3 lines)
-	reader.SetApplyFractionHadronicCorrection(kTRUE);
-	reader.SetFractionHadronicCorrection(0.9999);
-	reader.SetRejectTowerElectrons( kFALSE );
+	if(USEMIP==0) {
+		reader.SetApplyFractionHadronicCorrection(kTRUE);
+		reader.SetFractionHadronicCorrection(0.9999);
+		reader.SetRejectTowerElectrons( kFALSE );
+	}
 
 
 	std::cout << "Using these tower cuts:" << std::endl;
@@ -215,7 +218,7 @@ TStarJetPicoReader SetupMcReader ( TChain* chain){
 	// Towers: should be no tower in MC. All (charged or neutral) are handled in track
 	TStarJetPicoTowerCuts* towerCuts = reader.GetTowerCuts();
 	towerCuts->SetMaxEtCut(99999);
-	// Tower energy correction (subtract associated charged particle deposit energy). By default, it is MIP correction (comment out the following 3 lines)
+	// Tower energy correction (subtract associated charged particle deposit energy). By default, it is MIP correction (comment out the following 3 lines)	// comment 2017.10.15 MC all stored in tracks. and no need do mip
 	//reader.SetApplyFractionHadronicCorrection(kTRUE);
 	//reader.SetFractionHadronicCorrection(0.9999);
 	//reader.SetRejectTowerElectrons( kFALSE );
@@ -230,7 +233,7 @@ TStarJetPicoReader SetupMcReader ( TChain* chain){
 
 int main ( int argc, const char** argv ) {
 
-	const char *defaults[] = {"PicoUnderMcVsEmbed","pt35_-1_UnderMcVsEmbedMatchTrig.root","ppJP","/home/fas/caines/ly247/Scratch/embedPythia/160808/pp12Pico_pt35_-1_13059079_1_1D5BF037780AD6F889C7689DEF3E2321_351.root", "1"};		// IMPORTNANT: for input file, should always run one pt bin at each time for proper cross section weight later on	// Code name, output file, TrigName, input file, sys err (TPC tracking efficiency uncertainty 5%)
+	const char *defaults[] = {"PicoUnderMcVsEmbed","pt35_-1_UnderMcVsEmbedMatchTrig.root","ppJP","/home/fas/caines/ly247/Scratch/embedPythia/160808/pp12Pico_pt35_-1_13059079_1_1D5BF037780AD6F889C7689DEF3E2321_351.root", "0", "0", "0", "0"};		// IMPORTNANT: for input file, should always run one pt bin at each time for proper cross section weight later on	// Code name, output file, TrigName, input file, sys err (TPC tracking efficiency uncertainty 5%, -1 for -5%, 1 for +5%), TPC sys err relative (0) or absolute (1), sys err (BEMC tower calibration uncertainty 4%, -1 for -4%, 1 for +4%), MIP (1) or not (0, default)
 
 
 	if ( argc==1 ) {
@@ -279,6 +282,9 @@ int main ( int argc, const char** argv ) {
 	if(TriggerName.EqualTo("ppJP1")) TrigFlagId = 1228;		//// JP1               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
 	if(TriggerName.EqualTo("ppJP0")) TrigFlagId = 1220;		//// JP0               HERE NEED TO IMPROVE, NOW IT IS PUT IN BY HAND
 
+	// MIP or not. Default not MIP. use Hadronic Corrections
+	int UseMIP = abs(arguments.at(6).compare("0"));
+	if(UseMIP==1) OutFileName.ReplaceAll("_McPt","_MIP_McPt");		
 
 	cout<<"Chain data: "<<arguments.at(2).data()<<" for "<<RcChainName<<" and "<<McChainName<<endl;
 	TChain* chain = new TChain( RcChainName );
@@ -318,7 +324,7 @@ int main ( int argc, const char** argv ) {
 	//cout<<"SetupReader for RcPico"<<endl;	
 	double RefMultCut = 0;
 	//TStarJetPicoReader reader = SetupReader( chain, TriggerName,RefMultCut );			// #ly note: Events & Tracks & Towers cuts are set here
-	TStarJetPicoReader reader = SetupReader( chain, "All" ,RefMultCut );			// #ly note: Events & Tracks & Towers cuts are set here. To assess the trigger efficiency, we move the trigger information into tree production, variable is_trigger
+	TStarJetPicoReader reader = SetupReader( chain, "All" ,RefMultCut, UseMIP);			// #ly note: Events & Tracks & Towers cuts are set here. To assess the trigger efficiency, we move the trigger information into tree production, variable is_trigger
 	reader.SetTrackPileUpCut(0);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching for Embedding data
 	//if( OutFileName.Contains ("NoTofMatch") ) {
 	//  reader.SetTrackPileUpCut(0);		// #ly	1: tpc track matching to bemc or tof. 	2: tof match only.    0: no requirement for fast detector matching
@@ -347,14 +353,39 @@ int main ( int argc, const char** argv ) {
 		jetalgorithm = "kt";
 	}
 
-	int AddTpcEffErr = abs(arguments.at(3).compare("0"));
-	if(AddTpcEffErr) std::cout<<"INFO: Add TPC tracking efficiency Uncertainty"<<endl;
-
 	// For systematically study 
+	
+	// TPC tracking efficiency 
+	int AddTpcEffErr = 0;
+	stringstream ttmp(arguments.at(3));
+	ttmp >> AddTpcEffErr;		// convert string to int
+	if(AddTpcEffErr==1) std::cout<<"INFO: Run with TPC Calibration Uncertainty +5%"<<endl;
+	if(AddTpcEffErr==-1) std::cout<<"INFO: Run with TPC Calibration Uncertainty -5%"<<endl;
+
 	float tpcefferr = 0.05;				// absolute or relative 5% uncertainty on TPC efficiency mean
 
-	//if(AddTpcEffErr) OutFileName.ReplaceAll(".root",Form("_TpcErrAbs%.2f.root",tpcefferr));		// WARNNING!! need to check whether we're using Abs or relatively error
-	if(AddTpcEffErr) OutFileName.ReplaceAll(".root",Form("_TpcErrPlusAbs%.2f.root",tpcefferr));		// WARNNING!! need to check whether we're using Abs or relatively error
+	int AbsOrRelTpcSys = abs(arguments.at(4).compare("0"));
+	if(AbsOrRelTpcSys) {
+		if(AddTpcEffErr==1) OutFileName.ReplaceAll(".root",Form("_TpcErrPlusAbs%.2f.root",tpcefferr));		
+		else if(AddTpcEffErr==-1) OutFileName.ReplaceAll(".root",Form("_TpcErrMinusAbs%.2f.root",tpcefferr));		
+	}
+	else {
+		if(AddTpcEffErr==1) OutFileName.ReplaceAll(".root",Form("_TpcErrPlus%.2f.root",tpcefferr));		
+		else if(AddTpcEffErr==-1) OutFileName.ReplaceAll(".root",Form("_TpcErrMinus%.2f.root",tpcefferr));		
+	}
+
+	// BEMC tower calibration uncertainty
+	int AddBemcCalErr = 0;
+	stringstream stmp(arguments.at(5));
+	stmp >> AddBemcCalErr;		// convert string to int
+	if(AddBemcCalErr==1) std::cout<<"INFO: Run with BEMC Calibration Uncertainty +4%"<<endl;
+	if(AddBemcCalErr==-1) std::cout<<"INFO: Run with BEMC Calibration Uncertainty -4%"<<endl;
+
+	float bemccalerr = 0.04;
+	if(AddBemcCalErr==1) OutFileName.ReplaceAll(".root",Form("_BemcErrPlus%.2f.root",bemccalerr));		
+	else if(AddBemcCalErr==-1) OutFileName.ReplaceAll(".root",Form("_BemcErrMinus%.2f.root",bemccalerr));		
+
+
 
 	std::cout<<"OutFileName="<<OutFileName<<std::endl;
 
@@ -490,10 +521,15 @@ int main ( int argc, const char** argv ) {
 			for (int mcip = 0; mcip<Mccontainer->GetEntries() ; ++mcip ){
 				Mcsv = Mccontainer->Get(mcip);  // Note that TStarJetVector contains more info
 
-				if( AddTpcEffErr && (Mcsv->GetCharge()!=0)) {
-					//if( TpcTracking->Rndm()<tpcefferr )  continue;			// throw away relatively 5% particles randomly on MC level. Effectivley increase TPC tracking efficiency...	Plus
-					if( TpcTracking->Rndm()<Gettpcefferr(Mcsv->perp(), tpcefferr) )  continue;                      // throw away absolute 5% particles randomly on MC level	Plus
-
+				if( AddTpcEffErr==1 && (Mcsv->GetCharge()!=0)) {
+					if (AbsOrRelTpcSys) {
+						//std::cout<<"throw tpc absoulte 5%"<<std::endl;
+						if( TpcTracking->Rndm()<Gettpcefferr(Mcsv->perp(), tpcefferr) )  continue;                      // throw away absolute 5% particles randomly on MC level	Plus
+					}
+					else {
+						//std::cout<<"throw tpc relative 5%"<<std::endl;
+						if( TpcTracking->Rndm()<tpcefferr )  continue;			// throw away relatively 5% particles randomly on MC level. Effectivley increase TPC tracking efficiency...	Plus
+					}
 				}
 
 				Mcpj=MakePseudoJet( Mcsv );
@@ -574,10 +610,14 @@ int main ( int argc, const char** argv ) {
 					sv = container->Get(ip);  // Note that TStarJetVector contains more info, such as charge;
 
 
-					//if( AddTpcEffErr && (sv->GetCharge()!=0)) {
-					//	//if( TpcTracking->Rndm()<tpcefferr )  continue;			// throw away relative 5% particles randomly on RC level	Minus
-					//	if( TpcTracking->Rndm()<Gettpcefferr(sv->perp(), tpcefferr) )  continue;			// throw away absolute 5% particles randomly on RC level	Minus
-					//}
+					if( AddTpcEffErr==-1 && (sv->GetCharge()!=0)) {
+						if (AbsOrRelTpcSys) {
+							if( TpcTracking->Rndm()<Gettpcefferr(sv->perp(), tpcefferr) )  continue;			// throw away absolute 5% particles randomly on RC level	Minus
+						}
+						else {
+							if( TpcTracking->Rndm()<tpcefferr )  continue;			// throw away relative 5% particles randomly on RC level	Minus
+						}
+					}
 
 
 					//if (sv->GetCharge()==0 ) (*sv) *= fTowScale; // for systematics
@@ -586,6 +626,14 @@ int main ( int argc, const char** argv ) {
 					pj.set_user_index(ip);		// #ly	link fastjet::PseudoJet to TStarJetVector class	--> NEED TO FIX THIS, NOT SURE WHY USER_INFO IS NOT PASSED TO JAResult.at(0).constituents() in UnderlyingAna.cxx
 					//cout<<"input "<<sv->GetCharge() <<" -> "<<pj.user_info<JetAnalysisUserInfo>().GetQuarkCharge()<<endl;	 
 					//cout<<"input Rcsv key = "<<sv->GetMatch()<<" eta = "<< sv->eta() <<" phi = "<< sv->phi() << " pt = "<< sv->perp() << " charge = "<<sv->GetCharge()<<endl;
+
+					if( AddBemcCalErr==1 && (sv->GetCharge()==0)) {
+						pj*=1.04;			//multiply the tower's momentum by the coefficient 
+					}
+					else if( AddBemcCalErr==-1 && (sv->GetCharge()==0)) {
+						pj*=0.96;			//multiply the tower's momentum by the coefficient 
+					}
+
 
 					particles.push_back ( pj );
 	
