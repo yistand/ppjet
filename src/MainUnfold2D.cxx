@@ -35,8 +35,11 @@ void MainUnfold2D(TString ToUnfold="LeadAreaNtrk",const char* iter="5", const ch
 // default tpcsys=0, don't apply TPC tracking sys. err. to unfolding training data
 //
 // Rc02Mc05:
+// 	Note for PtAve case,  we can profile to whatever pT, like pt>0.2 later on, instead of unfolding it here.
+// 	It is noticed, when use ==1, unfold to 0.5 use 0.2, there is large fluctuation for TranPtAve, therefore not recommended
 // 	==1: Use RC pt>0.2, MC pt>0.5. Unfold to pt->0.5 using measured pt->0.2 data.
 // 	==0: default, pt>0.2 for both RC and MC
+// 	==2: Use RC pt>0.5, Mc pt>0.5. Unfold to pt->0.5 using measured pt->0.5 data.
 //
 // bemcsys, bemcsyspm
 // if bemcsys==1, do BEMC tower gain uncertainty check: +/- (bemcsys) relative 4%

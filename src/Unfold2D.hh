@@ -65,8 +65,17 @@ private:
   bool OPT_TPCSYSPM;		// true for plus, false for minus 
   bool OPT_TPCSYSABS;		// true use absolute, false use relative 5%
 
-  // RC>0.2, Mc>0.5, in order to compare with other experiments
-  bool OPT_RC02MC05;
+  bool OPT_BEMCSYS;
+  bool OPT_BEMCSYSPM;		// true for plus, false for minus  4%
+
+  // ==1: RC>0.2, Mc>0.5, in order to compare with other experiments. ==2: RC>0.5, Mc>0.5
+  int OPT_RC02MC05;
+
+  // MIP instead of default 100% hadronic correction
+  bool OPT_MIP;
+
+  // weight Rc Vz to be same as real data
+  bool OPT_DORCVZWEIGHT;
 
   // Unfolding Options
   bool NoFakeOpt;		// ==1: no fake, ==0: fake included (default)
@@ -186,7 +195,10 @@ public:
   void SetExcludeJPTrig(Int_t exclude);
   void SetChangePrior(Int_t change);
   void SetTpcSys(int opt_tpcsys, int opt_tpcsyspm, int opt_tpcsysabs);	// TPC tracking 5% efficiency study (opt_tpcsys==1), use absolute (opt_tpcsysabs==1) or relative plus(opt_tpcsyspm==1) or minus 5% 
-  void SetRc02Mc05(int opt_rc02mc05);	// RC>0.2, Mc>0.5, in order to compare with other experiments only unfolded to pt>0.5
+  void SetBemcSys(int opt_bemcsys, int opt_bemcsyspm);	// BEMC gain 4% uncertainty study (opt_bemcsys==1), plus(opt_bemcsyspm==1) or minus 4% 
+  void SetRc02Mc05(int opt_rc02mc05);	// ==1 : RC>0.2, Mc>0.5, in order to compare with other experiments only unfolded to pt>0.5.  ==2 : RC>0.5, Mc>0.5
+  void SetMIP(int opt_mip);	// read MIP root file instead of 100% hadronic correction
+  void SetDoRcVzWeight(int opt_dorcvzweight);	// weight Rc Vz to be same as real data
   int Find(std::vector<int> vec, int val);
 
 };

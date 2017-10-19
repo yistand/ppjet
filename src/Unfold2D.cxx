@@ -115,7 +115,7 @@ void Unfold2D::Help() {
 // Constructors and destructor
 //==============================================================================
 
-Unfold2D::Unfold2D (TString name): inputname(name), XvariableName("X"), YvariableName("Y"), TrigName("JP2"), TranCharge("Charged"), ExcludeOpt(0), NoFakeOpt(false), NoLossOpt(false), CHANGEPRIOR(0), OPT_TPCSYS(false), OPT_TPCSYSPM(false), OPT_TPCSYSABS(false), OPT_RC02MC05(false), OPT_BEMCSYS(false), OPT_BEMCSYSPM(false), OPT_MIP(false), OPT_DORCVZWEIGHT(false)
+Unfold2D::Unfold2D (TString name): inputname(name), XvariableName("X"), YvariableName("Y"), TrigName("JP2"), TranCharge("Charged"), ExcludeOpt(0), NoFakeOpt(false), NoLossOpt(false), CHANGEPRIOR(0), OPT_TPCSYS(false), OPT_TPCSYSPM(false), OPT_TPCSYSABS(false), OPT_RC02MC05(0), OPT_BEMCSYS(false), OPT_BEMCSYSPM(false), OPT_MIP(false), OPT_DORCVZWEIGHT(false)
 {
 	Reset();
 	SetDefaultParms();
@@ -123,7 +123,7 @@ Unfold2D::Unfold2D (TString name): inputname(name), XvariableName("X"), Yvariabl
 }
 
 Unfold2D::Unfold2D (const char* name, int argc, const char* const* argv)
-: inputname(name), XvariableName("X"), YvariableName("Y"), TrigName("JP2"), TranCharge("Charged"), ExcludeOpt(0), NoFakeOpt(false), NoLossOpt(false), CHANGEPRIOR(0), OPT_TPCSYS(false), OPT_TPCSYSPM(false), OPT_TPCSYSABS(false), OPT_RC02MC05(false), OPT_BEMCSYS(false), OPT_BEMCSYSPM(false), OPT_MIP(false), OPT_DORCVZWEIGHT(false)
+: inputname(name), XvariableName("X"), YvariableName("Y"), TrigName("JP2"), TranCharge("Charged"), ExcludeOpt(0), NoFakeOpt(false), NoLossOpt(false), CHANGEPRIOR(0), OPT_TPCSYS(false), OPT_TPCSYSPM(false), OPT_TPCSYSABS(false), OPT_RC02MC05(0), OPT_BEMCSYS(false), OPT_BEMCSYSPM(false), OPT_MIP(false), OPT_DORCVZWEIGHT(false)
 {
 	Reset();
 	if(argc<14){ Help(); return; }
@@ -572,13 +572,24 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 				
 			}
 
-			if(OPT_RC02MC05) {		// MC pt>0.5 only
+			if(OPT_RC02MC05!=0) {		// MC pt>0.5 only
 				if(!(YvariableName.Contains("TranTotNtrk",TString::kIgnoreCase)||(YvariableName.Contains("TranPtAve",TString::kIgnoreCase)&&!(YvariableName.Contains("EventWise",TString::kIgnoreCase))))) {
-					cout<<"WARNING!!!!!!!!!! in "<<__PRETTY_FUNCTION__<<" OPT_RC02MC05=true is only implemented for TranTotNtrk or particle-wise TranPtAve only. Will reset OPT_RC02MC05 = false instead for "<<YvariableName<<endl;
-					OPT_RC02MC05 = false;
+					cout<<endl<<"WARNING!!!!!!!!!! in "<<__PRETTY_FUNCTION__<<" OPT_RC02MC05 option is only implemented for TranTotNtrk or particle-wise TranPtAve only. Will reset OPT_RC02MC05 = 0 instead for "<<YvariableName<<endl<<endl;
+					OPT_RC02MC05 = 0;
 				}
 				else if(YvariableName.Contains("TranTotNtrk",TString::kIgnoreCase)) {
-					RcPart = RcTranMaxNtrk+RcTranMinNtrk;		// RC part not change, still pT>0.2
+					if(OPT_RC02MC05==2) {	// If request Rc 0.5 -> Mc 0.5
+						RcPart = 0;					// RC part only count pT>0.5 particles
+						for(int ir = 0; ir<RcTranMaxNtrk; ir++) {
+							if(RcTrkTranMaxPt[ir]>0.5) RcPart+=1;
+						}
+						for(int ir = 0; ir<RcTranMinNtrk; ir++) {
+							if(RcTrkTranMinPt[ir]>0.5) RcPart+=1;
+						}
+					}
+					else {		// default Rc 0.2 -> Mc 0.5
+						RcPart = RcTranMaxNtrk+RcTranMinNtrk;		// RC part not change, still pT>0.2
+					}
 					
 					McPart = 0;					// MC part only count pT>0.5 particles
 					for(int im = 0; im<McTranMaxNtrk; im++) {
@@ -590,7 +601,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 				}
 				// we will deal with PtAve later in the loop
 			}
-			{	// as we need to deal with PtAve for OPT_RC02MC05==true case, we just continue here 
+			{	// as we need to deal with PtAve for OPT_RC02MC05!=0 case, we just continue here 
 			//else {
 
 				if(YvariableName.Contains("TranMaxNtrk",TString::kIgnoreCase))
@@ -617,7 +628,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 					McPart = 0.5*(McTranMaxNtrk+McTranMinNtrk);
 					RcPart = 0.5*(RcTranMaxNtrk+RcTranMinNtrk);
 				}	
-				else if(!OPT_RC02MC05 && YvariableName.Contains("TranTotNtrk",TString::kIgnoreCase))	// as we change OPT_RC02MC05 routine, now OPT_RC02MC05 can be true here...
+				else if(OPT_RC02MC05==0 && YvariableName.Contains("TranTotNtrk",TString::kIgnoreCase))	// as we change OPT_RC02MC05 routine, now OPT_RC02MC05 can be true here...
 				{
 					McPart = McTranMaxNtrk+McTranMinNtrk;
 					RcPart = RcTranMaxNtrk+RcTranMinNtrk;
@@ -793,7 +804,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 						else {	// default is TranPtAve
 							for(int im = 0; im<McTranMaxNtrk; im++) 
 							{
-								if(OPT_RC02MC05 && McTrkTranMaxPt[im]<0.5) continue;		// deal with TranPtAve for OPT_RC02MC05 case
+								if(OPT_RC02MC05!=0 && McTrkTranMaxPt[im]<0.5) continue;		// deal with TranPtAve for OPT_RC02MC05 case
 
 								vMcTrkTotPt.push_back(McTrkTranMaxPt[im]);
 								vMcTrkTotPhi.push_back(McTrkTranMaxPhi[im]);
@@ -803,7 +814,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 							}
 							for(int im = 0; im<McTranMinNtrk; im++) 
 							{
-								if(OPT_RC02MC05 && McTrkTranMinPt[im]<0.5) continue;		// deal with TranPtAve for OPT_RC02MC05 case
+								if(OPT_RC02MC05!=0 && McTrkTranMinPt[im]<0.5) continue;		// deal with TranPtAve for OPT_RC02MC05 case
 
 								vMcTrkTotPt.push_back(McTrkTranMinPt[im]);
 								vMcTrkTotPhi.push_back(McTrkTranMinPhi[im]);
@@ -870,6 +881,8 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 						else {  // default: TranPtAve
 							for(int ir = 0; ir<RcTranMaxNtrk; ir++) 
 							{
+								if(OPT_RC02MC05==2 && RcTrkTranMaxPt[ir]<0.5) continue;		// deal with TranPtAve for OPT_RC02MC05==2 case
+
 								vRcTrkTotPt.push_back(RcTrkTranMaxPt[ir]);
 								vRcTrkTotPhi.push_back(RcTrkTranMaxPhi[ir]);
 								vRcTrkTotEta.push_back(RcTrkTranMaxEta[ir]);
@@ -877,6 +890,8 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 							}
 							for(int ir = 0; ir<RcTranMinNtrk; ir++) 
 							{
+								if(OPT_RC02MC05==2 && RcTrkTranMinPt[ir]<0.5) continue;		// deal with TranPtAve for OPT_RC02MC05==2 case
+
 								vRcTrkTotPt.push_back(RcTrkTranMinPt[ir]);
 								vRcTrkTotPhi.push_back(RcTrkTranMinPhi[ir]);
 								vRcTrkTotEta.push_back(RcTrkTranMinEta[ir]);
@@ -954,7 +969,7 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 					McPart = Mcjconstchargentrk;
 					RcPart = Rcjconstchargentrk;
 				}
-				else if(!OPT_RC02MC05) // default: TranNtrk		we need to test OPT_RC02MC05==false here, so we don't end up excute when TranTotNtrk and OPT_RC02MC05 are used
+				else if(OPT_RC02MC05==0) // default: TranNtrk		we need to test OPT_RC02MC05==false here, so we don't end up excute when TranTotNtrk and OPT_RC02MC05 are used
 				{
 					McPart = 0.5*(McTranMaxNtrk+McTranMinNtrk);
 					RcPart = 0.5*(RcTranMaxNtrk+RcTranMinNtrk);
@@ -1138,7 +1153,10 @@ Int_t Unfold2D::ReadResponseMatrix()
 	}
 
 	TString Spt="Pt02";
-	if(OPT_RC02MC05) {
+	if(OPT_RC02MC05==2) {
+		Spt="PtRC05MC05";
+	}
+	else if(OPT_RC02MC05==1){
 		Spt="PtRC02MC05";
 	}
 
@@ -1347,7 +1365,20 @@ Int_t Unfold2D::Fill4Unfold() {
 		}	
 		else if(YvariableName.Contains("TranTotNtrk",TString::kIgnoreCase))
 		{
-			InputPart = InputTranMaxNtrk+InputTranMinNtrk;
+			if(OPT_RC02MC05==2) {
+				InputPart = 0;
+				for(int it = 0; it<InputTranMaxNtrk; it++) 
+				{
+					if(InputTrkTranMaxPt[it]>0.5) InputPart+=1;
+				}
+				for(int it = 0; it<InputTranMinNtrk; it++) 
+				{
+					if(InputTrkTranMinPt[it]>0.5) InputPart+=1;
+				}
+			}
+			else {
+				InputPart = InputTranMaxNtrk+InputTranMinNtrk;
+			}
 		}	
 		else if(YvariableName.Contains("TranMaxPtSum",TString::kIgnoreCase))
 		{
@@ -1477,6 +1508,9 @@ Int_t Unfold2D::Fill4Unfold() {
 			for(int it = 0; it<InputTranMaxNtrk; it++) 
 			{
 				InputPart = InputTrkTranMaxPt[it];
+
+				if(OPT_RC02MC05==2 && InputPart<0.5) continue;		// deal with TranPtAve for OPT_RC02MC05==2 case
+
 				hMeas->Fill(InputJet, InputPart, xweight);	
 				htmpx->Fill(InputJet);		// without weighting; will later be used by ReWeightByNF for adjusting to have same Nevts distribution before weighting
 				pfxMeas->Fill(InputJet, InputPart, xweight);	
@@ -1484,6 +1518,9 @@ Int_t Unfold2D::Fill4Unfold() {
 			for(int it = 0; it<InputTranMinNtrk; it++) 
 			{
 				InputPart = InputTrkTranMinPt[it];
+
+				if(OPT_RC02MC05==2 && InputPart<0.5) continue;		// deal with TranPtAve for OPT_RC02MC05==2 case
+
 				hMeas->Fill(InputJet, InputPart, xweight);	
 				htmpx->Fill(InputJet);		// without weighting; will later be used by ReWeightByNF for adjusting to have same Nevts distribution before weighting
 				pfxMeas->Fill(InputJet, InputPart, xweight);	
@@ -1847,7 +1884,7 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 			// Read tMcPart and tRcPart
 			if(OPT_RC02MC05) {              // MC pt>0.5 only
 				cout<<"ERR!! in "<<__PRETTY_FUNCTION__<<" OPT_RC02MC05=true is only implemented for Real data, not Test data. Will reset OPT_RC02MC05 = false instead"<<endl;
-				OPT_RC02MC05 = false;
+				OPT_RC02MC05 = 0;
 			}
 			else {	
 				if(YvariableName.Contains("TranMaxNtrk",TString::kIgnoreCase))
@@ -2233,7 +2270,10 @@ Int_t Unfold2D::WriteTrain()
 	}
 
 	TString Spt="Pt02";
-	if(OPT_RC02MC05) {
+	if(OPT_RC02MC05==2) {
+		Spt="PtRC05MC05";
+	}
+	else if(OPT_RC02MC05==1){
 		Spt="PtRC02MC05";
 	}
 
@@ -2306,7 +2346,10 @@ Int_t Unfold2D::WriteHist4Unfold()
 	}
 
 	TString Spt="Pt02";
-	if(OPT_RC02MC05) {
+	if(OPT_RC02MC05==2) {
+		Spt="PtRC05MC05";
+	}
+	else if(OPT_RC02MC05==1){
 		Spt="PtRC02MC05";
 	}
 
@@ -2376,7 +2419,10 @@ Int_t Unfold2D::WriteUnfoldResult()
 	}
 
 	TString Spt="Pt02";
-	if(OPT_RC02MC05) {
+	if(OPT_RC02MC05==2) {
+		Spt="PtRC05MC05";
+	}
+	else if(OPT_RC02MC05==1){
 		Spt="PtRC02MC05";
 	}
 
@@ -2440,7 +2486,10 @@ float Unfold2D::Weight2ChargePrior(float jetpt)
 		}
 
 		TString Spt="Pt02";
-		if(OPT_RC02MC05) {
+		if(OPT_RC02MC05==2) {
+			Spt="PtRC05MC05";
+		}
+		else if(OPT_RC02MC05==1){
 			Spt="PtRC02MC05";
 		}
 
@@ -2681,11 +2730,15 @@ void Unfold2D::SetBemcSys(int opt_bemcsys, int opt_bemcsyspm) {
 
 
 void Unfold2D::SetRc02Mc05(int opt_rc02mc05) {
-	if(opt_rc02mc05>0) {
-		OPT_RC02MC05 = true;
-		cout<<"OPT_RC02MC05 = true. Only unfold to pT>0.5GeV/c."<<endl;
+	if(opt_rc02mc05==2) {
+		OPT_RC02MC05 = 2;
+		cout<<"OPT_RC02MC05 = 2. Only use pT>0.5GeV/c to unfold to pT>0.5GeV/c."<<endl;
 	}
-	else OPT_RC02MC05 = false;
+	else if(opt_rc02mc05==1) {
+		OPT_RC02MC05 = 1;
+		cout<<"OPT_RC02MC05 = 1. Use pT>0.2GeV/c, but only unfold to pT>0.5GeV/c."<<endl;
+	}
+	else OPT_RC02MC05 = 0;
 }
 
 void Unfold2D::SetDoRcVzWeight(int opt_dorcvzweight) {
