@@ -266,6 +266,9 @@ Int_t Unfold2D::FillbyXsec4Train ()
 
 Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 {
+
+	hTrainVz = new TH1F("hTrainVz","Rc Vz", 100,-50,50);
+
 	Bool_t flagMatch2Lead;
 	Bool_t flagMatch2Sub;
 	Bool_t flagIsTrigger;
@@ -370,19 +373,44 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 
 	// if need to weight RcVz same dist. as real data
 	RcVzWeight *rvw = new RcVzWeight();
+	bool WriteRcVzWfile=false;
 	if(OPT_DORCVZWEIGHT) {
-		if(TrigName.Contains("MB") || (TrigName.Contains("JP")&&(flagjetweight||flagscaley))) {		// read MB for unfold
-			if(!rvw->ReadVzfile("VzWeight_MB.root")){
-				cout<<"Err!! cannot read MB Vz Weight root file in func: "<<__PRETTY_FUNCTION__<<endl;
-				return 0;
+		if( (TrigName.Contains("JP")) && !(flagjetweight||flagscaley) ) {		// data JP, no NF weight or scale as MB, use JP embedding
+			if(!rvw->ReadVzfile("VzWeight_JP2"+TrigName+".root")){
+				cout<<"INFO!! cannot read VzWeight_JP2"<<TrigName<<".root Weight root file in func: "<<__PRETTY_FUNCTION__<<". Will create it myself."<<endl;
+				rvw->ReadAndFill("JP",TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_171012.root"));	
+				WriteRcVzWfile = true;
+			}
+		}
+		else if(TrigName.Contains("MB")) {
+			if(!rvw->ReadVzfile("VzWeight_MB2MB.root")){
+				cout<<"INFO!! cannot read VzWeight_MB2MB.root Weight root file in func: "<<__PRETTY_FUNCTION__<<". Will create it myself."<<endl;
+				rvw->ReadAndFill("MB",TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_171012.root"));	
+				WriteRcVzWfile = true;
+			}
+		}
+		else if( (TrigName.Contains("JP")) && (flagjetweight||flagscaley) ) {
+			if(!rvw->ReadVzfile("VzWeight_MB2"+TrigName+".root")){
+				cout<<"INFO!! cannot read VzWeight_MB2"<<TrigName<<".root Weight root file in func: "<<__PRETTY_FUNCTION__<<". Will create it myself."<<endl;
+				rvw->ReadAndFill("MB",TString("~/Scratch/pp200Y12_jetunderlying/NoTofMatch_FullJet_Trans")+TranCharge+TString("_MatchTrig_pp")+TrigName+TString("_160811P12id_R06_HadrCorr_171012.root"));	
+				WriteRcVzWfile = true;
 			}
 		}
 		else {
-			if(!rvw->ReadVzfile("VzWeight_JP.root")) {
-				cout<<"Err!! cannot read JP Vz Weight root file in func: "<<__PRETTY_FUNCTION__<<endl;
-				return 0;
-			}
+			cout<<"WARNING!!  "<<__PRETTY_FUNCTION__<<" not implemeted for data "<<TrigName<<" flagjetweight="<<flagjetweight<<" flagscaley="<<flagscaley<<endl;
 		}
+		//if(TrigName.Contains("MB") || (TrigName.Contains("JP")&&(flagjetweight||flagscaley))) {		// read MB for unfold
+		//	if(!rvw->ReadVzfile("VzWeight_MB.root")){
+		//		cout<<"Err!! cannot read MB Vz Weight root file in func: "<<__PRETTY_FUNCTION__<<endl;
+		//		return 0;
+		//	}
+		//}
+		//else {
+		//	if(!rvw->ReadVzfile("VzWeight_JP.root")) {
+		//		cout<<"Err!! cannot read JP Vz Weight root file in func: "<<__PRETTY_FUNCTION__<<endl;
+		//		return 0;
+		//	}
+		//}
 	}
 
 	for(int i = 0; i<NUMBEROFPT; i++) {
@@ -1007,6 +1035,9 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 					hYRcVsMc->Fill(-1, RcPart, weight);
 				}
 			}
+
+			hTrainVz->Fill(Rcvz,weight);
+
 		}	// Event loop end
 		//// if Dijet 
 		//rndm->Delete(); 
@@ -1015,6 +1046,13 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 	}
 	//// fortest to remove 3 events cause a large fluctuation 
 	//cout<<" -- Removed "<<countremove<<" events"<<endl;
+
+
+	if(WriteRcVzWfile && rvw!=NULL) {
+		TString rcvzwinfiletag="JP";
+		if( (flagjetweight||flagscaley) || TrigName.Contains("MB") ) rcvzwinfiletag="MB";
+		rvw->WriteVzFile("VzWeight_"+rcvzwinfiletag+"2"+TrigName+".root");
+	}
 
 	return 1;
 }
@@ -1163,10 +1201,13 @@ Int_t Unfold2D::ReadResponseMatrix()
 	TString SMip="";
 	if(OPT_MIP) SMip="_MIP";
 
-	TString ifilename = Form("ResponseMatrix%s_%s%s%s%s%s%s_BT170928%s_Mc%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SPrior.Data(),SMip.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data(),SBemcSys.Data());	
+	TString SRcVzW="";
+	if(OPT_DORCVZWEIGHT) SRcVzW="_RcVzW";
+
+	TString ifilename = Form("ResponseMatrix%s_%s%s%s%s%s%s_BT170928%s%s_Mc%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SPrior.Data(),SRcVzW.Data(),SMip.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data(),SBemcSys.Data());	
 	if(flagjetweight) {
 		cout<<"INFO -------  Int_t Unfold2D::ReadResponseMatrix():  flagjetweight (args[14]) == 1. Use MB embedding for JP unfolding."<<endl;
-		ifilename = Form("ResponseMatrix%s_%s%s%s%s%s%s_BT170928%s_Mc%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),"MB",TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SPrior.Data(),SMip.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data(),SBemcSys.Data());	
+		ifilename = Form("ResponseMatrix%s_%s%s%s%s%s%s_BT170928%s%s_Mc%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),"MB",TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SPrior.Data(),SRcVzW.Data(),SMip.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data(),SBemcSys.Data());	
 	}
 	cout<<__PRETTY_FUNCTION__<<" Read in "<<ifilename<<endl;
 	ftrain = new TFile(ifilename);
@@ -1214,6 +1255,10 @@ Int_t Unfold2D::Fill4Unfold() {
 	hMeas->SetLineColor(kRed);
 	hMeas->GetXaxis()->SetTitle(XvariableName);
 	hMeas->GetYaxis()->SetTitle(YvariableName);
+
+	hMeasVz = new TH1F("hMeasVz","Vz of Input Data to Unfold",100,-50,50);
+
+	Double_t InputVz;
 
 	Float_t InputJet;
 	Float_t InputPart;	
@@ -1266,6 +1311,7 @@ Int_t Unfold2D::Fill4Unfold() {
 	TTree *ttree = (TTree*)fin->Get("ResultTree");
 	if(!ttree) {cout<<"Cannot find tree from input in "<<__PRETTY_FUNCTION__<<endl;exit;}
 
+	ttree->SetBranchAddress("vz",&InputVz);
 	ttree->SetBranchAddress("j1pt",&InputJet);
 	ttree->SetBranchAddress("j1constntrk",&InputJetNtrk);
 	ttree->SetBranchAddress("j1constchargentrk",&InputJetChargeNtrk);
@@ -1552,6 +1598,8 @@ Int_t Unfold2D::Fill4Unfold() {
 			htmpx->Fill(InputJet);		// without weighting; will later be used by ReWeightByNF for adjusting to have same Nevts dist. before weighting
 			pfxMeas->Fill(InputJet, InputPart, xweight);	
 		}
+
+		hMeasVz->Fill(InputVz, xweight);
 
 	}// End Loop of events
 	fin->Close();
@@ -2280,12 +2328,15 @@ Int_t Unfold2D::WriteTrain()
 	TString SMip="";
 	if(OPT_MIP) SMip="_MIP";
 
+	TString SRcVzW="";
+	if(OPT_DORCVZWEIGHT) SRcVzW="_RcVzW";
+
 	//TString ifilename = Form("ResponseMatrix%s_%s%s%s%s%s%s%s_Mc%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SPrior.Data(),SMip.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data(),SBemcSys.Data());
-	TString ifilename = Form("ResponseMatrix%s_%s%s%s%s%s%s_BT170928%s_Mc%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SPrior.Data(),SMip.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data(),SBemcSys.Data());
+	TString ifilename = Form("ResponseMatrix%s_%s%s%s%s%s%s_BT170928%s%s_Mc%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SPrior.Data(),SRcVzW.Data(),SMip.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data(),SBemcSys.Data());
 	if(flagjetweight) {
 		cout<<"INFO -------  Int_t Unfold2D::WriteTrain():  flagjetweight (args[14]) == 1. Use MB embedding for JP unfolding, which will be written"<<endl;
 		//ifilename = Form("ResponseMatrix%s_%s%s%s%s%s%s%s_Mc%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),"MB",TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SPrior.Data(),SMip.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data(),SBemcSys.Data());	
-		ifilename = Form("ResponseMatrix%s_%s%s%s%s%s%s_BT170928%s_Mc%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),"MB",TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SPrior.Data(),SMip.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data(),SBemcSys.Data());	
+		ifilename = Form("ResponseMatrix%s_%s%s%s%s%s%s_BT170928%s%s_Mc%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),"MB",TranCharge.Data(),SExclude.Data(),SFineBin.Data(),SPrior.Data(),SRcVzW.Data(),SMip.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data(),SBemcSys.Data());	
 	}
 
 
@@ -2356,8 +2407,11 @@ Int_t Unfold2D::WriteHist4Unfold()
 	TString SMip="";
 	if(OPT_MIP) SMip="_MIP";
 
+	TString SRcVzW="";
+	if(OPT_DORCVZWEIGHT) SRcVzW="_RcVzW";
+
 	//ftout = new TFile(Form("Hist%s_%s%s%s%s%s%s%s%s%s%s_Mc%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data(),SPrior.Data(),SMip.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data(),SBemcSys.Data()),"RECREATE");
-	ftout = new TFile(Form("Hist%s_%s%s%s%s%s%s%s%s%s_BT170928%s_Mc%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data(),SPrior.Data(),SMip.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data(),SBemcSys.Data()),"RECREATE");
+	ftout = new TFile(Form("Hist%s_%s%s%s%s%s%s%s%s%s_BT170928%s%s_Mc%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data(),SPrior.Data(),SRcVzW.Data(),SMip.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data(),SBemcSys.Data()),"RECREATE");
 	hMeas->Write();
 	if(hTrainTrue) hTrainTrue->Write();
 	if(hTrain)hTrain->Write();
@@ -2368,6 +2422,7 @@ Int_t Unfold2D::WriteHist4Unfold()
 	if(pfxTrain) pfxTrain->Write();
 	if(pfxTrainTrue) pfxTrainTrue->Write();
 	if(pfxMeas) pfxMeas->Write();
+	if(hMeasVz) hMeasVz->Write();
 
 	return 1;
 }
@@ -2429,9 +2484,12 @@ Int_t Unfold2D::WriteUnfoldResult()
 	TString SMip="";
 	if(OPT_MIP) SMip="_MIP";
 
+	TString SRcVzW="";
+	if(OPT_DORCVZWEIGHT) SRcVzW="_RcVzW";
+
 	//ftout = new TFile(Form("Unfolding%s_%s%s%s%s%s%s%s%s%s_Mc%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data()),"RECREATE");
 	//ftout = new TFile(Form("Unfolding%s%s_%s%s%s%s%s%s%s%s%s_12JetBinv2_Mc%s%s%s%s%s.root",SMip.Data(),inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data(),SBemcSys.Data()),"RECREATE");	// 12JetBinv2
-	ftout = new TFile(Form("Unfolding%s%s_%s%s%s%s%s%s%s%s_BT170928%s_12JetBinv2_Mc%s%s%s%s%s.root",SMip.Data(),inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data(),SBemcSys.Data()),"RECREATE");	// 12JetBinv2
+	ftout = new TFile(Form("Unfolding%s%s_%s%s%s%s%s%s%s%s_BT170928%s%s_12JetBinv2_Mc%s%s%s%s%s.root",SMip.Data(),inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data(),SRcVzW.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data(),SBemcSys.Data()),"RECREATE");	// 12JetBinv2
 	//ftout = new TFile(Form("Unfolding%s_%s%s%s%s%s%s%s%s%s_12JetBinv2_pTBinv2_Mc%s%s%s%s%s.root",inputname.Data(),YvariableName.Data(),TrigName.Data(),TranCharge.Data(),SExclude.Data(),SNFWeight.Data(),SYScale.Data(),SFineBin.Data(),SIter.Data(),SPrior.Data(),SNoFake.Data(),SNoLoss.Data(),Spt.Data(),STpcSys.Data(),SBemcSys.Data()),"RECREATE");	// 12JetBinv2 and can profile to 0.5 instead of 0.48 GeV/c for tranptave pt binnning
 	hTrainTrue->Write();
 	hTrain->Write();
@@ -2445,6 +2503,8 @@ Int_t Unfold2D::WriteUnfoldResult()
 	if(pfxTrainTrue) pfxTrainTrue->Write();
 	if(pfxMeas) pfxMeas->Write();
 	if(hpriorratio) hpriorratio->Write();
+	if(hMeasVz) hMeasVz->Write();
+	if(hTrainVz) hTrainVz->Write();
 
 	return 1;
 }

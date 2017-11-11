@@ -119,6 +119,10 @@ private:
   TProfile *pfxTrainTrue; 
   TProfile *pfxMeas; 
   TH1F *hpriorratio;	// if need to change prior, use ratio of measured JP data/pythia MB MC leading jet pt distribution
+
+  TH1F *hMeasVz;	// save measured Vz distribution. If NF weight is applied, it will be the one after NF weight. 
+  TH1F *hTrainVz;	// save Train Rc Vz distribution. If Vz weight is applied, it will be the one after Vz weight. 
+
   // Tree
   TTree *tree;
   // Tree branch
