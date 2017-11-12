@@ -352,12 +352,13 @@ Int_t Unfold2D::FillbyXsec4Train (int *Nevents)
 
 	TString STpcSys="";
 	if(OPT_TPCSYS) {
-		if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
-		else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
-		//else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
-		else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrMinusAbs0.05";
-		//else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
-		else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrMinus0.05";
+		GetTpcErrString(STpcSys);
+		//if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
+		//else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
+		////else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
+		//else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrMinusAbs0.05";
+		////else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
+		//else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrMinus0.05";
 	}
 
 	TString SBemcSys="";
@@ -1177,12 +1178,13 @@ Int_t Unfold2D::ReadResponseMatrix()
 	if(CHANGEPRIOR) SPrior="mPrior";
 	TString STpcSys="";
 	if(OPT_TPCSYS) {
-		if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
-		else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
-		//else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
-		else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrMinusAbs0.05";
-		//else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
-		else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrMinus0.05";
+		GetTpcErrString(STpcSys);
+		//if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
+		//else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
+		////else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
+		//else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrMinusAbs0.05";
+		////else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
+		//else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrMinus0.05";
 	}
 	TString SBemcSys="";
 	if(OPT_BEMCSYS) {
@@ -1830,12 +1832,13 @@ Int_t Unfold2D::Fill4Test (int *Nevents)
 
 	TString STpcSys="";
 	if(OPT_TPCSYS) {
-		if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
-		else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
-		//else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
-		else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrMinusAbs0.05";
-		//else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
-		else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrMinus0.05";
+		GetTpcErrString(STpcSys);
+		//if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
+		//else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
+		////else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
+		//else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrMinusAbs0.05";
+		////else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
+		//else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrMinus0.05";
 	}
 
 	TString SBemcSys="";
@@ -2253,12 +2256,13 @@ Int_t Unfold2D::WriteTest()
 	else if(method==2) SMethod="_SVD";
 	TString STpcSys="";
 	if(OPT_TPCSYS) {
-		if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
-		else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
-		//else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
-		else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrMinusAbs0.05";
-		//else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
-		else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrMinus0.05";
+		GetTpcErrString(STpcSys);
+		//if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
+		//else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
+		////else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
+		//else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrMinusAbs0.05";
+		////else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
+		//else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrMinus0.05";
 	}
 	TString SBemcSys="";
 	if(OPT_BEMCSYS) {
@@ -2304,12 +2308,13 @@ Int_t Unfold2D::WriteTrain()
         if(CHANGEPRIOR) SPrior="mPrior";
 	TString STpcSys="";
 	if(OPT_TPCSYS) {
-		if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
-		else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
-		//else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
-		else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrMinusAbs0.05";
-		//else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
-		else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrMinus0.05";
+		GetTpcErrString(STpcSys);
+		//if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
+		//else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
+		////else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
+		//else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrMinusAbs0.05";
+		////else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
+		//else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrMinus0.05";
 	}
 	TString SBemcSys="";
 	if(OPT_BEMCSYS) {
@@ -2383,12 +2388,13 @@ Int_t Unfold2D::WriteHist4Unfold()
 	}
 	TString STpcSys="";
 	if(OPT_TPCSYS) {
-		if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
-		else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
-		//else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
-		else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrMinusAbs0.05";
-		//else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
-		else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrMinus0.05";
+		GetTpcErrString(STpcSys);
+		//if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
+		//else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
+		////else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
+		//else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrMinusAbs0.05";
+		////else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
+		//else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrMinus0.05";
 	}
 	TString SBemcSys="";
 	if(OPT_BEMCSYS) {
@@ -2460,12 +2466,13 @@ Int_t Unfold2D::WriteUnfoldResult()
 	}
 	TString STpcSys="";
 	if(OPT_TPCSYS) {
-		if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
-		else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
-		//else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
-		else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrMinusAbs0.05";
-		//else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
-		else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrMinus0.05";
+		GetTpcErrString(STpcSys);
+		//if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
+		//else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
+		////else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
+		//else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrMinusAbs0.05";
+		////else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
+		//else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrMinus0.05";
 	}
 	TString SBemcSys="";
 	if(OPT_BEMCSYS) {
@@ -2532,12 +2539,13 @@ float Unfold2D::Weight2ChargePrior(float jetpt)
 		if(NoLossOpt) SNoLoss="NoLoss";
 		TString STpcSys="";
 		if(OPT_TPCSYS) {
-			if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
-			else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
-			//else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
-			else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrMinusAbs0.05";
-			//else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
-			else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrMinus0.05";
+			GetTpcErrString(STpcSys);
+			//if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
+			//else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
+			////else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
+			//else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrMinusAbs0.05";
+			////else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
+			//else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrMinus0.05";
 		}
 		TString SBemcSys="";
 		if(OPT_BEMCSYS) {
@@ -3171,5 +3179,17 @@ int Unfold2D::Find(std::vector<int> vec, int val) {
         return -1;
 }
 
+void Unfold2D::GetTpcErrString(TString &STpcSys) {
+	if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.04";
+	else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.04";
+	//if(OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrPlusAbs0.05";
+	//else if(OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrPlus0.05";
+	//else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrAbs0.05";
+	//else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrMinusAbs0.05";
+	else if(!OPT_TPCSYSPM && OPT_TPCSYSABS) STpcSys = "_TpcErrMinusAbs0.04";
+	//else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErr0.05";
+	//else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrMinus0.05";
+	else if(!OPT_TPCSYSPM && !OPT_TPCSYSABS) STpcSys = "_TpcErrMinus0.04";
+}
 
 #endif

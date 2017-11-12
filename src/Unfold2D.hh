@@ -205,6 +205,9 @@ public:
   void SetDoRcVzWeight(int opt_dorcvzweight);	// weight Rc Vz to be same as real data
   int Find(std::vector<int> vec, int val);
 
+  void GetTpcErrString(TString &STpcSys);
+  
+
 };
 
 
