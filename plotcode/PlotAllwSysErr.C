@@ -1,3 +1,4 @@
+#include <fstream>
 #include "plothrecoWunfolderr.C"			// void SetHistStyle(TProfile *h, int mcolor, int lcolor, int mstyle, int lstyle, float msize, int lwidth) 
 							// void graphSystBand(int n, Double_t *x, Double_t *y, Double_t *ex, Double_t *ey,
 							//                    Double_t *syPlus=0, Double_t *syMinus=0, Int_t colorBand=5,
@@ -109,7 +110,10 @@ TGraphAsymmErrors *Graph4UnfoldXErr(TProfile *pf) {
 
 //======================================================================================================================================================
 
-void PlotAllwSysErr(const char *Variable = "Ntrk") {		// Ntrk, PtAve, PtSum
+void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight_BT170928_RcVzW_12JetBinv2_McPt02") {		// Ntrk, PtAve, PtSum
+
+	int savefig = 1;
+	int detplot = 0; 	// plot detector-level (no save)
 
 	const int NRegion = 3;
 	const char *legtag[NRegion] = {"Toward","Away","Transverse"};
@@ -139,22 +143,36 @@ void PlotAllwSysErr(const char *Variable = "Ntrk") {		// Ntrk, PtAve, PtSum
        	for(int i = 0; i<NRegion; i++) {
 		bool openi = false;
 		//f[i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_NFWeight_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
-		f[i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_NFWeight_12JetBinv2_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
+		//f[i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_NFWeight_12JetBinv2_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
+		//f[i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_NFWeight_BT170928_12JetBinv2_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
+		if(strcmp(Region[i],"Tran")==0 && (strcmp(Variable,"Ntrk")==0||strcmp(Variable,"PtSum")==0) ) {
+			f[i] = new TFile(Form("SysErr4Unfolding_%sTot%sJPCharged_%s_embedMB_Baye%d.root",Region[i],Variable,filetag,DefaultTh));
+		}
+		else if(strcmp(Region[i],"Tran")!=0 && strcmp(Variable,"PtAve")!=0) {
+			f[i] = new TFile(Form("SysErr4Unfolding_%sArea%sJPCharged_%s_embedMB_Baye%d.root",Region[i],Variable,filetag,DefaultTh));
+		}
+		else {
+			f[i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_%s_embedMB_Baye%d.root",Region[i],Variable,filetag,DefaultTh));
+		}
 		if(f[i]->IsOpen()) {
 			openi=true;
 		}
-		else {
-			f[i] = new TFile(Form("SysErr4Unfolding_%sArea%sJPCharged_NFWeight_12JetBinv2_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
-			if(f[i]->IsOpen()) {
-				openi=true;
-			}
-			else {
-				f[i] = new TFile(Form("SysErr4Unfolding_%sTot%sJPCharged_NFWeight_12JetBinv2_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
-				if(f[i]->IsOpen()) {
-					openi=true;
-				}
-			}
-		}
+		//else {
+		//	//f[i] = new TFile(Form("SysErr4Unfolding_%sArea%sJPCharged_NFWeight_12JetBinv2_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
+		//	//f[i] = new TFile(Form("SysErr4Unfolding_%sArea%sJPCharged_NFWeight_BT170928_12JetBinv2_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
+		//	f[i] = new TFile(Form("SysErr4Unfolding_%sArea%sJPCharged_%s_embedMB_Baye%d.root",Region[i],Variable,filetag,DefaultTh));
+		//	if(f[i]->IsOpen()) {
+		//		openi=true;
+		//	}
+		//	else {
+		//		//f[i] = new TFile(Form("SysErr4Unfolding_%sTot%sJPCharged_NFWeight_12JetBinv2_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
+		//		//f[i] = new TFile(Form("SysErr4Unfolding_%sTot%sJPCharged_NFWeight_BT170928_12JetBinv2_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
+		//		f[i] = new TFile(Form("SysErr4Unfolding_%sTot%sJPCharged_%s_embedMB_Baye%d.root",Region[i],Variable,filetag,DefaultTh));
+		//		if(f[i]->IsOpen()) {
+		//			openi=true;
+		//		}
+		//	}
+		//}
 		if(openi) {
 			cout<<"Read "<<f[i]->GetName()<<endl;
 			hrecopf[i] = (TProfile*)f[i]->Get(Form("hreco_default%d_pfx",DefaultTh));
@@ -167,7 +185,9 @@ void PlotAllwSysErr(const char *Variable = "Ntrk") {		// Ntrk, PtAve, PtSum
 			//f[i] = new TFile(Form("Unfolding_%s%sJPCharged_NFWeight_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
 			//f[i] = new TFile(Form("Unfolding_%s%sJPCharged_NFWeight_BinByBin_McPt02_embedMB.root",Region[i],Variable));
 			//f[i] = new TFile(Form("Unfolding_%s%sJPCharged_NFWeight_2HalfMcPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
-			f[i] = new TFile(Form("Unfolding_%s%sJPCharged_NFWeight_12JetBinv2_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
+			//f[i] = new TFile(Form("Unfolding_%s%sJPCharged_NFWeight_12JetBinv2_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
+			//f[i] = new TFile(Form("Unfolding_%s%sJPCharged_NFWeight_BT170928_12JetBinv2_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
+			f[i] = new TFile(Form("Unfolding_%s%sJPCharged_%s_embedMB_Baye%d.root",Region[i],Variable,filetag,DefaultTh));
 			if(f[i]->IsOpen()) {
 				cout<<"Instead Open "<<f[i]->GetName()<<endl;
 				TH2F *hreco = (TH2F*)f[i]->Get("hreco");
@@ -388,10 +408,10 @@ void PlotAllwSysErr(const char *Variable = "Ntrk") {		// Ntrk, PtAve, PtSum
 	lat->SetNDC();
 	lat->SetTextFont(42);
 	if(!strcmp(Variable,"PtAve")) {
-		lat->DrawLatex(0.57,0.19,"#splitline{p+p@200 GeV}{p_{T} > 0.2 GeV/#it{c}, |#eta|<1}");
+		lat->DrawLatex(0.56,0.19,"#splitline{p+p@200 GeV}{p_{T} > 0.2 GeV/#it{c}, |#eta|<1}");
 	}
 	else {
-		lat->DrawLatex(0.57,0.8,"#splitline{p+p@200 GeV}{p_{T} > 0.2 GeV/#it{c}, |#eta|<1}");
+		lat->DrawLatex(0.56,0.8,"#splitline{p+p@200 GeV}{p_{T} > 0.2 GeV/#it{c}, |#eta|<1}");
 	}
 	lat->SetTextColor(1);
 	lat->SetTextFont(62);
@@ -402,12 +422,13 @@ void PlotAllwSysErr(const char *Variable = "Ntrk") {		// Ntrk, PtAve, PtSum
 		lat->DrawLatex(0.16,0.16,"STAR");
 	}
 
-	if(0) {
+	if(savefig) {
 		c->SaveAs(Form("/Users/li/Research/Underlying/PaperDraft170405/%s_DataVsPythia6Vs8_Box.pdf",Variable));
 		c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/%s_DataVsPythia6Vs8_Box.pdf",Variable));
+		//c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/NoRcVzW_%s_DataVsPythia6Vs8_Box.pdf",Variable));
 	}
 
-	if(0) {
+	if(detplot) {
 		TCanvas *c2 = new TCanvas("c2","c2",1000,800);
 		c2->SetLeftMargin(0.12);
 		c2->SetBottomMargin(0.12);
@@ -416,9 +437,9 @@ void PlotAllwSysErr(const char *Variable = "Ntrk") {		// Ntrk, PtAve, PtSum
 		
 		hmeaspf[0]->GetXaxis()->SetTitle("Leading jet p_{T} (GeV/#it{c})");
 		if(!strcmp(Variable,"PtAve")) {
-			hmeaspf[0]->GetYaxis()->SetTitle("#LTp_{T}#GT");
+			hmeaspf[0]->GetYaxis()->SetTitle("#LTp_{T}^{ch}#GT");
 		}
-		if(!strcmp(Variable,"PtSum")) {
+		else if(!strcmp(Variable,"PtSum")) {
 			//hmeaspf[0]->GetYaxis()->SetTitle("#LT#sump_{T}/#delta#eta#delta#phi#GT");
 			hmeaspf[0]->GetYaxis()->SetTitle("#LTd#scale[0.5]{#sum}p_{T}/d#etad#phi#GT");
 		}
@@ -474,6 +495,55 @@ void PlotAllwSysErr(const char *Variable = "Ntrk") {		// Ntrk, PtAve, PtSum
 			cout<<hrecopf[i]->GetBinCenter(j+1)<<" "<<hrecopf[i]->GetBinContent(j+1)<<" +/- "<<hrecopf[i]->GetBinError(j+1)<<" (stat);  "<<grreco[i]->GetY()[j]<<" +"<<grreco[i]->GetEYhigh()[j]<<" - "<<grreco[i]->GetEYlow()[j]<<" (sys)"<<"\t\t\t PYTHIA6 = "<<httpf[i]->GetBinContent(j+1)<<"\t\t\t PYTHIA8 = "<<httpf8[i]->GetBinContent(j+1)<<endl;
 		}
 	}
+
+
+	ofstream tout;
+	TString Stout=Form("%s_JP_Charged_%s_embedMB_Baye%d.csv",Variable,filetag,DefaultTh);
+	tout.open(Stout);
+	if(tout.is_open()) {
+		cout<<"Output to "<<Stout<<endl;
+	}
+	else {
+		cout<<"Error open file "<<Stout<<" to write"<<endl;
+		return;
+	}
+
+	tout<<"pt,";
+	for(int j = 0; j<hrecopf[0]->GetNbinsX(); j++) {
+		tout<<hrecopf[0]->GetBinLowEdge(j+1)<<"-"<<hrecopf[0]->GetBinLowEdge(j+1)+hrecopf[0]->GetBinWidth(j+1)<<",";
+	}
+	tout<<endl;
+	for(int i=0;i<NRegion; i++) {
+		if(!grreco[i]) continue;
+		tout<<legtag[i]<<",";
+		for(int j = 0; j<hrecopf[i]->GetNbinsX(); j++) {
+			tout<<hrecopf[i]->GetBinContent(j+1)<<" +/- "<<hrecopf[i]->GetBinError(j+1)<<" (stat) + "<<grreco[i]->GetEYhigh()[j]<<" - "<<grreco[i]->GetEYlow()[j]<<" (sys)"<<",";
+		}
+		tout<<endl;
+	}
+	tout<<"PYTHIA6"<<endl;
+	for(int i=0;i<NRegion; i++) {
+		if(!grreco[i]) continue;
+		tout<<legtag[i]<<",";
+		for(int j = 0; j<hrecopf[i]->GetNbinsX(); j++) {
+			tout<<httpf[i]->GetBinContent(j+1)<<",";
+		}
+		tout<<endl;
+	}
+	tout<<"PYTHIA8"<<endl;
+	for(int i=0;i<NRegion; i++) {
+		if(!grreco[i]) continue;
+		tout<<legtag[i]<<",";
+		for(int j = 0; j<hrecopf[i]->GetNbinsX(); j++) {
+			tout<<httpf8[i]->GetBinContent(j+1)<<",";
+		}
+		tout<<endl;
+	}
+
+	tout.close();
+
+
+
 }
 
 

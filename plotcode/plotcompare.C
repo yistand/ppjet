@@ -26,11 +26,23 @@ void plotcompare() {
 	//char filename[Nfile][200] = {"leadjetpthist4NoTofMatch_FullJet_TransNeutral_MatchTrig_ppJP_160811P12id_R06_HadrCorr_VPDcut_161209_NoEffCorr_WideBin_reweighted.root","leadjetpthist4NoTofMatch_FullJet_TransNeutral_MatchTrig_ppJP_160811P12id_R06_HadrCorr_VPDcut_161209_NoEffCorr_WideBin.root","leadjetpthist4NoTofMatch_FullJet_TransNeutral_ppMB_160811P12id_R06_HadrCorr_VPDcut_161209_NoEffCorr_WideBin.root"};
 	char filetag[Nfile][100] = {"JP reweighted w/ VPD","JP w/ VPD","MB w/ VPD"};
 	char filetag4fig[Nfile][100] = {"reJP","JP","MB"};
+	double drawXrange[Nfile][2] = {{0,60},{0,60},{0,60}};
+	
+	//const int Nfile = 2;
+	//char filename[Nfile][200] = {"leadjetpthist4NoTofMatch_FullJet_TransCharged_MatchTrig_ppJP_160811P12id_R06_HadrCorr_170418_NoEffCorr_WideBin_reweighted.root","leadjetpthist4NoTofMatch_FullJet_TransCharged_MatchTrig_ppJP_160811P12id_R06_HadrCorr_170418_NoEffCorr_WideBin.root"};
+	//char filetag[Nfile][100] = {"JP reweighted w/o VPD","JP w/o VPD"};
+	//char filetag4fig[Nfile][100] = {"reJP","JP"};
+	//double drawXrange[Nfile][2] = {{0,60},{0,60}};
+
+	//const int Nfile = 4;
+	//char filename[Nfile][200] = {"leadjetpthist4NoTofMatch_FullJet_TransCharged_MatchTrig_ppJP2_160811P12id_R06_HadrCorr_160829_NoEffCorr.root","leadjetpthist4NoTofMatch_FullJet_TransCharged_MatchTrig_ppJP1_160811P12id_R06_HadrCorr_160829_NoEffCorr.root","leadjetpthist4NoTofMatch_FullJet_TransCharged_MatchTrig_ppJP0_160811P12id_R06_HadrCorr_160829_NoEffCorr.root","leadjetpthist4NoTofMatch_FullJet_TransCharged_ppMB_160811P12id_R06_HadrCorr_160829_NoEffCorr.root"};
+	//char filetag[Nfile][100] = {"JP2","JP1","JP0","MB"};
+	//char filetag4fig[Nfile][100] = {"JP2","JP1","JP0","MB"};
+	//double drawXrange[Nfile][2] = {{0,60},{0,60},{0,60},{0,60}};
+
 	int filecolor[7] = {kBlack,kRed,kBlue,kGreen+1,kBlue,kMagenta,kPink-7};
 	int markerstyle[7] = {24,8,21,21,34,33,29};
 	float markersize[7] = {1.5,1,1,1,1,1,1};
-
-	double drawXrange[Nfile][2] = {{0,60},{0,60},{0,60}};
 
 	//const int Nfile = 6;
 	//char filename[Nfile][200] = {"leadjetpthist4FullJet_TransCharged_MatchTrig_ppJP2_R06_HadrCorr_160224.root","leadjetpthist4kT_FullJet_TransCharged_MatchTrig_ppJP2_R06_HadrCorr_160224.root","leadjetpthist4Dijet_FullJet_TransCharged_MatchTrig_ppJP2_R06_HadrCorr_160224.root","leadjetpthist4Dijet_FullJet_TransCharged_MatchTrig_ppJP2_R06_HadrCorr_160224_AsJetGt5.root","leadjetpthist4FullJet_TransCharged_MatchTrig_ppJP2_R06_HadrCorr_160224_wR1.root", "leadjetpthist4TranPhi30_FullJet_TransCharged_MatchTrig_ppJP2_R06_HadrCorr_160224.root"};
@@ -42,7 +54,7 @@ void plotcompare() {
 
 
 	const int Nhist = 9;		
-	char histname[Nhist][200] = {"leadjetareantrkvsleadjetpt","subjetareantrkvsleadjetpt","tranntrkvsleadjetpt","leadjetareaptavevsleadjetpt","subjetareaptavevsleadjetpt","tranptavevsleadjetpt","leadjetareaptsumvsleadjetpt","subjetareaptsumvsleadjetpt","tranptsumvsleadjetpt"};
+	char histname[Nhist][200] = {"leadjetareantrkvsleadjetpt","subjetareantrkvsleadjetpt","trantotntrkvsleadjetpt","leadjetareaptavevsleadjetpt","subjetareaptavevsleadjetpt","tranptavevsleadjetpt","leadjetareaptsumvsleadjetpt","subjetareaptsumvsleadjetpt","trantotptsumvsleadjetpt"};
 	char histtag[Nhist][200] = {"Towards","Away","Transverse","Towards","Away","Transverse","Towards","Away","Transverse"};
 	char histy[Nhist][200] = {"Towards Region Multiplicity","Away Region Multiplicity","Transverse Region Multiplicity","Towards Region Track <p_{T}>","Away Region Track <p_{T}>","Transverse Region <p_{T}>","Towards Region Track Sum p_{T}","Away Region Track Sum p_{T}","Transverse Region Sum p_{T}"};
 	//char histy[Nhist][200] = {"Towards Tower Multiplicity","Away Tower Multiplicity","Transverse Tower Multiplicity","Towards Region Track <E_{T}>","Away Region Track <E_{T}>","Transverse Region <E_{T}>","Towards Region Track Sum E_{T}","Away Region Track Sum E_{T}","Transverse Region Sum E_{T}"};

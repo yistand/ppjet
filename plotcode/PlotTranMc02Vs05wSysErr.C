@@ -178,11 +178,16 @@ TGraphAsymmErrors *Graph4UnfoldXErr(TProfile *pf) {
 
 //======================================================================================================================================================
 
-void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk") {		// Ntrk, PtAve, PtSum
+void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk", TString filetag="NFWeight_BT170928_RcVzW_12JetBinv2") {		// Ntrk, PtAve, PtSum
+
+	int savefig = 1;
+	int detplot = 0;
 
 	const int Npt = 2;
-	const char *pttag[Npt] = {"McPt02","McPtRC02MC05"};		// for measured data + default pythia6 
+	//const char *pttag[Npt] = {"McPt02","McPtRC02MC05"};		// for measured data + default pythia6 
+	const char *pttag[Npt] = {"McPt02","McPtRC05MC05"};		// for measured data + default pythia6 
 	const char *p8pttag[Npt] = {"","_PT05"};				// for pythia8
+	const char *ptname[Npt] = {"pt>0.2","pT>0.5"};		// for measured data + default pythia6 
 
 	const int NRegion = 1;
 	const char *legtag[NRegion] = {"Transverse"};
@@ -196,6 +201,7 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk") {		// Ntrk, PtAve, P
 	double YaxisMax = 1.7;// 3.1;
 
 	if(!strcmp(Variable,"PtSum")) YaxisMax = 25;
+	if(!strcmp(Variable,"PtAve")) YaxisMax = 2;
 
 	int DefaultTh = 5;
 
@@ -209,22 +215,38 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk") {		// Ntrk, PtAve, P
        	for(int j = 0; j<Npt; j++) {
        		for(int i = 0; i<NRegion; i++) {
 			bool openi = false;
-			f[j][i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_NFWeight_12JetBinv2_%s_embedMB_Baye%d.root",Region[i],Variable,pttag[j],DefaultTh));
+			//f[j][i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_NFWeight_12JetBinv2_%s_embedMB_Baye%d.root",Region[i],Variable,pttag[j],DefaultTh));
+			if(strcmp(Region[i],"Tran")==0 && (strcmp(Variable,"Ntrk")==0||strcmp(Variable,"PtSum")==0) ) {
+				f[j][i] = new TFile(Form("SysErr4Unfolding_%sTot%sJPCharged_%s_%s_embedMB_Baye%d.root",Region[i],Variable,filetag.Data(),pttag[j],DefaultTh));
+			}
+			else if(strcmp(Region[i],"Tran")!=0 && strcmp(Variable,"PtAve")!=0) {
+				f[j][i] = new TFile(Form("SysErr4Unfolding_%sArea%sJPCharged_%s_%s_embedMB_Baye%d.root",Region[i],Variable,filetag.Data(),pttag[j],DefaultTh));
+			}
+			else {
+				f[j][i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_%s_%s_embedMB_Baye%d.root",Region[i],Variable,filetag.Data(),pttag[j],DefaultTh));
+			}
 			if(f[j][i]->IsOpen()) {
 				openi=true;
 			}
-			else {
-				f[j][i] = new TFile(Form("SysErr4Unfolding_%sArea%sJPCharged_NFWeight_12JetBinv2_%s_embedMB_Baye%d.root",Region[i],Variable,pttag[j],DefaultTh));
-				if(f[j][i]->IsOpen()) {
-					openi=true;
-				}
-				else {
-					f[j][i] = new TFile(Form("SysErr4Unfolding_%sTot%sJPCharged_NFWeight_12JetBinv2_%s_embedMB_Baye%d.root",Region[i],Variable,pttag[j],DefaultTh));
-					if(f[j][i]->IsOpen()) {
-						openi=true;
-					}
-				}
-			}
+
+			//f[j][i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_%s_%s_embedMB_Baye%d.root",Region[i],Variable,filetag.Data(),pttag[j],DefaultTh));
+			//if(f[j][i]->IsOpen()) {
+			//	openi=true;
+			//}
+			//else {
+			//	//f[j][i] = new TFile(Form("SysErr4Unfolding_%sArea%sJPCharged_NFWeight_12JetBinv2_%s_embedMB_Baye%d.root",Region[i],Variable,pttag[j],DefaultTh));
+			//	f[j][i] = new TFile(Form("SysErr4Unfolding_%sArea%sJPCharged_%s_%s_embedMB_Baye%d.root",Region[i],Variable,filetag.Data(),pttag[j],DefaultTh));
+			//	if(f[j][i]->IsOpen()) {
+			//		openi=true;
+			//	}
+			//	else {
+			//		//f[j][i] = new TFile(Form("SysErr4Unfolding_%sTot%sJPCharged_NFWeight_12JetBinv2_%s_embedMB_Baye%d.root",Region[i],Variable,pttag[j],DefaultTh));
+			//		f[j][i] = new TFile(Form("SysErr4Unfolding_%sTot%sJPCharged_%s_%s_embedMB_Baye%d.root",Region[i],Variable,filetag.Data(),pttag[j],DefaultTh));
+			//		if(f[j][i]->IsOpen()) {
+			//			openi=true;
+			//		}
+			//	}
+			//}
 			if(openi) {
 				cout<<"Read "<<f[j][i]->GetName()<<endl;
 				hrecopf[j][i] = (TProfile*)f[j][i]->Get(Form("hreco_default%d_pfx",DefaultTh));
@@ -234,7 +256,8 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk") {		// Ntrk, PtAve, P
 				grreco[j][i] = (TGraphAsymmErrors*)f[j][i]->Get(Form("gSysErr%s",legtag[i]));
 			}
 			else {		// If cannot find the sys. err. one, open the unfold result file without sys. err. 
-				f[j][i] = new TFile(Form("Unfolding_%s%sJPCharged_NFWeight_12JetBinv2_%s_embedMB_Baye%d.root",Region[i],Variable,pttag[j],DefaultTh));
+				//f[j][i] = new TFile(Form("Unfolding_%s%sJPCharged_NFWeight_12JetBinv2_%s_embedMB_Baye%d.root",Region[i],Variable,pttag[j],DefaultTh));
+				f[j][i] = new TFile(Form("Unfolding_%s%sJPCharged_%s_%s_embedMB_Baye%d.root",Region[i],Variable,filetag.Data(),pttag[j],DefaultTh));
 				if(f[j][i]->IsOpen()) {
 					cout<<"Instead Open "<<f[j][i]->GetName()<<endl;
 					TH2F *hreco = (TH2F*)f[j][i]->Get("hreco");
@@ -490,13 +513,18 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk") {		// Ntrk, PtAve, P
 	}
 
 
-	if(0) {
-		c->SaveAs(Form("/Users/li/Research/Underlying/PaperDraft170405/Tran%s_MC02Vs05_Box.pdf",Variable));
-		c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/Tran%s_MCpT02Vs05.pdf",Variable));
+	if(savefig) {
+		if(filetag.Contains("RcVzW",TString::kIgnoreCase)) {
+			c->SaveAs(Form("/Users/li/Research/Underlying/PaperDraft170405/Tran%s_MC02Vs05_Box.pdf",Variable));
+			c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/Tran%s_MCpT02Vs05.pdf",Variable));
+		}
+		else {
+			c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/NoRcVzW_Tran%s_MCpT02Vs05.pdf",Variable));
+		}
 	}
 
 
-	if(0) {
+	if(detplot) {
 		TCanvas *c2 = new TCanvas("c2","c2",1000,800);
 		c2->SetLeftMargin(0.12);
 		c2->SetBottomMargin(0.12);
@@ -552,6 +580,59 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk") {		// Ntrk, PtAve, P
 			}
 		}
 	}
+
+
+	ofstream tout;
+	TString Stout=Form("TranMc02Vs05_%s_JP_Charged_%s_embedMB_Baye%d.csv",Variable,filetag.Data(),DefaultTh);
+	tout.open(Stout);
+	if(tout.is_open()) {
+		cout<<"Output to "<<Stout<<endl;
+	}
+	else {
+		cout<<"Error open file "<<Stout<<" to write"<<endl;
+		return;
+	}
+
+	tout<<"Variable pt,";
+	for(int j = 0; j<hrecopf[0][0]->GetNbinsX(); j++) {
+		tout<<hrecopf[0][0]->GetBinLowEdge(j+1)<<"-"<<hrecopf[0][0]->GetBinLowEdge(j+1)+hrecopf[0][0]->GetBinWidth(j+1)<<",";
+	}
+	tout<<endl;
+	for(int j=0;j<Npt; j++) {
+		for(int i=0;i<NRegion; i++) {
+			if(!grreco[j][i]) continue;
+			tout<<legtag[i]<<" "<<ptname[j]<<",";
+			for(int k = 0; k<hrecopf[j][i]->GetNbinsX(); k++) {
+				tout<<hrecopf[j][i]->GetBinContent(k+1)<<" +/- "<<hrecopf[j][i]->GetBinError(k+1)<<" (stat) + "<<grreco[j][i]->GetEYhigh()[k]<<" - "<<grreco[j][i]->GetEYlow()[k]<<" (sys)"<<",";
+			}
+			tout<<endl;
+		}
+	}
+	tout<<"PYTHIA6"<<endl;
+	for(int j=0;j<Npt; j++) {
+		for(int i=0;i<NRegion; i++) {
+			if(!grreco[j][i]) continue;
+			tout<<legtag[i]<<" "<<ptname[j]<<",";
+			for(int k = 0; k<hrecopf[j][i]->GetNbinsX(); k++) {
+				tout<<httpf[j][i]->GetBinContent(k+1)<<",";
+			}
+			tout<<endl;
+		}
+	}
+	tout<<"PYTHIA8"<<endl;
+	for(int j=0;j<Npt; j++) {
+		for(int i=0;i<NRegion; i++) {
+			if(!grreco[j][i]) continue;
+			tout<<legtag[i]<<" "<<ptname[j]<<",";
+			for(int k = 0; k<hrecopf[j][i]->GetNbinsX(); k++) {
+				tout<<httpf8[j][i]->GetBinContent(k+1)<<",";
+			}
+			tout<<endl;
+		}
+	}
+
+	tout.close();
+
 }
 
 

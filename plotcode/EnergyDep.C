@@ -12,6 +12,8 @@
 void EnergyDep() {
 	// STAR from //maxtrackpthist4MaxTrackNoTofMatch_FullJet_TransCharged_ppJP_160811P12id_R06_HadrCorr_170418_WideBin_CDFcutPT05eta08.root 
 	// 		maxtrackpthist4MaxTrackNoTofMatch_FullJet_TransCharged_ppJP_160811P12id_R06_HadrCorr_170418_NoEffCorr_WideBin_CDFcutPT05eta08
+	int savefig = 1;
+
 	const int N_star = 1;	
 	double ene_star[N_star] = {200};
 	//double NtrkDen_star[N_star] = {1.1385269/(2*0.8*2*TMath::Pi()/3.)};		// this (maxtrackpthist4MaxTrackNoTofMatch_FullJet_TransCharged_ppJP_160811P12id_R06_HadrCorr_170418_WideBin_CDFcutPT05eta08.root) assume TPC effiency eta dependence is flat and uses the same eff as |eta|<1 for |eta|<0.8. Actually there is a small dependence in eta, which is eff_0.8eta = 1.006 x eff_1eta. While, we don't want to rerun the code, and simply assume there is no TPC eff pT dependence at pT>0.5, use 0.875 from JetMinWorkshop_160526YL.pdf for |eta|<1, and then multiply by 1.006, get 0.8802. The root files used in below calculations is maxtrackpthist4MaxTrackNoTofMatch_FullJet_TransCharged_ppJP_160811P12id_R06_HadrCorr_170418_NoEffCorr_WideBin_CDFcutPT05eta08.root. Note: even the efficiency is corrected, the pile up is not removed
@@ -32,16 +34,21 @@ void EnergyDep() {
 		syserrmin_star[i] = NtrkDen_star[i]-minNtrkDen_star[i]; 
 	}
 
+	// from maxtrackpthist4FullJet_TransCharged_MatchTrig_ppJP_160811P12id_R06_HadrCorr_170418_WideBin_PT05eta1.root
+	double NtrkDen_star_track6[N_star] = {1.18945/(2*1*2*TMath::Pi()/3.)};
+	double err_star_track6[N_star] = {0.00187992/(2*1*2*TMath::Pi()/3.)};
+
 	// vs leading full jet pT 11-15 GeV/c, |eta|<1, pT>0.5 GeV/c
 	double NtrkDen_star_jet12[N_star] = {0.295548};		// from SysErr4Unfolding_TranTotNtrkJPCharged_NFWeight_12JetBinv2_McPtRC02MC05_embedMB_Baye5.root
-	double err_star_jet12[N_star] = {0.000143950};
-	double syserrmax_star_jet12[N_star] = {0.0451854};
-	double syserrmin_star_jet12[N_star] = {0.0299265};
+	double err_star_jet12[N_star] = {0.00019};//{0.000143950};
+	double syserrmax_star_jet12[N_star] = {0.04};//{0.0451854};
+	double syserrmin_star_jet12[N_star] = {0.03};//{0.0299265};
 	// vs leading full jet pT 20-25 GeV/c, |eta|<1, pT>0.5 GeV/c
-	double NtrkDen_star_jet20[N_star] = {0.22077};		// from SysErr4Unfolding_TranTotNtrkJPCharged_NFWeight_12JetBinv2_McPtRC02MC05_embedMB_Baye5.root
-	double err_star_jet20[N_star] = {0.0007};
-	double syserrmax_star_jet20[N_star] = {0.0508};
-	double syserrmin_star_jet20[N_star] = {0.0204};
+	double NtrkDen_star_jet20[N_star] = {0.234425};//TranMc02Vs05_Ntrk_JP_Charged_NFWeight_BT170928_RcVzW_12JetBinv2_embedMB_Baye5.csv	THIS IS THE ONE USED!!
+	//0.22077};		// from SysErr4Unfolding_TranTotNtrkJPCharged_NFWeight_12JetBinv2_McPtRC02MC05_embedMB_Baye5.root
+	double err_star_jet20[N_star] = {0.0008};//{0.0007};
+	double syserrmax_star_jet20[N_star] = {0.03};//with TPC 004err //{0.0341};//with TPC 005err//{0.0508};
+	double syserrmin_star_jet20[N_star] = {0.014};//with TPC 004err //{0.0205};//with TPC 005err //{0.0209};//{0.0204};
 
 
 	// CDF PhysRevD.92.092009, 300GeV, 900GeV, 1.96TeV, x: leading charged track. |eta|<0.8, pT>0.5 GeV/c
@@ -114,6 +121,17 @@ void EnergyDep() {
 	gr_star->SetLineColor(2);
 	gr_star->SetMarkerStyle(29);
 	gr_star->SetMarkerSize(3);
+
+	TGraphErrors *gr_star6 = new TGraphErrors();
+	gr_star6->SetName("star6");
+	for(int i = 0; i<N_star; i++) {
+		gr_star6->SetPoint(i,ene_star[i],NtrkDen_star_track6[i]);
+		gr_star6->SetPointError(i,0,err_star_track6[i]);
+	}
+	gr_star6->SetMarkerColor(2);
+	gr_star6->SetLineColor(2);
+	gr_star6->SetMarkerStyle(25);
+	gr_star6->SetMarkerSize(2);
 	
 	TGraphAsymmErrors *sysgr_star = new TGraphAsymmErrors();
 	sysgr_star->SetName("star_sys");
@@ -140,7 +158,7 @@ void EnergyDep() {
 	}
 	gr_star_jet->SetMarkerColor(2);
 	gr_star_jet->SetLineColor(2);
-	gr_star_jet->SetMarkerStyle(29);
+	gr_star_jet->SetMarkerStyle(30);
 	gr_star_jet->SetMarkerSize(3);
 	
 	TGraphAsymmErrors *sysgr_star_jet = new TGraphAsymmErrors();
@@ -352,6 +370,7 @@ void EnergyDep() {
 	gr_atlas_jet->Draw("psame");
 	gr_alice->Draw("psame");
 	//gr_star->Draw("psame");
+	//gr_star6->Draw("psame");
 	gr_star_jet->Draw("psame");
 	//sysgr_star->Draw("[]same");
 	sysgr_star_jet->Draw("[]same");
@@ -364,7 +383,7 @@ void EnergyDep() {
 
 	//TLegend *leg = new TLegend(0.15,0.55,0.5,0.85);
 	TLegend *leg = new TLegend(0.13,0.52,0.52,0.87);
-	leg->AddEntry(gr_star,"STAR Full Jet 20-25 GeV/#it{c} |#eta|<1","p");
+	leg->AddEntry(gr_star_jet,"STAR Full Jet 20-25 GeV/#it{c} |#eta|<1","p");
 	leg->AddEntry(gr_cdf,"CDF Track 5-6 GeV/#it{c} |#eta|<0.8","p");
 	leg->AddEntry(gr_cdf_chargejet,"CDF Charged Jet 19-20 GeV/#it{c} |#eta|<1","p");
 	leg->AddEntry(gr_alice,"ALICE Track 5-6 GeV/#it{c} |#eta|<0.8","p");
@@ -384,5 +403,11 @@ void EnergyDep() {
 	cout<<"  Tran Density = "<<NtrkDen_star_jet12[0]<<" +- "<<err_star_jet12[0]<<"(stat) + "<<syserrmax_star_jet12[0]<<" - "<<syserrmin_star_jet12[0]<<"(sys)"<<endl;
 	cout<<"LeadJet pT 20-25 GeV/c bin "<<endl;
 	cout<<"  Tran Density = "<<NtrkDen_star_jet20[0]<<" +- "<<err_star_jet20[0]<<"(stat) + "<<syserrmax_star_jet20[0]<<" - "<<syserrmin_star_jet20[0]<<"(sys)"<<endl;
+
+
+	if(savefig) {
+		c->SaveAs(Form("/Users/li/Research/Underlying/PaperDraft170405/STAR_CDF_ALICE_CMS_ATLAS.pdf"));
+		c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/STAR_CDF_ALICE_CMS_ATLAS.pdf"));
+	}
 
 }
