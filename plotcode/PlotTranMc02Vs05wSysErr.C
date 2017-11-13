@@ -288,7 +288,7 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk", TString filetag="NFW
 	TFile *fp8[Npt];
 	TProfile *httpf8[Npt][NRegion];
 	for(int j = 0; j<Npt; j++) {
-		fp8[j] = new TFile(Form("Profile_12JetBinv2_FullJet_TransCharged_pythia8215_pp200hard_PionDecayOff_seed134123_170422%s.root",p8pttag[j]));
+		fp8[j] = new TFile(Form("Profile_12JetBinv2_FullJet_TransCharged_pythia8215_pp200hard_PionDecayOff_seed134123_170422%s.root",p8pttag[j]));//Profile_12JetBinv2_FullJet_TransCharged_pythia8215_pp200hard_PionDecayOff_seed134123_170422%s.root",p8pttag[j]));
 		cout<<"Read from "<<fp8[j]->GetName()<<" for ";
 		for(int i = 0 ;i <NRegion; i++) {
 			httpf8[j][i] = (TProfile*)fp8[j]->Get(Form("%s%s",Region[i],Variable));
