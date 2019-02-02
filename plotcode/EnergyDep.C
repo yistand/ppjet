@@ -119,7 +119,7 @@ void EnergyDep() {
 	}
 	gr_star->SetMarkerColor(2);
 	gr_star->SetLineColor(2);
-	gr_star->SetMarkerStyle(29);
+	gr_star->SetMarkerStyle(30);
 	gr_star->SetMarkerSize(3);
 
 	TGraphErrors *gr_star6 = new TGraphErrors();
@@ -131,7 +131,7 @@ void EnergyDep() {
 	gr_star6->SetMarkerColor(2);
 	gr_star6->SetLineColor(2);
 	gr_star6->SetMarkerStyle(25);
-	gr_star6->SetMarkerSize(2);
+	gr_star6->SetMarkerSize(3);
 	
 	TGraphAsymmErrors *sysgr_star = new TGraphAsymmErrors();
 	sysgr_star->SetName("star_sys");
@@ -158,7 +158,7 @@ void EnergyDep() {
 	}
 	gr_star_jet->SetMarkerColor(2);
 	gr_star_jet->SetLineColor(2);
-	gr_star_jet->SetMarkerStyle(30);
+	gr_star_jet->SetMarkerStyle(29);
 	gr_star_jet->SetMarkerSize(3);
 	
 	TGraphAsymmErrors *sysgr_star_jet = new TGraphAsymmErrors();
@@ -187,7 +187,7 @@ void EnergyDep() {
 	}
 	gr_cdf->SetMarkerColor(1);
 	gr_cdf->SetLineColor(1);
-	gr_cdf->SetMarkerStyle(8);
+	gr_cdf->SetMarkerStyle(4);
 	gr_cdf->SetMarkerSize(2);
 
 	TGraphAsymmErrors *sysgr_cdf = new TGraphAsymmErrors();
@@ -215,7 +215,7 @@ void EnergyDep() {
 	}
 	gr_cdf_chargejet->SetMarkerColor(1);
 	gr_cdf_chargejet->SetLineColor(1);
-	gr_cdf_chargejet->SetMarkerStyle(25);
+	gr_cdf_chargejet->SetMarkerStyle(21);
 	gr_cdf_chargejet->SetMarkerSize(1.5);
 
 	TGraphAsymmErrors *sysgr_cdf_chargejet = new TGraphAsymmErrors();
@@ -246,7 +246,7 @@ void EnergyDep() {
 	int color_alice = kAzure+1;
 	gr_alice->SetMarkerColor(color_alice);
 	gr_alice->SetLineColor(color_alice);
-	gr_alice->SetMarkerStyle(8);
+	gr_alice->SetMarkerStyle(4);
 	gr_alice->SetMarkerSize(2);
 
 
@@ -262,8 +262,8 @@ void EnergyDep() {
 	int color_cms = kOrange+2;
 	gr_cms_chargejet->SetMarkerColor(color_cms);
 	gr_cms_chargejet->SetLineColor(color_cms);
-	gr_cms_chargejet->SetMarkerStyle(25);
-	gr_cms_chargejet->SetMarkerSize(2);
+	gr_cms_chargejet->SetMarkerStyle(21);
+	gr_cms_chargejet->SetMarkerSize(1.5);
 
 	TGraphAsymmErrors *sysgr_cms_chargejet = new TGraphAsymmErrors();
 	sysgr_cms_chargejet->SetName("cms_sys");
@@ -291,7 +291,7 @@ void EnergyDep() {
 	int color_atlas = kGreen+2;
 	gr_atlas->SetMarkerColor(color_atlas);
 	gr_atlas->SetLineColor(color_atlas);
-	gr_atlas->SetMarkerStyle(8);
+	gr_atlas->SetMarkerStyle(4);
 	gr_atlas->SetMarkerSize(2);
 
 	TGraphAsymmErrors *sysgr_atlas = new TGraphAsymmErrors();
@@ -318,8 +318,8 @@ void EnergyDep() {
 	}
 	gr_atlas_jet->SetMarkerColor(color_atlas);
 	gr_atlas_jet->SetLineColor(color_atlas);
-	gr_atlas_jet->SetMarkerStyle(25);
-	gr_atlas_jet->SetMarkerSize(2);
+	gr_atlas_jet->SetMarkerStyle(21);
+	gr_atlas_jet->SetMarkerSize(1.5);
 
 	TGraphAsymmErrors *sysgr_atlas_jet = new TGraphAsymmErrors();
 	sysgr_atlas_jet->SetName("atlas_jet_sys");
@@ -406,7 +406,8 @@ void EnergyDep() {
 
 
 	if(savefig) {
-		c->SaveAs(Form("/Users/li/Research/Underlying/PaperDraft170405/STAR_CDF_ALICE_CMS_ATLAS.pdf"));
+		//c->SaveAs(Form("/Users/li/Research/Underlying/PaperDraft170405/STAR_CDF_ALICE_CMS_ATLAS.pdf"));
+		c->SaveAs(Form("/Users/li/Research/Underlying/PaperDraft180402/STAR_CDF_ALICE_CMS_ATLAS.pdf"));
 		c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/STAR_CDF_ALICE_CMS_ATLAS.pdf"));
 	}
 

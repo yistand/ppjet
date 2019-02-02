@@ -112,8 +112,12 @@ TGraphAsymmErrors *Graph4UnfoldXErr(TProfile *pf) {
 
 void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight_BT170928_RcVzW_12JetBinv2_McPt02") {		// Ntrk, PtAve, PtSum
 
-	int savefig = 1;
+	int savefig = 0;
+	int savecsv = 0;	// save output numbers to csv file
 	int detplot = 0; 	// plot detector-level (no save)
+	int saveroot = 0;
+
+	int opt_drawdefpythia6 = 1;	// if 1, draw default pythia6 Perugia 2012 by Kevin
 
 	const int NRegion = 3;
 	const char *legtag[NRegion] = {"Toward","Away","Transverse"};
@@ -127,7 +131,7 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 	double XaxisMin = 3; //2;
 	double XaxisMax = 45;
 	double YaxisMin = 0;
-	double YaxisMax = 3.1;
+	double YaxisMax = 3.2;
 
 	if(!strcmp(Variable,"PtSum")) YaxisMax = 7.5;
 
@@ -213,6 +217,14 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 		}
 	}
 
+	// PYTHIA 6 default Perugia 2012 without STAR's tune
+	TFile *fp6def = new TFile("Profile_12JetBinv2_FullJet_TransCharged_pythia6default_pp200hard_PionDecayOff_180324.root");
+	TProfile *httpf6def[NRegion];
+	for(int i = 0 ;i <NRegion; i++) {
+		httpf6def[i] = (TProfile*)fp6def->Get(Form("%s%s",Region[i],Variable));
+	}
+
+
 	// PYTHIA 8
 	TFile *fp8 = new TFile("Profile_12JetBinv2_FullJet_TransCharged_pythia8215_pp200hard_PionDecayOff_seed134123_170422.root");//ProfileFullJet_TransCharged_pythia8215_pp200hard_PionDecayOff_seed134123_170422.root");
 	TProfile *httpf8[NRegion];
@@ -245,7 +257,8 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 
 	for(int i = 0; i<NRegion; i++) {
 		SetHistStyle(hrecopf[i],mcolor[i],mcolor[i],mstyle[i],1,msize[i],1);
-		SetHistStyle(httpf[i],mcolor[i],mcolor[i],mstyle[i],lstyle[i],msize[i],5);	// last option is line width	// last option is line width
+		SetHistStyle(httpf[i],mcolor[i],mcolor[i],mstyle[i],lstyle[i],msize[i],7);	// last option is line width	// last option is line width
+		SetHistStyle(httpf6def[i],mcolor[i],mcolor[i],mstyle[i],lstyle[i],msize[i],3);
 		SetHistStyle(httpf8[i],mcolor[i],mcolor[i],mstyle[i],lstyle[i],msize[i],1);
 		if(!xgr[i]) continue;
 		xgr[i]->SetFillColor(bcolor[i]);
@@ -364,6 +377,7 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 			hmeaspf[i]->Scale(DeDpNorma);
 			httpf[i]->Scale(DeDpNorma);
 			htpf[i]->Scale(DeDpNorma);
+			httpf6def[i]->Scale(DeDpNorma);
 			httpf8[i]->Scale(DeDpNorma);
 		}
 	}
@@ -371,8 +385,15 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 
 	for(int i=0;i<NRegion; i++) {		// PYTHIA
 		httpf[i]->GetXaxis()->SetRangeUser(XaxisMin, XaxisMax);
+		httpf6def[i]->GetXaxis()->SetRangeUser(XaxisMin, XaxisMax);
 		httpf8[i]->GetXaxis()->SetRangeUser(XaxisMin, XaxisMax);
+
 		httpf[i]->Draw("histcsame");
+		if(opt_drawdefpythia6)  {
+			httpf6def[i]->SetName(Form("%s_p6def",httpf6def[i]->GetName()));
+			httpf6def[i]->Draw("histcsame");
+		}
+		httpf8[i]->SetName(Form("%s_p8",httpf8[i]->GetName()));
 		httpf8[i]->Draw("histcsame");
 		//httpf[i]->Draw("HISTsame");
 		//httpf8[i]->Draw("HISTsame");
@@ -389,7 +410,9 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 	for(int i = 0; i<NRegion; i++) {
 		leg->AddEntry(hrecopf[i],legtag[i],"p");
 	}
-	leg->AddEntry(httpf[0],"Perugia 2012","l");
+	leg->AddEntry(httpf[0],"Perugia 2012 (STAR)","l");
+	//leg->AddEntry(httpf[0],"STAR Tune","l");
+	if(opt_drawdefpythia6)  leg->AddEntry(httpf6def[0],"Perugia 2012","l");
 	//leg->AddEntry(httpf8[0],"pythia 8.215","l");
 	leg->AddEntry(httpf8[0],"Monash 2013","l");
 	leg->Draw();
@@ -408,10 +431,12 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 	lat->SetNDC();
 	lat->SetTextFont(42);
 	if(!strcmp(Variable,"PtAve")) {
-		lat->DrawLatex(0.56,0.19,"#splitline{p+p@200 GeV}{p_{T} > 0.2 GeV/#it{c}, |#eta|<1}");
+		//lat->DrawLatex(0.56,0.19,"#splitline{p+p@200 GeV}{#splitline{p_{T} > 0.2 GeV/#it{c}, |#eta|<1}{R = 0.6, |#eta_{jet}|<0.4}}");
+		lat->DrawLatex(0.37,0.19,"p+p@200 GeV");
+		lat->DrawLatex(0.56,0.18,"#splitline{p_{T} > 0.2 GeV/#it{c}, |#eta|<1}{R = 0.6, |#eta_{jet}|<0.4}");
 	}
 	else {
-		lat->DrawLatex(0.56,0.8,"#splitline{p+p@200 GeV}{p_{T} > 0.2 GeV/#it{c}, |#eta|<1}");
+		lat->DrawLatex(0.56,0.8,"#splitline{p+p@200 GeV}{#splitline{p_{T} > 0.2 GeV/#it{c}, |#eta|<1}{R = 0.6, |#eta_{jet}|<0.4}}");
 	}
 	lat->SetTextColor(1);
 	lat->SetTextFont(62);
@@ -423,9 +448,13 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 	}
 
 	if(savefig) {
-		c->SaveAs(Form("/Users/li/Research/Underlying/PaperDraft170405/%s_DataVsPythia6Vs8_Box.pdf",Variable));
-		c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/%s_DataVsPythia6Vs8_Box.pdf",Variable));
+		//c->SaveAs(Form("/Users/li/Research/Underlying/PaperDraft170405/%s_DataVsPythia6Vs8_Box.pdf",Variable));
+		c->SaveAs(Form("/Users/liyi/Research/Underlying/PaperDraft180920/%s_DataVsPythia6Vs8_Box.pdf",Variable));
+		c->SaveAs(Form("/Users/liyi/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/%s_DataVsPythia6Vs8_Box.pdf",Variable));
 		//c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/NoRcVzW_%s_DataVsPythia6Vs8_Box.pdf",Variable));
+	}
+	if(saveroot) {
+		c->SaveAs(Form("/Users/liyi/Research/Underlying/PaperDraft180920/%s_DataVsPythia6Vs8_Box.root",Variable));
 	}
 
 	if(detplot) {
@@ -492,56 +521,70 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 		if(!grreco[i]) continue;
 		cout<<legtag[i]<<": "<<endl;
 		for(int j = 0; j<hrecopf[i]->GetNbinsX(); j++) {
-			cout<<hrecopf[i]->GetBinCenter(j+1)<<" "<<hrecopf[i]->GetBinContent(j+1)<<" +/- "<<hrecopf[i]->GetBinError(j+1)<<" (stat);  "<<grreco[i]->GetY()[j]<<" +"<<grreco[i]->GetEYhigh()[j]<<" - "<<grreco[i]->GetEYlow()[j]<<" (sys)"<<"\t\t\t PYTHIA6 = "<<httpf[i]->GetBinContent(j+1)<<"\t\t\t PYTHIA8 = "<<httpf8[i]->GetBinContent(j+1)<<endl;
+			cout<<hrecopf[i]->GetBinCenter(j+1)<<" "<<hrecopf[i]->GetBinContent(j+1)<<" +/- "<<hrecopf[i]->GetBinError(j+1)<<" (stat);  "<<grreco[i]->GetY()[j]<<" +"<<grreco[i]->GetEYhigh()[j]<<" - "<<grreco[i]->GetEYlow()[j]<<" (sys)"<<"\t\t\t PYTHIA6(star) = "<<httpf[i]->GetBinContent(j+1);
+			if(opt_drawdefpythia6) cout<<"\t\t\t PYTHIA6(def) = "<<httpf6def[i]->GetBinContent(j+1);
+			cout<<"\t\t\t PYTHIA8 = "<<httpf8[i]->GetBinContent(j+1)<<endl;
 		}
 	}
 
 
 	ofstream tout;
 	TString Stout=Form("%s_JP_Charged_%s_embedMB_Baye%d.csv",Variable,filetag,DefaultTh);
-	tout.open(Stout);
-	if(tout.is_open()) {
-		cout<<"Output to "<<Stout<<endl;
-	}
-	else {
-		cout<<"Error open file "<<Stout<<" to write"<<endl;
-		return;
-	}
+	if(savecsv) {
+		tout.open(Stout);
+		if(tout.is_open()) {
+			cout<<"Output to "<<Stout<<endl;
+		}
+		else {
+			cout<<"Error open file "<<Stout<<" to write"<<endl;
+			return;
+		}
 
-	tout<<"pt,";
-	for(int j = 0; j<hrecopf[0]->GetNbinsX(); j++) {
-		tout<<hrecopf[0]->GetBinLowEdge(j+1)<<"-"<<hrecopf[0]->GetBinLowEdge(j+1)+hrecopf[0]->GetBinWidth(j+1)<<",";
-	}
-	tout<<endl;
-	for(int i=0;i<NRegion; i++) {
-		if(!grreco[i]) continue;
-		tout<<legtag[i]<<",";
-		for(int j = 0; j<hrecopf[i]->GetNbinsX(); j++) {
-			tout<<hrecopf[i]->GetBinContent(j+1)<<" +/- "<<hrecopf[i]->GetBinError(j+1)<<" (stat) + "<<grreco[i]->GetEYhigh()[j]<<" - "<<grreco[i]->GetEYlow()[j]<<" (sys)"<<",";
+		tout<<"pt,";
+		for(int j = 0; j<hrecopf[0]->GetNbinsX(); j++) {
+			tout<<hrecopf[0]->GetBinLowEdge(j+1)<<"-"<<hrecopf[0]->GetBinLowEdge(j+1)+hrecopf[0]->GetBinWidth(j+1)<<",";
 		}
 		tout<<endl;
-	}
-	tout<<"PYTHIA6"<<endl;
-	for(int i=0;i<NRegion; i++) {
-		if(!grreco[i]) continue;
-		tout<<legtag[i]<<",";
-		for(int j = 0; j<hrecopf[i]->GetNbinsX(); j++) {
-			tout<<httpf[i]->GetBinContent(j+1)<<",";
+		for(int i=0;i<NRegion; i++) {
+			if(!grreco[i]) continue;
+			tout<<legtag[i]<<",";
+			for(int j = 0; j<hrecopf[i]->GetNbinsX(); j++) {
+				tout<<hrecopf[i]->GetBinContent(j+1)<<" +/- "<<hrecopf[i]->GetBinError(j+1)<<" (stat) + "<<grreco[i]->GetEYhigh()[j]<<" - "<<grreco[i]->GetEYlow()[j]<<" (sys)"<<",";
+			}
+			tout<<endl;
 		}
-		tout<<endl;
-	}
-	tout<<"PYTHIA8"<<endl;
-	for(int i=0;i<NRegion; i++) {
-		if(!grreco[i]) continue;
-		tout<<legtag[i]<<",";
-		for(int j = 0; j<hrecopf[i]->GetNbinsX(); j++) {
-			tout<<httpf8[i]->GetBinContent(j+1)<<",";
+		tout<<"PYTHIA6(star)"<<endl;
+		for(int i=0;i<NRegion; i++) {
+			if(!grreco[i]) continue;
+			tout<<legtag[i]<<",";
+			for(int j = 0; j<hrecopf[i]->GetNbinsX(); j++) {
+				tout<<httpf[i]->GetBinContent(j+1)<<",";
+			}
+			tout<<endl;
 		}
-		tout<<endl;
+		if(opt_drawdefpythia6) {
+			tout<<"PYTHIA6(def)"<<endl;
+			for(int i=0;i<NRegion; i++) {
+				if(!grreco[i]) continue;
+				tout<<legtag[i]<<",";
+				for(int j = 0; j<hrecopf[i]->GetNbinsX(); j++) {
+					tout<<httpf6def[i]->GetBinContent(j+1)<<",";
+				}
+				tout<<endl;
+			}
+		}
+		tout<<"PYTHIA8"<<endl;
+		for(int i=0;i<NRegion; i++) {
+			if(!grreco[i]) continue;
+			tout<<legtag[i]<<",";
+			for(int j = 0; j<hrecopf[i]->GetNbinsX(); j++) {
+				tout<<httpf8[i]->GetBinContent(j+1)<<",";
+			}
+			tout<<endl;
+		}
+
+		tout.close();
 	}
-
-	tout.close();
-
 
 
 }

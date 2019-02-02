@@ -17,10 +17,11 @@
 
 
 
-void plotpythia8(TString filename="FullJet_TransCharged_pythia8215_pp200hard_PionDecayOff_seed134123_170422.root", bool flagMC05 = false) {
+void plotpythia8(TString filename="FullJet_TransCharged_pythia8215_pp200hard_PionDecayOff_seed134123_170422.root", bool flagMC05 = false, const char *var = "j1pt") {
 //
 //	flagMC05:  whether we want to extract MC pt>0.5 from profile of MC pt>0.2 for TranPtAve
 //
+//	var: maxpt for MaxTrack, j1pt for Leading jet
 
 	TFile *f = new TFile(filename);
 	if(!f->IsOpen()) {
@@ -35,7 +36,7 @@ void plotpythia8(TString filename="FullJet_TransCharged_pythia8215_pp200hard_Pio
 	float leadpt[nmax],subpt[nmax],maxpt[nmax],minpt[nmax];
 	double weight;
 
-	t->SetBranchAddress("j1pt",&jpt);
+	t->SetBranchAddress(var,&jpt);
 	t->SetBranchAddress("eventweight",&weight);
         t->SetBranchAddress("LeadAreaNtrk",&leadntrk);
         t->SetBranchAddress("SubAreaNtrk",&subntrk);
@@ -54,6 +55,11 @@ void plotpythia8(TString filename="FullJet_TransCharged_pythia8215_pp200hard_Pio
 	//double ptbins[nptbin+1] = {0,2,3,4,5,6,7,8,9,11,12,15,17,20,22,25,30,35,45,65,100};	// 20+1 bins
 	const int nptbin = 13;		// need also to check outname..
 	double ptbins[nptbin+1] = {0,1,3,5,7,9,11,15,20,25,35,45,55,100};		// 13+1 bins
+	//const int nptbin = 100;
+	//double ptbins[nptbin+1];
+	//for(int i = 0; i<nptbin+1; i++) {
+	//	ptbins[i] = i;
+	//}
 
 	TH1D *hjpt = new TH1D("hjpt","leading jet pt",nptbin,ptbins);
 	TProfile *pleadntrk = new TProfile("LeadNtrk","pleadntrk",nptbin,ptbins);
@@ -148,8 +154,10 @@ void plotpythia8(TString filename="FullJet_TransCharged_pythia8215_pp200hard_Pio
 		}
 	}
 
-	//TString outname = "Profile"+filename;
-	TString outname = "Profile_12JetBinv2_"+filename;
+	TString pretag = "";
+	if(!strcmp(var,"maxpt")) pretag = "MaxTrack_";
+	//TString outname = pretag+"Profile_finebin_"+filename;
+	TString outname = pretag+"Profile_12JetBinv2_"+filename;
 	if(flagMC05) outname.ReplaceAll(".root","_PT05.root");
 	//outname.ReplaceAll(".root","_noxsecw.root");
 	TFile *fout = new TFile(outname,"RECREATE");

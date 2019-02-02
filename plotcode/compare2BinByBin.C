@@ -57,6 +57,10 @@ void compare2BinByBin(TString filename) {
 
 	TH1D* hbbbpx = (TH1D*)hbbb->ProfileX("hbbbpx");
 
+	const double XaxisMin = 2;
+	const double XaxisMax = 45;
+
+
 	SetHistStyle(hmeaspx, 2, 2, 25, 1, 2, 1);
 	SetHistStyle(hrecopx, 1, 1, 20, 1, 2, 1);
 
@@ -66,7 +70,7 @@ void compare2BinByBin(TString filename) {
 	SetHistStyle(hbbbpx, kAzure+7, kAzure+7, 20, 1, 2, 3);
 
 	float DeDpNorma = 1./(2.*2.*TMath::Pi()/3.);	// TranTot: 2 area; eta 2; phi pi/3
-	if(!filename.Contains("LeadJetNtrk",TString::kIgnoreCase)) {
+	if(!(filename.Contains("LeadJetNtrk",TString::kIgnoreCase)||filename.Contains("PtAve",TString::kIgnoreCase))) {
 		hmeaspx->Scale(DeDpNorma);
 		hrecopx->Scale(DeDpNorma);
 		htrainmpx->Scale(DeDpNorma);
@@ -89,15 +93,32 @@ void compare2BinByBin(TString filename) {
 	if(ftitle.Contains("LeadJetNtrk",TString::kIgnoreCase)) sregion = "Leading Jet";
 	TString svariable = " #LTN_{ch}/#delta#eta#delta#phi#GT";		// Ntrk
 	if(ftitle.Contains("LeadJetNtrk",TString::kIgnoreCase)) svariable = " Constituents Multiplicity";
+	if(ftitle.Contains("PtAve",TString::kIgnoreCase)) svariable = " #LTp_{T}#GT";
 	hmeaspx->GetYaxis()->SetTitle(sregion+svariable);
 
-	hmeaspx->GetXaxis()->SetRangeUser(0,55);
+	hmeaspx->GetXaxis()->SetRangeUser(XaxisMin, XaxisMax); //0,55);
 	hmeaspx->SetMinimum(0);
 	hmeaspx->SetMaximum(1.5);
 	if(sregion.EqualTo("Toward")||sregion.EqualTo("Away"))  hmeaspx->SetMaximum(2.5);//Lead Ntrk density
 	if(ftitle.Contains("LeadJetNtrk",TString::kIgnoreCase)) hmeaspx->SetMaximum(31);	// Lead Jet Ntrk (Charged+Neutral)
+	if(ftitle.Contains("PtAve",TString::kIgnoreCase)) {
+		hmeaspx->SetMaximum(3.2);
+		if(ftitle.Contains("Tran")) {
+			hmeaspx->SetMinimum(0.4);
+			hmeaspx->SetMaximum(0.9);
+		}
+	}
 	
-	hmeaspx->Draw("p");
+	hrecopx->GetXaxis()->SetRangeUser(XaxisMin,XaxisMax);
+	htrainmpx->GetXaxis()->SetRangeUser(XaxisMin,XaxisMax);
+	htraintpx->GetXaxis()->SetRangeUser(XaxisMin,XaxisMax);
+	hbbbpx->GetXaxis()->SetRangeUser(XaxisMin,XaxisMax);
+
+	TH1D *htmp = (TH1D*)hmeaspx->Clone("htmp");
+	htmp->Reset();
+	//htmp->GetXaxis()->SetRangeUser(0,XaxisMax);
+	htmp->Draw();
+	hmeaspx->Draw("psame");
 	hrecopx->Draw("psame");
 	htrainmpx->Draw("HISTsame");
 	htraintpx->Draw("HISTsame");
@@ -119,7 +140,19 @@ void compare2BinByBin(TString filename) {
 	leg->AddEntry(hbbbpx,"Bin-by-Bin Unfolded data","l");
 	leg->Draw();
 
-	TString outtag = sregion;
-	if(filename.Contains("LeadJetNtrk",TString::kIgnoreCase)) outtag="LeadJetChargedAndNeutralNtrk";	// Lead Jet Ntrk (Charged+Neutral)
-	c->SaveAs("compared2bbb_"+outtag+"TrkJPCharged_NFweight_McPt02_embedMB.png");
+	//TString outtag = sregion;
+	//if(filename.Contains("LeadJetNtrk",TString::kIgnoreCase)) outtag="LeadJetChargedAndNeutral";	// Lead Jet Ntrk (Charged+Neutral)
+	//TString vartag = "Ntrk";
+	//if(filename.Contains("PtAve",TString::kIgnoreCase)) vartag="PtAve";
+	//c->SaveAs("compared2bbb_"+outtag+vartag+"JPCharged_NFweight_McPt02_embedMB.png");
+
+	TString outname = filename;
+	outname.ReplaceAll(".root",".png");
+	outname.ReplaceAll("Unfolding_","compared2bbb_");
+	cout<<"-> to save: c->SaveAs(\""<<outname<<"\");"<<endl;
+//	c->SaveAs(outname);
 }
+
+
+
+

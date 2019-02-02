@@ -183,6 +183,8 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk", TString filetag="NFW
 	int savefig = 1;
 	int detplot = 0;
 
+	int opt_drawdefpythia6 = 1;	// if 1, draw default pythia6 Perugia 2012 by Kevin
+
 	const int Npt = 2;
 	//const char *pttag[Npt] = {"McPt02","McPtRC02MC05"};		// for measured data + default pythia6 
 	const char *pttag[Npt] = {"McPt02","McPtRC05MC05"};		// for measured data + default pythia6 
@@ -284,6 +286,17 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk", TString filetag="NFW
 		}
 	}
 
+
+	// PYTHIA 6 default Perugia 2012 without STAR's tune
+	TFile *fp6def[Npt];
+	TProfile *httpf6def[Npt][NRegion];
+	for(int j = 0; j<Npt; j++) {
+		for(int i = 0 ;i <NRegion; i++) {
+ 			fp6def[j] = new TFile(Form("Profile_12JetBinv2_FullJet_TransCharged_pythia6default_pp200hard_PionDecayOff_180324%s.root",p8pttag[j]));	// same tag as p8 for "" and "_PT05"
+			httpf6def[j][i] = (TProfile*)fp6def[j]->Get(Form("%s%s",Region[i],Variable));
+		}
+	}
+
 	// PYTHIA 8
 	TFile *fp8[Npt];
 	TProfile *httpf8[Npt][NRegion];
@@ -324,7 +337,8 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk", TString filetag="NFW
 	for(int j = 0; j<Npt; j++) {
 		for(int i = 0; i<NRegion; i++) {
 			SetHistStyle(hrecopf[j][i],mcolor[j][i],mcolor[j][i],mstyle[j][i],1,msize[i],1);
-			SetHistStyle(httpf[j][i],mcolor[j][i],mcolor[j][i],mstyle[j][i],lstyle[i],msize[i],5);	// last option is line width	// last option is line width
+			SetHistStyle(httpf[j][i],mcolor[j][i],mcolor[j][i],mstyle[j][i],lstyle[i],msize[i],7);	// last option is line width	// last option is line width
+			SetHistStyle(httpf6def[j][i],mcolor[j][i],mcolor[j][i],mstyle[j][i],lstyle[i],msize[i],3);
 			SetHistStyle(httpf8[j][i],mcolor[j][i],mcolor[j][i],mstyle[j][i],lstyle[i],msize[i],1);
 			if(!xgr[j][i]) continue;
 			xgr[j][i]->SetFillColor(bcolor[j][i]);
@@ -445,6 +459,7 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk", TString filetag="NFW
 				hmeaspf[j][i]->Scale(DeDpNorma);
 				httpf[j][i]->Scale(DeDpNorma);
 				htpf[j][i]->Scale(DeDpNorma);
+				httpf6def[j][i]->Scale(DeDpNorma);
 				httpf8[j][i]->Scale(DeDpNorma);
 			}
 		}
@@ -452,8 +467,10 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk", TString filetag="NFW
 
 		for(int i=0;i<NRegion; i++) {		// PYTHIA
 			httpf[j][i]->GetXaxis()->SetRangeUser(XaxisMin, XaxisMax);
+			httpf6def[j][i]->GetXaxis()->SetRangeUser(XaxisMin, XaxisMax);
 			httpf8[j][i]->GetXaxis()->SetRangeUser(XaxisMin, XaxisMax);
 			httpf[j][i]->Draw("histcsame");
+			if(opt_drawdefpythia6)  httpf6def[j][i]->Draw("histcsame");
 			httpf8[j][i]->Draw("histcsame");
 			//httpf[j][i]->Draw("HISTsame");
 			//httpf8[j][i]->Draw("HISTsame");
@@ -476,7 +493,9 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk", TString filetag="NFW
 		//leg->AddEntry(httpf[j][0],Form("Perugia 2012 %s",legtagpt[j]),"l");
 		////leg->AddEntry(httpf8[j][0],Form("pythia 8.215 %s",legtagpt[j]),"l");
 		//leg->AddEntry(httpf8[j][0],Form("Monash 2013 %s",legtagpt[j]),"l");
-		leg[j]->AddEntry(httpf[j][0],Form("Perugia 2012"),"l");
+		leg[j]->AddEntry(httpf[j][0],Form("Perugia 2012 (STAR)"),"l");
+		//if(opt_drawdefpythia6)  leg[j]->AddEntry(httpf6def[j][0],"Perugia 2012 (default)","l");
+		if(opt_drawdefpythia6)  leg[j]->AddEntry(httpf6def[j][0],"Perugia 2012","l");
 		leg[j]->AddEntry(httpf8[j][0],Form("Monash 2013"),"l");
 		leg[j]->Draw();
 	}
@@ -498,10 +517,13 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk", TString filetag="NFW
 	lat->SetNDC();
 	lat->SetTextFont(42);
 	if(!strcmp(Variable,"PtAve")) {
-		lat->DrawLatex(0.65,0.19,"#splitline{p+p@200 GeV}{|#eta|<1}");
+		//lat->DrawLatex(0.65,0.19,"#splitline{p+p@200 GeV}{|#eta|<1}");
+		lat->DrawLatex(0.45,0.19,"p+p@200 GeV");
+		lat->DrawLatex(0.65,0.19,"#splitline{|#eta|<1}{R = 0.6, |#eta_{jet}|<0.4}");
 	}
 	else {
-		lat->DrawLatex(0.65,0.8,"#splitline{p+p@200 GeV}{|#eta|<1}");
+		//lat->DrawLatex(0.65,0.8,"#splitline{p+p@200 GeV}{|#eta|<1}");
+		lat->DrawLatex(0.65,0.8,"#splitline{p+p@200 GeV}{#splitline{|#eta|<1}{R = 0.6, |#eta_{jet}|<0.4}}");
 	}
 	lat->SetTextColor(1);
 	lat->SetTextFont(62);
@@ -515,11 +537,12 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk", TString filetag="NFW
 
 	if(savefig) {
 		if(filetag.Contains("RcVzW",TString::kIgnoreCase)) {
-			c->SaveAs(Form("/Users/li/Research/Underlying/PaperDraft170405/Tran%s_MC02Vs05_Box.pdf",Variable));
-			c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/Tran%s_MCpT02Vs05.pdf",Variable));
+			//c->SaveAs(Form("/Users/li/Research/Underlying/PaperDraft170405/Tran%s_MC02Vs05_Box.pdf",Variable));
+			c->SaveAs(Form("/Users/liyi/Research/Underlying/PaperDraft180920/Tran%s_MC02Vs05_Box.pdf",Variable));
+			c->SaveAs(Form("/Users/liyi/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/Tran%s_MCpT02Vs05.pdf",Variable));
 		}
 		else {
-			c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/NoRcVzW_Tran%s_MCpT02Vs05.pdf",Variable));
+			c->SaveAs(Form("/Users/liyi/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/NoRcVzW_Tran%s_MCpT02Vs05.pdf",Variable));
 		}
 	}
 
@@ -608,13 +631,24 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk", TString filetag="NFW
 			tout<<endl;
 		}
 	}
-	tout<<"PYTHIA6"<<endl;
+	tout<<"PYTHIA6 (STAR)"<<endl;
 	for(int j=0;j<Npt; j++) {
 		for(int i=0;i<NRegion; i++) {
 			if(!grreco[j][i]) continue;
 			tout<<legtag[i]<<" "<<ptname[j]<<",";
 			for(int k = 0; k<hrecopf[j][i]->GetNbinsX(); k++) {
 				tout<<httpf[j][i]->GetBinContent(k+1)<<",";
+			}
+			tout<<endl;
+		}
+	}
+	tout<<"PYTHIA6 (default)"<<endl;
+	for(int j=0;j<Npt; j++) {
+		for(int i=0;i<NRegion; i++) {
+			if(!grreco[j][i]) continue;
+			tout<<legtag[i]<<" "<<ptname[j]<<",";
+			for(int k = 0; k<hrecopf[j][i]->GetNbinsX(); k++) {
+				tout<<httpf6def[j][i]->GetBinContent(k+1)<<",";
 			}
 			tout<<endl;
 		}

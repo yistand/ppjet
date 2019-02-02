@@ -1,6 +1,6 @@
 #include <iostream>     // std::cout, std::fixed
 #include <iomanip>      // std::setprecision
-#include "/Users/liyi/commonmacro/ClassSysErr.C"
+#include "/Users/li/commonmacro/ClassSysErr.C"
 #include "compare2BinByBin.C"		// TH2D *GetBbB(TH2D* htt, TH2D* ht, TH2D* hm)
 #include "CompareBayesTimes.C"			// void SetHistStyle(TProfile *h, int mcolor, int lcolor, int mstyle, int lstyle, float msize, int lwidth) 
 #include "smooth.C"
@@ -183,26 +183,17 @@ ClassSysErr *SumTwoSSysErr(TGraphAsymmErrors *gr, double *e1l, double *e1h, doub
 
 
 //================================================== Main =================================================
-void runall(); // will call all plot figures
-void plothrecoWunfolderr_tag(TString Variable="TranPtAve",TString filetag = "NFWeight_BT170928_RcVzW_12JetBinv2_McPt02", bool flagMC05=false, bool smooth=false);
-
-//void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight_BT170928_12JetBinv2_McPt02_embedMB_Baye5.root", bool flagMC05=true) {
-void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight_BT170928_RcVzW_12JetBinv2_McPt02_embedMB_Baye5.root", bool flagMC05=false, bool smooth=false) {
+void plothrecoWunfolderr_smooth(TString filename="Unfolding_TranPtAveJPCharged_NFWeight_BT170928_RcVzW_12JetBinv2_McPt02_embedMB_Baye5.root", bool smooth = true, bool flagMC05=false) {
 //bool flagMC05 = false;		// if we want to extract MC pt>0.5 from profile of MC pt>0.2 for TranPtAve. Use McPt02 for input
 //2017.10.18 at one point in time, I tried to unfold 0.5 using 0.2, it gave large fluctation in TranPtAve. Then there are two options: unfold to 0.2 use 0.2, and later project to 0.5 on final TranPtAve; or unfold 0.5 use 0.5, which is probably the way to go, as for TranTotNtrk, we need to do that. So it is better to be consistent
-//2017.10.24 bool smooth; if true, call TH1D::Smooth for hreco each x bin to smooth the distribution
-
-	int saveroot = 0;
-	int savefig = 0;
 
 	int DefaultTh = 5;
 	const int BayesTimes = 5;
 	int OtherTh[BayesTimes] = {2,3,4,6,7};
-	if(filename.Contains("LeadAreaNtrk",TString::kIgnoreCase)&&OtherTh[2]==4) OtherTh[2] = 5;		// There is a jump when iteration==4 for LeadAreaNtrk
+	if(filename.Contains("LeadAreaNtrk")&&OtherTh[2]==4) OtherTh[2] = 5;		// There is a jump when iteration==4 for LeadAreaNtrk
 
 	const int TpcTimes = 4;
-	//const char *TpcName[TpcTimes] = {"_TpcErrPlus005","_TpcErrMinus005","_TpcErrPlusAbs005","_TpcErrMinusAbs005"};
-	const char *TpcName[TpcTimes] = {"_TpcErrPlus004","_TpcErrMinus004","_TpcErrPlusAbs004","_TpcErrMinusAbs004"};
+	const char *TpcName[TpcTimes] = {"_TpcErrPlus005","_TpcErrMinus005","_TpcErrPlusAbs005","_TpcErrMinusAbs005"};
 
 	const int BemcTimes = 2;
 	const char *BemcName[BemcTimes] = {"_BemcErrPlus004","_BemcErrMinus004"};
@@ -226,7 +217,7 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	if(!filename.Contains("_NFweight",TString::kIgnoreCase)) filename.ReplaceAll("_BT170928_RcVzW_12JetBinv2_McPtRC02MC05_embedJP0","_NFweight_BT170928_RcVzW_12JetBinv2_McPtRC02MC05_embedMB");
 	if(!filename.Contains("_NFweight",TString::kIgnoreCase)) filename.ReplaceAll("_BT170928_RcVzW_12JetBinv2_McPtRC05MC05_embedJP0","_NFweight_BT170928_RcVzW_12JetBinv2_McPtRC05MC05_embedMB");
 	//Make sure input default filename is consistent with DefaultTh 
-	if(! (filename.Contains(Form("_Baye%d",DefaultTh),TString::kIgnoreCase)||(DefaultTh==4)) ) {
+	if(! (filename.Contains(Form("_Baye%d",DefaultTh))||(DefaultTh==4)) ) {
 		Ssiz_t toinsert = filename.Index(".root");
 		Ssiz_t toremove = filename.Index("_Baye");
 		if(toremove!=-1) filename.Remove(toremove,(toinsert-toremove));		// WARNINING!!  Assuming _Baye%d.root
@@ -239,7 +230,7 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	cout<<filename<<endl;
 	f[0] = new TFile(filename);
 	if(!f[0]->IsOpen()) {  
-		if(filename.Contains("TranPtAve",TString::kIgnoreCase)&&filename.Contains("McPtRC02MC05",TString::kIgnoreCase)) {
+		if(filename.Contains("TranPtAve")&&filename.Contains("McPtRC02MC05")) {
 			cout<<"WARNING!!!: if you want to read McPtRC02MC05 case for TranPtAve, I am going to change to read input files as MC02 and profile it as MC05."<<endl;
 			//filename = "Unfolding_TranPtAveJPCharged_NFWeight_12JetBinv2_McPt02_embedMB_Baye5.root";
 			filename = "Unfolding_TranPtAveJPCharged_NFWeight_BT170928_12JetBinv2_McPt02_embedMB_Baye5.root";
@@ -298,7 +289,7 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	//if((nfilename.Contains("_NFweight_12JetBinv2_McPt02_embedMB")||nfilename.Contains("_NFWeight_12JetBinv2_McPt02_embedMB")))  {
 	//	nfilename.ReplaceAll("_NFweight_12JetBinv2_McPt02_embedMB","_12JetBinv2_McPt02_embedJP0");
 	//	nfilename.ReplaceAll("_NFWeight_12JetBinv2_McPt02_embedMB","_12JetBinv2_McPt02_embedJP0");
-	if((nfilename.Contains("embedMB",TString::kIgnoreCase)))  {
+	if((nfilename.Contains("embedMB")))  {
 		nfilename.ReplaceAll("embedMB","embedJP0");
 		nfilename.ReplaceAll("_NFWeight","");
 		cout<<"replace to --> "<<endl<< nfilename<<endl;
@@ -395,7 +386,7 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	for(int i = 0; i<Nfile; i++) {
 		if(hreco[i]) {
 			if(flagMC05) {
-				if(!filename.Contains("PtAve",TString::kIgnoreCase)) {cout<<"ERR!!! when flagMC05==1, we also need to have filename for PtAve, other filename variable type NOT acceptance!!!"<<endl; return;}
+				if(!filename.Contains("PtAve")) {cout<<"ERR!!! when flagMC05==1, we also need to have filename for PtAve, other filename variable type NOT acceptance!!!"<<endl; return;}
 				TProfile *hpy = hreco[i]->ProfileY();
 				if(smooth) {
 					hp[i] = (TProfile*)SmoothProfileX(hreco[i],Form("%s_pfx",hreco[i]->GetName()),hpy->FindBin(0.5));
@@ -553,61 +544,43 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	gStyle->SetOptStat(0);
 	gStyle->SetOptTitle(0);
 
-	double ymax1 = 2.3;
-	if(filename.Contains("LeadAreaNtrk",TString::kIgnoreCase)) ymax1 = 2;
-	if(filename.Contains("SubAreaNtrk",TString::kIgnoreCase)) ymax1 = 2.3;
-	if(filename.Contains("TranTotNtrk",TString::kIgnoreCase)) ymax1 = 2;
-	if(filename.Contains("LeadPtAve",TString::kIgnoreCase)) ymax1 = 3.5;
-	if(filename.Contains("SubPtAve",TString::kIgnoreCase)) ymax1 = 3;
-	if(filename.Contains("TranPtAve",TString::kIgnoreCase)) ymax1 = 0.7;
-	if(filename.Contains("LeadAreaPtSum",TString::kIgnoreCase)) ymax1 = 8;
-	if(filename.Contains("SubAreaPtSum",TString::kIgnoreCase)) ymax1 = 6.5;
-	if(filename.Contains("TranTotPtSum",TString::kIgnoreCase)) ymax1 = 0.5;
-
-	hp[0]->SetMinimum(0);
-	hp[0]->SetMaximum(ymax1);
-
 
 	SetHistStyle(hp[0],1,1,8,1,2,1);
 	hp[0]->GetXaxis()->SetRangeUser(0,55);
-	hp[0]->DrawClone("epX0");
+	hp[0]->Draw("epX0");
 
 //#define SUMMARYPLOT
 
 // draw sysband of sum and each individual data set
 //#ifdef SUMMARYPLOT
-
 	graphSystBand(Nbins,syserr->GetX(),syserr->GetY(),0,0,syserr->GetEYlow(),  syserr->GetEYhigh(),kGray);
-	hp[0]->DrawClone("psame");
+	hp[0]->Draw("psame");
 	for(int i = 1; i<Nfile; i++) {
-		if(!(filename.Contains("LeadAreaNtrk",TString::kIgnoreCase)&&OtherTh[i>(BayesTimes+2)?i-(BayesTimes+3):i-1]==DefaultTh)&&gr[i])
+		if(!(filename.Contains("LeadAreaNtrk")&&OtherTh[i>(BayesTimes+2)?i-(BayesTimes+3):i-1]==DefaultTh)&&gr[i])
 			gr[i]->Draw("psame");
 	}
 
 
 	TLegend *leg;
-	if(filename.Contains("LeadJetNtrk",TString::kIgnoreCase)) {
+	if(filename.Contains("LeadJetNtrk")) {
 		leg = new TLegend(0.17,0.6,0.55,0.88);		//LeadJetNtrk
 	}
-	//else if(filename.Contains("Lead",TString::kIgnoreCase)||filename.Contains("Away",TString::kIgnoreCase)||filename.Contains("Sub",TString::kIgnoreCase)) {
-	//	leg = new TLegend(0.7,0.15,0.95,0.65);		//Lead or Away
-	//}
-	else if(filename.Contains("TranTotNtrk",TString::kIgnoreCase)) {
-		leg = new TLegend(0.72,0.37,0.95,0.97);	//Tran
+	else if(filename.Contains("Lead",TString::kIgnoreCase)||filename.Contains("Away",TString::kIgnoreCase)||filename.Contains("Sub",TString::kIgnoreCase)) {
+		leg = new TLegend(0.5,0.15,0.95,0.65);		//Lead
 	}
 	else {
-		leg = new TLegend(0.72,0.15,0.95,0.75);	
+		leg = new TLegend(0.5,0.6,0.88,0.88);	//Tran
 	}
 	leg->SetFillColor(0);
 	leg->AddEntry(hp[0],Form("Default w/ NFweight iter=%d",DefaultTh),"p");
 	for(int i = 1; i<BayesTimes+1; i++) {
-		if(!(filename.Contains("LeadAreaNtrk",TString::kIgnoreCase)&&OtherTh[i-1]==DefaultTh) && gr[i])
+		if(!(filename.Contains("LeadAreaNtrk")&&OtherTh[i-1]==DefaultTh) && gr[i])
 			leg->AddEntry(gr[i],Form("w/ NFweight iter=%d",OtherTh[i-1]),"p");
 	}
 	leg->AddEntry(gr[BayesTimes+1],"w/ NFweight Bin-by-Bin","p");
 	leg->AddEntry(gr[BayesTimes+2],Form("w/o NFweight iter=%d",DefaultTh),"p");
 	for(int i = BayesTimes+3; i<(BayesTimes+2)*2-1; i++) {
-		if(!(filename.Contains("LeadAreaNtrk",TString::kIgnoreCase)&&OtherTh[i-(BayesTimes+3)]==DefaultTh) && gr[i])
+		if(!(filename.Contains("LeadAreaNtrk")&&OtherTh[i-(BayesTimes+3)]==DefaultTh) && gr[i])
 			leg->AddEntry(gr[i],Form("w/o NFweight iter=%d",OtherTh[i-(BayesTimes+3)]),"p");
 	}
 	if(gr[(BayesTimes+2)*2-1])
@@ -624,29 +597,6 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	}
 	leg->Draw();
 
-	TString figouttag = "";
-	if(filename.Contains("LeadAreaNtrk",TString::kIgnoreCase)) figouttag = "LeadNtrk";
-	if(filename.Contains("SubAreaNtrk",TString::kIgnoreCase)) figouttag = "SubNtrk";
-	if(filename.Contains("TranTotNtrk",TString::kIgnoreCase)) figouttag = "TranNtrk";
-	if(filename.Contains("LeadPtAve",TString::kIgnoreCase)) figouttag = "LeadPtAve";
-	if(filename.Contains("SubPtAve",TString::kIgnoreCase)) figouttag = "SubPtAve";
-	if(filename.Contains("TranPtAve",TString::kIgnoreCase)) figouttag = "TranPtAve";
-	if(filename.Contains("LeadAreaPtSum",TString::kIgnoreCase)) figouttag = "LeadPtSum";
-	if(filename.Contains("SubAreaPtSum",TString::kIgnoreCase)) figouttag = "SubPtSum";
-	if(filename.Contains("TranTotPtSum",TString::kIgnoreCase)) figouttag = "TranPtSum";
-
-	if(filename.Contains("RC05MC05")) {
-		figouttag+="_PtRC05MC05";
-		TLatex *l05 = new TLatex(0.4,0.94,"p_{T} > 0.5 GeV/#it{c}");
-		l05->SetNDC();
-		l05->SetTextFont(42);
-		l05->Draw();
-	}
-
-	if(savefig) {
-		c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/syserr_%s.pdf",figouttag.Data()));
-	}
-
 //#endif
 
 //#ifndef SUMMARYPLOT
@@ -656,19 +606,6 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	c2->SetBottomMargin(0.12);
 	c2->SetFrameLineWidth(2);
 
-	double ymax2 = 2.3;
-	if(filename.Contains("LeadAreaNtrk",TString::kIgnoreCase)) ymax2 = 2.3;
-	if(filename.Contains("SubAreaNtrk",TString::kIgnoreCase)) ymax2 = 2.5;
-	if(filename.Contains("TranTotNtrk",TString::kIgnoreCase)) ymax2 = 1.2;
-	if(filename.Contains("LeadPtAve",TString::kIgnoreCase)) ymax2 = 4;
-	if(filename.Contains("SubPtAve",TString::kIgnoreCase)) ymax2 = 4;
-	if(filename.Contains("TranPtAve",TString::kIgnoreCase)) ymax2 = 0.9;
-	if(filename.Contains("LeadAreaPtSum",TString::kIgnoreCase)) ymax2 = 8;
-	if(filename.Contains("SubAreaPtSum",TString::kIgnoreCase)) ymax2 = 6.5;
-	if(filename.Contains("TranTotPtSum",TString::kIgnoreCase)) ymax2 = 0.5;
-
-	hp[0]->SetMaximum(ymax2);
-	hp[0]->SetMinimum(0);
 	hp[0]->Draw("epX0");
 
 	double *ex;
@@ -695,26 +632,13 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	htmp_bemc->SetFillColor(bandcolor[2]);
 	htmp_bemc->SetFillStyle(bandstyle[2]);
 
-	TLegend *leg2;
-	if(filename.Contains("TranTotNtrk",TString::kIgnoreCase)) {
-       		leg2 = new TLegend(0.55,0.55,0.85,0.85);
-	}
-	else if(filename.Contains("SubPtAve",TString::kIgnoreCase)) {
-       		leg2 = new TLegend(0.2,0.55,0.5,0.85);
-	}
-	else {
-       		leg2 = new TLegend(0.55,0.2,0.85,0.5);
-	}
+	TLegend *leg2 = new TLegend(0.55,0.2,0.85,0.5);
 	leg2->AddEntry(hp[0],Form("Default w/ NFweight iter=%d",DefaultTh),"p");
 	leg2->AddEntry(htmp_unfold,"Unfolding Sys. Err.","f");
 	leg2->AddEntry(htmp_tpc,"TPC Tracking Sys. Err.","f");
 	leg2->AddEntry(htmp_bemc,"BEMC Tower Sys. Err.","f");
 	leg2->Draw("same");
 
-
-	if(savefig) {
-		c2->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/syserr2_%s.pdf",figouttag.Data()));
-	}
 
 	// print out sys. err. seperately for unfold, tpc, bemc
 	for(int i = 0; i<Nbins; i++) {
@@ -735,7 +659,7 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 //#endif
 
 
-	if(saveroot) {
+	if(1) {
 		TString outname = "SysErr4"+filename;
 		if(flagMC05) outname.ReplaceAll("McPt02","McPtRC02MC05");
 		if(smooth) outname.ReplaceAll(".root","_smooth.root");
@@ -766,23 +690,3 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	}
 
 }
-
-
-//------------------------------------------------------------------------------------
-void plothrecoWunfolderr_tag(TString Variable="TranPtAve",TString filetag = "NFWeight_BT170928_RcVzW_12JetBinv2_McPt02", bool flagMC05=false, bool smooth=false) {
-	TString filename = "Unfolding_"+Variable+"JPCharged_"+filetag+"_embedMB_Baye5.root";
-	plothrecoWunfolderr(filename, flagMC05, smooth);
-}
-void runall() {
-	plothrecoWunfolderr_tag("TranTotNtrk");
-	plothrecoWunfolderr_tag("TranPtAve");
-	plothrecoWunfolderr_tag("LeadAreaNtrk");
-	plothrecoWunfolderr_tag("LeadPtAve");
-	plothrecoWunfolderr_tag("SubAreaNtrk");
-	plothrecoWunfolderr_tag("SubPtAve");
-	plothrecoWunfolderr_tag("TranTotPtSum");
-	plothrecoWunfolderr_tag("LeadAreaPtSum");
-	plothrecoWunfolderr_tag("SubAreaPtSum");
-}
-
-
