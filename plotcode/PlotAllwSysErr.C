@@ -471,16 +471,25 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 		lat->DrawLatex(0.16,0.16,"STAR");
 	}
 
+
+        time_t rawtime;
+        struct tm *timeinfo;
+        char buffer4time[8];
+        time(&rawtime);
+        timeinfo=localtime(&rawtime);
+        strftime(buffer4time,8,"%y%m%d",timeinfo);
+        puts(buffer4time);
+
 	if(savefig) {
 		////c->SaveAs(Form("/Users/li/Research/Underlying/PaperDraft170405/%s_DataVsPythia6Vs8_Box.pdf",Variable));
 		//c->SaveAs(Form("/Users/liyi/Research/Underlying/PaperDraft180920/%s_DataVsPythia6Vs8_Box.pdf",Variable));
 		//c->SaveAs(Form("/Users/liyi/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/%s_DataVsPythia6Vs8_Box.pdf",Variable));
 		////c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/NoRcVzW_%s_DataVsPythia6Vs8_Box.pdf",Variable));
-		c->SaveAs(Form("fig/%s_DataVsPythia6Vs8_Box.pdf",Variable));
+		c->SaveAs(Form("fig/%s_DataVsPythia6Vs8_Box_%s.pdf",Variable,buffer4time));
 	}
 	if(saveroot) {
 		//c->SaveAs(Form("/Users/liyi/Research/Underlying/PaperDraft180920/%s_DataVsPythia6Vs8_Box.root",Variable));
-		c->SaveAs(Form("%s_DataVsPythia6Vs8_Box.root",Variable));
+		c->SaveAs(Form("%s_DataVsPythia6Vs8_Box_%s.root",Variable,buffer4time));
 	}
 
 	if(detplot) {

@@ -94,21 +94,31 @@ void PlotUnfoldMatrix(TString filetag="TranTotNtrk") {
 	lb->Draw();
 
 
+        time_t rawtime;
+        struct tm *timeinfo;
+        char buffer4time[8];
+        time(&rawtime);
+        timeinfo=localtime(&rawtime);
+        strftime(buffer4time,8,"%y%m%d",timeinfo);
+        puts(buffer4time);
 
-	if( 1 && filetag.EqualTo("TranTotNtrk")) {
+
+	int savefig = 0;
+
+	if( savefig && filetag.EqualTo("TranTotNtrk")) {
 
 		//cx->SaveAs("/Users/li/Research/Underlying/PaperDraft170405/ResponseMatrixX.pdf");
 		//cy->SaveAs("/Users/li/Research/Underlying/PaperDraft170405/ResponseMatrixY.pdf");
 
 		//cx->SaveAs("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/ResponseMatrixX.pdf");
 		//cy->SaveAs("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/ResponseMatrixY.pdf");
-		cx->SaveAs("fig/ResponseMatrixX.pdf");
-		cy->SaveAs("fig/ResponseMatrixY.pdf");
+		cx->SaveAs(Form("fig/ResponseMatrixX_%s.pdf",buffer4time));
+		cy->SaveAs(Form("fig/ResponseMatrixY_%s.pdf",buffer4time));
 
 	}
 
 
-	if( 1 && !filetag.EqualTo("TranTotNtrk")) {
+	if( savefig && !filetag.EqualTo("TranTotNtrk")) {
 		TString outtag = "TransPtAve"; //"LeadPtAve";//"AwayPtAve"; // "AwayNtrk"; //"LeadNtrk";
 		if(filetag.EqualTo("LeadPtAve")) outtag = "LeadPtAve";
 		if(filetag.EqualTo("SubPtAve")) outtag = "AwayPtAve";
