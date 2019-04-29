@@ -17,12 +17,12 @@ void PlotUnfoldMatrix(TString filetag="TranTotNtrk") {
 	if(filetag.EqualTo("SubAreaNtrk")) ytitle = "Away N_{ch}";
 	if(filetag.EqualTo("LeadAreaNtrk")) ytitle = "Toward N_{ch}";
 
-	//hx->GetXaxis()->SetTitle("Generator-level "+xtitle);
-	hx->GetXaxis()->SetTitle("Particle-level "+xtitle);
+	hx->GetXaxis()->SetTitle("Generator-level "+xtitle);
+	//hx->GetXaxis()->SetTitle("Particle-level "+xtitle);
 	hx->GetYaxis()->SetTitle("Detector-level "+xtitle);
 
-	//hy->GetXaxis()->SetTitle("Generator-level "+ytitle);
-	hy->GetXaxis()->SetTitle("Particle-level "+ytitle);
+	hy->GetXaxis()->SetTitle("Generator-level "+ytitle);
+	//hy->GetXaxis()->SetTitle("Particle-level "+ytitle);
 	hy->GetYaxis()->SetTitle("Detector-level "+ytitle);
 
 
@@ -30,11 +30,15 @@ void PlotUnfoldMatrix(TString filetag="TranTotNtrk") {
 	hx->GetYaxis()->SetTitleSize(0.05);
 	hx->GetXaxis()->SetLabelSize(0.05);
 	hx->GetYaxis()->SetLabelSize(0.05);
+	hx->GetZaxis()->SetLabelSize(0.05);
+	hx->GetZaxis()->SetNdivisions(5);
 
 	hy->GetXaxis()->SetTitleSize(0.05);
 	hy->GetYaxis()->SetTitleSize(0.05);
 	hy->GetXaxis()->SetLabelSize(0.05);
 	hy->GetYaxis()->SetLabelSize(0.05);
+	hy->GetZaxis()->SetLabelSize(0.05);
+	hy->GetZaxis()->SetNdivisions(5);
 
 
 	hx->SetMaximum(1);
@@ -55,6 +59,13 @@ void PlotUnfoldMatrix(TString filetag="TranTotNtrk") {
 	cx->SetBottomMargin(0.12);
 
 	hx->Draw("colz");
+
+	double lx = 0.01;
+	double ly = 0.95;
+	TLatex *la = new TLatex(lx,ly,"(a)");
+	la->SetNDC();
+	la->SetTextFont(42);
+	la->Draw();
 
 
 	TCanvas *cy = new TCanvas();
@@ -77,25 +88,34 @@ void PlotUnfoldMatrix(TString filetag="TranTotNtrk") {
 
 	hy->Draw("colz");
 
+	TLatex *lb = new TLatex(lx,ly,"(b)");
+	lb->SetNDC();
+	lb->SetTextFont(42);
+	lb->Draw();
+
 
 
 	if( 1 && filetag.EqualTo("TranTotNtrk")) {
 
-		cx->SaveAs("/Users/li/Research/Underlying/PaperDraft170405/ResponseMatrixX.pdf");
-		cy->SaveAs("/Users/li/Research/Underlying/PaperDraft170405/ResponseMatrixY.pdf");
+		//cx->SaveAs("/Users/li/Research/Underlying/PaperDraft170405/ResponseMatrixX.pdf");
+		//cy->SaveAs("/Users/li/Research/Underlying/PaperDraft170405/ResponseMatrixY.pdf");
 
-		cx->SaveAs("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/ResponseMatrixX.pdf");
-		cy->SaveAs("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/ResponseMatrixY.pdf");
+		//cx->SaveAs("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/ResponseMatrixX.pdf");
+		//cy->SaveAs("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/ResponseMatrixY.pdf");
+		cx->SaveAs("fig/ResponseMatrixX.pdf");
+		cy->SaveAs("fig/ResponseMatrixY.pdf");
+
 	}
 
 
-	if(1 && !filetag.EqualTo("TranTotNtrk")) {
+	if( 1 && !filetag.EqualTo("TranTotNtrk")) {
 		TString outtag = "TransPtAve"; //"LeadPtAve";//"AwayPtAve"; // "AwayNtrk"; //"LeadNtrk";
 		if(filetag.EqualTo("LeadPtAve")) outtag = "LeadPtAve";
 		if(filetag.EqualTo("SubPtAve")) outtag = "AwayPtAve";
 		if(filetag.EqualTo("SubAreaNtrk")) outtag = "AwayNtrk";
 		if(filetag.EqualTo("LeadAreaNtrk")) outtag = "LeadNtrk";
-		cy->SaveAs("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/ResponseM_"+outtag+".pdf");
+		//cy->SaveAs("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/ResponseM_"+outtag+".pdf");
+		cy->SaveAs("fig/ResponseM_"+outtag+".pdf");
 	}
 
 }
