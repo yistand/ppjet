@@ -131,11 +131,12 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 	double XaxisMin = 3; //2;
 	double XaxisMax = 45;
 	double YaxisMin = 0;
-	double YaxisMax = 3.2;
+	double YaxisMax = 3.5;
 
+	if(!strcmp(Variable,"PtAve")) YaxisMax = 3.2;
 	if(!strcmp(Variable,"PtSum")) YaxisMax = 7.5;
 
-	int DefaultTh = 5;
+	int DefaultTh = 4;
 
 	// Measurement data + STAR PYTHIA 6 Perugia2012
 	TFile *f[NRegion];
@@ -146,17 +147,30 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 	TGraphAsymmErrors *grreco[NRegion];
        	for(int i = 0; i<NRegion; i++) {
 		bool openi = false;
-		//f[i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_NFWeight_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
-		//f[i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_NFWeight_12JetBinv2_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
-		//f[i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_NFWeight_BT170928_12JetBinv2_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
-		if(strcmp(Region[i],"Tran")==0 && (strcmp(Variable,"Ntrk")==0||strcmp(Variable,"PtSum")==0) ) {
-			f[i] = new TFile(Form("SysErr4Unfolding_%sTot%sJPCharged_%s_embedMB_Baye%d.root",Region[i],Variable,filetag,DefaultTh));
-		}
-		else if(strcmp(Region[i],"Tran")!=0 && strcmp(Variable,"PtAve")!=0) {
-			f[i] = new TFile(Form("SysErr4Unfolding_%sArea%sJPCharged_%s_embedMB_Baye%d.root",Region[i],Variable,filetag,DefaultTh));
+		if(DefaultTh==4) {
+			if(strcmp(Region[i],"Tran")==0 && (strcmp(Variable,"Ntrk")==0||strcmp(Variable,"PtSum")==0) ) {
+				f[i] = new TFile(Form("SysErr4Unfolding_%sTot%sJPCharged_%s_embedMB.root",Region[i],Variable,filetag));
+			}
+			else if(strcmp(Region[i],"Tran")!=0 && strcmp(Variable,"PtAve")!=0) {
+				f[i] = new TFile(Form("SysErr4Unfolding_%sArea%sJPCharged_%s_embedMB.root",Region[i],Variable,filetag));
+			}
+			else {
+				f[i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_%s_embedMB.root",Region[i],Variable,filetag));
+			}
 		}
 		else {
-			f[i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_%s_embedMB_Baye%d.root",Region[i],Variable,filetag,DefaultTh));
+			//f[i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_NFWeight_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
+			//f[i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_NFWeight_12JetBinv2_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
+			//f[i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_NFWeight_BT170928_12JetBinv2_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
+			if(strcmp(Region[i],"Tran")==0 && (strcmp(Variable,"Ntrk")==0||strcmp(Variable,"PtSum")==0) ) {
+				f[i] = new TFile(Form("SysErr4Unfolding_%sTot%sJPCharged_%s_embedMB_Baye%d.root",Region[i],Variable,filetag,DefaultTh));
+			}
+			else if(strcmp(Region[i],"Tran")!=0 && strcmp(Variable,"PtAve")!=0) {
+				f[i] = new TFile(Form("SysErr4Unfolding_%sArea%sJPCharged_%s_embedMB_Baye%d.root",Region[i],Variable,filetag,DefaultTh));
+			}
+			else {
+				f[i] = new TFile(Form("SysErr4Unfolding_%s%sJPCharged_%s_embedMB_Baye%d.root",Region[i],Variable,filetag,DefaultTh));
+			}
 		}
 		if(f[i]->IsOpen()) {
 			openi=true;
@@ -191,7 +205,12 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 			//f[i] = new TFile(Form("Unfolding_%s%sJPCharged_NFWeight_2HalfMcPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
 			//f[i] = new TFile(Form("Unfolding_%s%sJPCharged_NFWeight_12JetBinv2_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
 			//f[i] = new TFile(Form("Unfolding_%s%sJPCharged_NFWeight_BT170928_12JetBinv2_McPt02_embedMB_Baye%d.root",Region[i],Variable,DefaultTh));
-			f[i] = new TFile(Form("Unfolding_%s%sJPCharged_%s_embedMB_Baye%d.root",Region[i],Variable,filetag,DefaultTh));
+			if(DefaultTh==4) {
+				f[i] = new TFile(Form("Unfolding_%s%sJPCharged_%s_embedMB.root",Region[i],Variable,filetag));
+			}
+			else {
+				f[i] = new TFile(Form("Unfolding_%s%sJPCharged_%s_embedMB_Baye%d.root",Region[i],Variable,filetag,DefaultTh));
+			}
 			if(f[i]->IsOpen()) {
 				cout<<"Instead Open "<<f[i]->GetName()<<endl;
 				TH2F *hreco = (TH2F*)f[i]->Get("hreco");
@@ -403,18 +422,22 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 
 
 	TLegend *leg;
-	leg = new TLegend(0.15,0.62,0.42,0.88);	
+	leg = new TLegend(0.15,0.56,0.42,0.88);	
 	leg->SetFillColor(0);
 	leg->SetBorderSize(0);
+	leg->SetTextSize(0.045);
 	//leg->AddEntry(hrecopf[2],legtag[2],"p");//TEST
 	for(int i = 0; i<NRegion; i++) {
 		leg->AddEntry(hrecopf[i],legtag[i],"p");
 	}
-	leg->AddEntry(httpf[0],"Perugia 2012 (STAR)","l");
+	//leg->AddEntry(httpf[0],"Perugia 2012 (STAR)","l");
+	leg->AddEntry(httpf[0],"PYTHIA 6 (STAR)","l");
 	//leg->AddEntry(httpf[0],"STAR Tune","l");
-	if(opt_drawdefpythia6)  leg->AddEntry(httpf6def[0],"Perugia 2012","l");
+	//if(opt_drawdefpythia6)  leg->AddEntry(httpf6def[0],"Perugia 2012","l");
+	if(opt_drawdefpythia6)  leg->AddEntry(httpf6def[0],"PYTHIA 6","l");
 	//leg->AddEntry(httpf8[0],"pythia 8.215","l");
-	leg->AddEntry(httpf8[0],"Monash 2013","l");
+	//leg->AddEntry(httpf8[0],"Monash 2013","l");
+	leg->AddEntry(httpf8[0],"PYTHIA 8","l");
 	leg->Draw();
 
 	TLegend *leg2;
@@ -432,11 +455,12 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 	lat->SetTextFont(42);
 	if(!strcmp(Variable,"PtAve")) {
 		//lat->DrawLatex(0.56,0.19,"#splitline{p+p@200 GeV}{#splitline{p_{T} > 0.2 GeV/#it{c}, |#eta|<1}{R = 0.6, |#eta_{jet}|<0.4}}");
-		lat->DrawLatex(0.37,0.19,"p+p@200 GeV");
-		lat->DrawLatex(0.56,0.18,"#splitline{p_{T} > 0.2 GeV/#it{c}, |#eta|<1}{R = 0.6, |#eta_{jet}|<0.4}");
+		//lat->DrawLatex(0.37,0.19,"p+p@200 GeV");
+		lat->DrawLatex(0.6,0.83,"p+p@200 GeV");
+		lat->DrawLatex(0.56,0.18,"#splitline{p_{T} > 0.2 GeV/#it{c}, |#eta|<1}{R_{anti-k_{T}}=0.6, |#eta_{jet}|<0.4}");
 	}
 	else {
-		lat->DrawLatex(0.56,0.8,"#splitline{p+p@200 GeV}{#splitline{p_{T} > 0.2 GeV/#it{c}, |#eta|<1}{R = 0.6, |#eta_{jet}|<0.4}}");
+		lat->DrawLatex(0.56,0.8,"#splitline{p+p@200 GeV}{#splitline{p_{T} > 0.2 GeV/#it{c}, |#eta|<1}{R_{anti-k_{T}}=0.6, |#eta_{jet}|<0.4}}");
 	}
 	lat->SetTextColor(1);
 	lat->SetTextFont(62);
@@ -448,13 +472,15 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 	}
 
 	if(savefig) {
-		//c->SaveAs(Form("/Users/li/Research/Underlying/PaperDraft170405/%s_DataVsPythia6Vs8_Box.pdf",Variable));
-		c->SaveAs(Form("/Users/liyi/Research/Underlying/PaperDraft180920/%s_DataVsPythia6Vs8_Box.pdf",Variable));
-		c->SaveAs(Form("/Users/liyi/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/%s_DataVsPythia6Vs8_Box.pdf",Variable));
-		//c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/NoRcVzW_%s_DataVsPythia6Vs8_Box.pdf",Variable));
+		////c->SaveAs(Form("/Users/li/Research/Underlying/PaperDraft170405/%s_DataVsPythia6Vs8_Box.pdf",Variable));
+		//c->SaveAs(Form("/Users/liyi/Research/Underlying/PaperDraft180920/%s_DataVsPythia6Vs8_Box.pdf",Variable));
+		//c->SaveAs(Form("/Users/liyi/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/%s_DataVsPythia6Vs8_Box.pdf",Variable));
+		////c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/NoRcVzW_%s_DataVsPythia6Vs8_Box.pdf",Variable));
+		c->SaveAs(Form("fig/%s_DataVsPythia6Vs8_Box.pdf",Variable));
 	}
 	if(saveroot) {
-		c->SaveAs(Form("/Users/liyi/Research/Underlying/PaperDraft180920/%s_DataVsPythia6Vs8_Box.root",Variable));
+		//c->SaveAs(Form("/Users/liyi/Research/Underlying/PaperDraft180920/%s_DataVsPythia6Vs8_Box.root",Variable));
+		c->SaveAs(Form("%s_DataVsPythia6Vs8_Box.root",Variable));
 	}
 
 	if(detplot) {
@@ -504,7 +530,8 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 		for(int i = 0; i<NRegion; i++) {
 			leg_det->AddEntry(hmeaspf[i],legtag[i],"p");
 		}
-		leg_det->AddEntry(httpf[0],"Perugia 2012","l");
+		//leg_det->AddEntry(httpf[0],"Perugia 2012","l");
+		leg_det->AddEntry(httpf[0],"PYTHIA 6","l");
 		leg_det->Draw();
 
 		leg_det->Draw();
