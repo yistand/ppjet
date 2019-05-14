@@ -195,9 +195,11 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	int saveroot = 0;
 	int savefig = 0;
 
-	int DefaultTh = 5;
+	bool flagUseBBB = 0;	// if true, use Bin-by-Bin in sys. err; if false, don't use BBB
+
+	int DefaultTh = 4;	// if filename one is inconsistent with DefaultTh, will force filename to use DefaultTh one.
 	const int BayesTimes = 5;
-	int OtherTh[BayesTimes] = {2,3,4,6,7};
+	int OtherTh[BayesTimes] = {2,3,5,6,7};
 	if(filename.Contains("LeadAreaNtrk",TString::kIgnoreCase)&&OtherTh[2]==4) OtherTh[2] = 5;		// There is a jump when iteration==4 for LeadAreaNtrk
 
 	const int TpcTimes = 4;
@@ -226,7 +228,7 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	if(!filename.Contains("_NFweight",TString::kIgnoreCase)) filename.ReplaceAll("_BT170928_RcVzW_12JetBinv2_McPtRC02MC05_embedJP0","_NFweight_BT170928_RcVzW_12JetBinv2_McPtRC02MC05_embedMB");
 	if(!filename.Contains("_NFweight",TString::kIgnoreCase)) filename.ReplaceAll("_BT170928_RcVzW_12JetBinv2_McPtRC05MC05_embedJP0","_NFweight_BT170928_RcVzW_12JetBinv2_McPtRC05MC05_embedMB");
 	//Make sure input default filename is consistent with DefaultTh 
-	if(! (filename.Contains(Form("_Baye%d",DefaultTh),TString::kIgnoreCase)||(DefaultTh==4)) ) {
+	if(! (filename.Contains(Form("_Baye%d",DefaultTh),TString::kIgnoreCase)||(DefaultTh==4 && !filename.Contains("Baye"))) ) {
 		Ssiz_t toinsert = filename.Index(".root");
 		Ssiz_t toremove = filename.Index("_Baye");
 		if(toremove!=-1) filename.Remove(toremove,(toinsert-toremove));		// WARNINING!!  Assuming _Baye%d.root
@@ -241,8 +243,13 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	if(!f[0]->IsOpen()) {  
 		if(filename.Contains("TranPtAve",TString::kIgnoreCase)&&filename.Contains("McPtRC02MC05",TString::kIgnoreCase)) {
 			cout<<"WARNING!!!: if you want to read McPtRC02MC05 case for TranPtAve, I am going to change to read input files as MC02 and profile it as MC05."<<endl;
-			//filename = "Unfolding_TranPtAveJPCharged_NFWeight_12JetBinv2_McPt02_embedMB_Baye5.root";
-			filename = "Unfolding_TranPtAveJPCharged_NFWeight_BT170928_12JetBinv2_McPt02_embedMB_Baye5.root";
+			if(DefaultTh==4) {
+				filename = "Unfolding_TranPtAveJPCharged_NFWeight_BT170928_12JetBinv2_McPt02_embedMB.root";
+			}
+			else {
+				//filename = "Unfolding_TranPtAveJPCharged_NFWeight_12JetBinv2_McPt02_embedMB_Baye5.root";
+				filename = Form("Unfolding_TranPtAveJPCharged_NFWeight_BT170928_12JetBinv2_McPt02_embedMB_Baye%d.root",DefaultTh);
+			}
 			cout<<"WARNING!!!: I am reading "<<filename<<"."<<endl;
 			f[0] = new TFile(filename);
 			flagMC05 = true;		// so we are doing profile to MC05 later
@@ -285,8 +292,13 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	}
 
 	//Bin-by-Bin
-	hreco[BayesTimes+1] = (TH2D*)GetBbB(htt,ht,hmeas);
-	hreco[BayesTimes+1]->SetName("hreco_BbB");
+	if(flagUseBBB) {
+		hreco[BayesTimes+1] = (TH2D*)GetBbB(htt,ht,hmeas);
+		hreco[BayesTimes+1]->SetName("hreco_BbB");
+	}
+	else {
+		hreco[BayesTimes+1] = (TH2D*)hreco[0]->Clone("hreco_noBbB");
+	}
 
 
 	//--- No NFweighted one ---
@@ -334,9 +346,14 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 		}
 
 		// Bin-by-Bin WITHOUT NFweight
-		if(f[BayesTimes+2]->IsOpen()) {
-			hreco[(BayesTimes+2)*2-1] = (TH2D*)GetBbB(httNFF,htNFF,hmeasNFF);
-			hreco[(BayesTimes+2)*2-1]->SetName("hrecoNNF_BbB");
+		if(flagUseBBB) {
+			if(f[BayesTimes+2]->IsOpen()) {
+				hreco[(BayesTimes+2)*2-1] = (TH2D*)GetBbB(httNFF,htNFF,hmeasNFF);
+				hreco[(BayesTimes+2)*2-1]->SetName("hrecoNNF_BbB");
+			}
+		}
+		else {
+			hreco[(BayesTimes+2)*2-1] = (TH2D*)hreco[BayesTimes+2]->Clone("hrecoNNF_noBbB");
 		}
 	}
 
@@ -604,13 +621,15 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 		if(!(filename.Contains("LeadAreaNtrk",TString::kIgnoreCase)&&OtherTh[i-1]==DefaultTh) && gr[i])
 			leg->AddEntry(gr[i],Form("w/ NFweight iter=%d",OtherTh[i-1]),"p");
 	}
-	leg->AddEntry(gr[BayesTimes+1],"w/ NFweight Bin-by-Bin","p");
+	if(flagUseBBB) {
+		leg->AddEntry(gr[BayesTimes+1],"w/ NFweight Bin-by-Bin","p");
+	}
 	leg->AddEntry(gr[BayesTimes+2],Form("w/o NFweight iter=%d",DefaultTh),"p");
 	for(int i = BayesTimes+3; i<(BayesTimes+2)*2-1; i++) {
 		if(!(filename.Contains("LeadAreaNtrk",TString::kIgnoreCase)&&OtherTh[i-(BayesTimes+3)]==DefaultTh) && gr[i])
 			leg->AddEntry(gr[i],Form("w/o NFweight iter=%d",OtherTh[i-(BayesTimes+3)]),"p");
 	}
-	if(gr[(BayesTimes+2)*2-1])
+	if(flagUseBBB && gr[(BayesTimes+2)*2-1])
 		leg->AddEntry(gr[(BayesTimes+2)*2-1],"w/o NFweight Bin-by-Bin","p");
 	if(gr[(BayesTimes+2)*2])
 		leg->AddEntry(gr[(BayesTimes+2)*2],"Scaled meas to match MB","p");
@@ -644,7 +663,8 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	}
 
 	if(savefig) {
-		c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/syserr_%s.pdf",figouttag.Data()));
+		//c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/syserr_%s.pdf",figouttag.Data()));
+		c->SaveAs(Form("fig/syserr_%s.pdf",figouttag.Data()));
 	}
 
 //#endif
@@ -713,7 +733,8 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 
 
 	if(savefig) {
-		c2->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/syserr2_%s.pdf",figouttag.Data()));
+		//c2->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/syserr2_%s.pdf",figouttag.Data()));
+		c2->SaveAs(Form("fig/syserr2_%s.pdf",figouttag.Data()));
 	}
 
 	// print out sys. err. seperately for unfold, tpc, bemc

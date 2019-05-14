@@ -387,6 +387,7 @@ TH1F* GetMaxMMin(TString filename = "Unfolding_TranTotNtrkJPCharged_NFWeight_BT1
 	hmax->GetXaxis()->SetLabelSize(0.05);
 	hmax->GetYaxis()->SetTitleSize(0.05);
 	hmax->GetYaxis()->SetLabelSize(0.05);
+	hmax->GetYaxis()->SetTitleOffset(1);
 	
 	TH1D *htmp = (TH1D*)hmax->Clone("htmp");
 	htmp->Reset();
@@ -445,8 +446,9 @@ TH1F* GetMaxMMin(TString filename = "Unfolding_TranTotNtrkJPCharged_NFWeight_BT1
 	pdiff->SetMarkerStyle(23);
 	//pdiff->Draw("same");
 
-	TLegend *leg = new TLegend(0.5,0.58,0.89,0.89);
+	TLegend *leg = new TLegend(0.485,0.58,0.885,0.89);
 	leg->SetBorderSize(0);
+	leg->SetTextSize(0.043);
 	//leg->AddEntry(pmax,"Pythia TransMax");
 	//leg->AddEntry(pmin,"Pythia TransMin");
 	//leg->AddEntry(pdiff,"Pythia <TransMax-TransMin>");
@@ -470,8 +472,19 @@ TH1F* GetMaxMMin(TString filename = "Unfolding_TranTotNtrkJPCharged_NFWeight_BT1
 	lat->DrawLatex(0.16,0.16,"STAR");
 
 
-	if(0) {
-		c1->SaveAs("/Users/liyi/Research/Underlying/PaperDraft180920/TranMaxVsMin.pdf");
+        time_t rawtime;
+        struct tm *timeinfo;
+        char buffer4time[8];
+        time(&rawtime);
+        timeinfo=localtime(&rawtime);
+        strftime(buffer4time,8,"%y%m%d",timeinfo);
+        puts(buffer4time);
+
+
+
+	if(1) {
+		//c1->SaveAs("/Users/liyi/Research/Underlying/PaperDraft180920/TranMaxVsMin.pdf");
+		c1->SaveAs(Form("fig/TranMaxVsMin_%s.pdf",buffer4time));
 		c1->SaveAs("/Users/liyi/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/TranMaxVsMin.pdf");
 	}
 

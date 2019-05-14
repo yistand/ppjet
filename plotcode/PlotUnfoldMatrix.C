@@ -1,10 +1,11 @@
+#include <time.h>       /* time_t, struct tm, time, localtime, strftime */
 void runall();	// plot all matrix figures
 
 
 void PlotUnfoldMatrix(TString filetag="TranTotNtrk") {
 
 //	TString filetag = "TranTotNtrk";//"TranPtAve"; //"LeadPtAve"; //"SubPtAve"; //"SubAreaNtrk"; //"LeadAreaNtrk"; //
-	TFile *f = new TFile("Unfolding_"+filetag+"JPCharged_NFWeight_BT170928_RcVzW_12JetBinv2_McPt02_embedMB_Baye5.root");
+	TFile *f = new TFile("Unfolding_"+filetag+"JPCharged_NFWeight_BT170928_RcVzW_12JetBinv2_McPt02_embedMB.root");
 
 	TH2D *hx = (TH2D*)f->Get("hXRcVsMc");
 	TH2D *hy = (TH2D*)f->Get("hYRcVsMc");
@@ -119,7 +120,7 @@ void PlotUnfoldMatrix(TString filetag="TranTotNtrk") {
 
 
 	if( savefig && !filetag.EqualTo("TranTotNtrk")) {
-		TString outtag = "TransPtAve"; //"LeadPtAve";//"AwayPtAve"; // "AwayNtrk"; //"LeadNtrk";
+		TString outtag = "TranPtAve"; //"LeadPtAve";//"AwayPtAve"; // "AwayNtrk"; //"LeadNtrk";
 		if(filetag.EqualTo("LeadPtAve")) outtag = "LeadPtAve";
 		if(filetag.EqualTo("SubPtAve")) outtag = "AwayPtAve";
 		if(filetag.EqualTo("SubAreaNtrk")) outtag = "AwayNtrk";

@@ -8,6 +8,7 @@
 //=====================================================================================================
 
 
+#include <time.h>       /* time_t, struct tm, time, localtime, strftime */
 
 void EnergyDep() {
 	// STAR from //maxtrackpthist4MaxTrackNoTofMatch_FullJet_TransCharged_ppJP_160811P12id_R06_HadrCorr_170418_WideBin_CDFcutPT05eta08.root 
@@ -44,7 +45,8 @@ void EnergyDep() {
 	double syserrmax_star_jet12[N_star] = {0.04};//{0.0451854};
 	double syserrmin_star_jet12[N_star] = {0.03};//{0.0299265};
 	// vs leading full jet pT 20-25 GeV/c, |eta|<1, pT>0.5 GeV/c
-	double NtrkDen_star_jet20[N_star] = {0.234425};//TranMc02Vs05_Ntrk_JP_Charged_NFWeight_BT170928_RcVzW_12JetBinv2_embedMB_Baye5.csv	THIS IS THE ONE USED!!
+	double NtrkDen_star_jet20[N_star] = {0.237009};//GPC-2/TranMc02Vs05_Ntrk_JP_Charged_NFWeight_BT170928_RcVzW_12JetBinv2_embedMB_Baye4.csv	0.237009 +/- 0.000721122 (stat) + 0.0227928 - 0.0139599 (sys)  THIS IS THE ONE USED!!
+	//double NtrkDen_star_jet20[N_star] = {0.234425};//TranMc02Vs05_Ntrk_JP_Charged_NFWeight_BT170928_RcVzW_12JetBinv2_embedMB_Baye5.csv
 	//0.22077};		// from SysErr4Unfolding_TranTotNtrkJPCharged_NFWeight_12JetBinv2_McPtRC02MC05_embedMB_Baye5.root
 	double err_star_jet20[N_star] = {0.0008};//{0.0007};
 	double syserrmax_star_jet20[N_star] = {0.03};//with TPC 004err //{0.0341};//with TPC 005err//{0.0508};
@@ -405,10 +407,20 @@ void EnergyDep() {
 	cout<<"  Tran Density = "<<NtrkDen_star_jet20[0]<<" +- "<<err_star_jet20[0]<<"(stat) + "<<syserrmax_star_jet20[0]<<" - "<<syserrmin_star_jet20[0]<<"(sys)"<<endl;
 
 
+        time_t rawtime;
+        struct tm *timeinfo;
+        char buffer4time[8];
+        time(&rawtime);
+        timeinfo=localtime(&rawtime);
+        strftime(buffer4time,8,"%y%m%d",timeinfo);
+        puts(buffer4time);
+
+
 	if(savefig) {
-		//c->SaveAs(Form("/Users/li/Research/Underlying/PaperDraft170405/STAR_CDF_ALICE_CMS_ATLAS.pdf"));
-		c->SaveAs(Form("/Users/li/Research/Underlying/PaperDraft180402/STAR_CDF_ALICE_CMS_ATLAS.pdf"));
-		c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/STAR_CDF_ALICE_CMS_ATLAS.pdf"));
+		////c->SaveAs(Form("/Users/li/Research/Underlying/PaperDraft170405/STAR_CDF_ALICE_CMS_ATLAS.pdf"));
+		//c->SaveAs(Form("/Users/li/Research/Underlying/PaperDraft180402/STAR_CDF_ALICE_CMS_ATLAS.pdf"));
+		//c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/STAR_CDF_ALICE_CMS_ATLAS.pdf"));
+		c->SaveAs(Form("/Users/liyi/Research/Underlying/GPC-2/fig/STAR_CDF_ALICE_CMS_ATLAS_%s.pdf",buffer4time));
 	}
 
 }
