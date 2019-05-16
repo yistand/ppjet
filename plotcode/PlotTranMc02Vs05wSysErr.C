@@ -182,7 +182,9 @@ TGraphAsymmErrors *Graph4UnfoldXErr(TProfile *pf) {
 void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk", TString filetag="NFWeight_BT170928_RcVzW_12JetBinv2") {		// Ntrk, PtAve, PtSum
 
 	int savefig = 1;
+	int savecsv = 1;	// save output numbers to csv file
 	int detplot = 0;
+	int saveroot = 1;
 
 	int opt_drawdefpythia6 = 1;	// if 1, draw default pythia6 Perugia 2012 by Kevin
 
@@ -312,7 +314,7 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk", TString filetag="NFW
 	TProfile *httpf6def[Npt][NRegion];
 	for(int j = 0; j<Npt; j++) {
 		for(int i = 0 ;i <NRegion; i++) {
- 			fp6def[j] = new TFile(Form("Profile_12JetBinv2_FullJet_TransCharged_pythia6default_pp200hard_PionDecayOff_180324%s.root",p8pttag[j]));	// same tag as p8 for "" and "_PT05"
+ 			fp6def[j] = new TFile(Form("/Users/liyi/Research/Underlying/Profile_12JetBinv2_FullJet_TransCharged_pythia6default_pp200hard_PionDecayOff_180324%s.root",p8pttag[j]));	// same tag as p8 for "" and "_PT05"
 			httpf6def[j][i] = (TProfile*)fp6def[j]->Get(Form("%s%s",Region[i],Variable));
 		}
 	}
@@ -321,7 +323,7 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk", TString filetag="NFW
 	TFile *fp8[Npt];
 	TProfile *httpf8[Npt][NRegion];
 	for(int j = 0; j<Npt; j++) {
-		fp8[j] = new TFile(Form("Profile_12JetBinv2_FullJet_TransCharged_pythia8215_pp200hard_PionDecayOff_seed134123_170422%s.root",p8pttag[j]));//Profile_12JetBinv2_FullJet_TransCharged_pythia8215_pp200hard_PionDecayOff_seed134123_170422%s.root",p8pttag[j]));
+		fp8[j] = new TFile(Form("/Users/liyi/Research/Underlying/Profile_12JetBinv2_FullJet_TransCharged_pythia8215_pp200hard_PionDecayOff_seed134123_170422%s.root",p8pttag[j]));//Profile_12JetBinv2_FullJet_TransCharged_pythia8215_pp200hard_PionDecayOff_seed134123_170422%s.root",p8pttag[j]));
 		cout<<"Read from "<<fp8[j]->GetName()<<" for ";
 		for(int i = 0 ;i <NRegion; i++) {
 			httpf8[j][i] = (TProfile*)fp8[j]->Get(Form("%s%s",Region[i],Variable));
@@ -609,6 +611,14 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk", TString filetag="NFW
 			c->SaveAs(Form("fig/NoRcVzW_Tran%s_MCpT02Vs05_%s.pdf",Variable,buffer4time));
 		}
 	}
+	if(saveroot) {
+		if(filetag.Contains("RcVzW",TString::kIgnoreCase)) {
+			c->SaveAs(Form("Tran%s_MCpT02Vs05_%s.root",Variable,buffer4time));
+		}
+		else {
+			c->SaveAs(Form("NoRcVzW_Tran%s_MCpT02Vs05_%s.root",Variable,buffer4time));
+		}
+	}
 
 
 	if(detplot) {
@@ -671,65 +681,67 @@ void PlotTranMc02Vs05wSysErr(const char *Variable = "Ntrk", TString filetag="NFW
 
 	ofstream tout;
 	TString Stout=Form("TranMc02Vs05_%s_JP_Charged_%s_embedMB_Baye%d.csv",Variable,filetag.Data(),DefaultTh);
-	tout.open(Stout);
-	if(tout.is_open()) {
-		cout<<"Output to "<<Stout<<endl;
-	}
-	else {
-		cout<<"Error open file "<<Stout<<" to write"<<endl;
-		return;
-	}
+	if(savecsv) {
+		tout.open(Stout);
+		if(tout.is_open()) {
+			cout<<"Output to "<<Stout<<endl;
+		}
+		else {
+			cout<<"Error open file "<<Stout<<" to write"<<endl;
+			return;
+		}
 
-	tout<<"Variable pt,";
-	for(int j = 0; j<hrecopf[0][0]->GetNbinsX(); j++) {
-		tout<<hrecopf[0][0]->GetBinLowEdge(j+1)<<"-"<<hrecopf[0][0]->GetBinLowEdge(j+1)+hrecopf[0][0]->GetBinWidth(j+1)<<",";
-	}
-	tout<<endl;
-	for(int j=0;j<Npt; j++) {
-		for(int i=0;i<NRegion; i++) {
-			if(!grreco[j][i]) continue;
-			tout<<legtag[i]<<" "<<ptname[j]<<",";
-			for(int k = 0; k<hrecopf[j][i]->GetNbinsX(); k++) {
-				tout<<hrecopf[j][i]->GetBinContent(k+1)<<" +/- "<<hrecopf[j][i]->GetBinError(k+1)<<" (stat) + "<<grreco[j][i]->GetEYhigh()[k]<<" - "<<grreco[j][i]->GetEYlow()[k]<<" (sys)"<<",";
-			}
-			tout<<endl;
+		tout<<"Variable pt,";
+		for(int j = 0; j<hrecopf[0][0]->GetNbinsX(); j++) {
+			tout<<hrecopf[0][0]->GetBinLowEdge(j+1)<<"-"<<hrecopf[0][0]->GetBinLowEdge(j+1)+hrecopf[0][0]->GetBinWidth(j+1)<<",";
 		}
-	}
-	tout<<"PYTHIA6 (STAR)"<<endl;
-	for(int j=0;j<Npt; j++) {
-		for(int i=0;i<NRegion; i++) {
-			if(!grreco[j][i]) continue;
-			tout<<legtag[i]<<" "<<ptname[j]<<",";
-			for(int k = 0; k<hrecopf[j][i]->GetNbinsX(); k++) {
-				tout<<httpf[j][i]->GetBinContent(k+1)<<",";
+		tout<<endl;
+		for(int j=0;j<Npt; j++) {
+			for(int i=0;i<NRegion; i++) {
+				if(!grreco[j][i]) continue;
+				tout<<legtag[i]<<" "<<ptname[j]<<",";
+				for(int k = 0; k<hrecopf[j][i]->GetNbinsX(); k++) {
+					tout<<hrecopf[j][i]->GetBinContent(k+1)<<" +/- "<<hrecopf[j][i]->GetBinError(k+1)<<" (stat) + "<<grreco[j][i]->GetEYhigh()[k]<<" - "<<grreco[j][i]->GetEYlow()[k]<<" (sys)"<<",";
+				}
+				tout<<endl;
 			}
-			tout<<endl;
 		}
-	}
-	tout<<"PYTHIA6 (default)"<<endl;
-	for(int j=0;j<Npt; j++) {
-		for(int i=0;i<NRegion; i++) {
-			if(!grreco[j][i]) continue;
-			tout<<legtag[i]<<" "<<ptname[j]<<",";
-			for(int k = 0; k<hrecopf[j][i]->GetNbinsX(); k++) {
-				tout<<httpf6def[j][i]->GetBinContent(k+1)<<",";
+		tout<<"PYTHIA6 (STAR)"<<endl;
+		for(int j=0;j<Npt; j++) {
+			for(int i=0;i<NRegion; i++) {
+				if(!grreco[j][i]) continue;
+				tout<<legtag[i]<<" "<<ptname[j]<<",";
+				for(int k = 0; k<hrecopf[j][i]->GetNbinsX(); k++) {
+					tout<<httpf[j][i]->GetBinContent(k+1)<<",";
+				}
+				tout<<endl;
 			}
-			tout<<endl;
 		}
-	}
-	tout<<"PYTHIA8"<<endl;
-	for(int j=0;j<Npt; j++) {
-		for(int i=0;i<NRegion; i++) {
-			if(!grreco[j][i]) continue;
-			tout<<legtag[i]<<" "<<ptname[j]<<",";
-			for(int k = 0; k<hrecopf[j][i]->GetNbinsX(); k++) {
-				tout<<httpf8[j][i]->GetBinContent(k+1)<<",";
+		tout<<"PYTHIA6 (default)"<<endl;
+		for(int j=0;j<Npt; j++) {
+			for(int i=0;i<NRegion; i++) {
+				if(!grreco[j][i]) continue;
+				tout<<legtag[i]<<" "<<ptname[j]<<",";
+				for(int k = 0; k<hrecopf[j][i]->GetNbinsX(); k++) {
+					tout<<httpf6def[j][i]->GetBinContent(k+1)<<",";
+				}
+				tout<<endl;
 			}
-			tout<<endl;
 		}
-	}
+		tout<<"PYTHIA8"<<endl;
+		for(int j=0;j<Npt; j++) {
+			for(int i=0;i<NRegion; i++) {
+				if(!grreco[j][i]) continue;
+				tout<<legtag[i]<<" "<<ptname[j]<<",";
+				for(int k = 0; k<hrecopf[j][i]->GetNbinsX(); k++) {
+					tout<<httpf8[j][i]->GetBinContent(k+1)<<",";
+				}
+				tout<<endl;
+			}
+		}
 
-	tout.close();
+		tout.close();
+	}
 
 }
 

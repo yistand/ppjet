@@ -45,7 +45,8 @@ void EnergyDep() {
 	double syserrmax_star_jet12[N_star] = {0.04};//{0.0451854};
 	double syserrmin_star_jet12[N_star] = {0.03};//{0.0299265};
 	// vs leading full jet pT 20-25 GeV/c, |eta|<1, pT>0.5 GeV/c
-	double NtrkDen_star_jet20[N_star] = {0.237009};//GPC-2/TranMc02Vs05_Ntrk_JP_Charged_NFWeight_BT170928_RcVzW_12JetBinv2_embedMB_Baye4.csv	0.237009 +/- 0.000721122 (stat) + 0.0227928 - 0.0139599 (sys)  THIS IS THE ONE USED!!
+	double NtrkDen_star_jet20[N_star] = {0.237009};//20-25GeV/c for leading jet pT. FILE: Add50EtCutSErr/TranMc02Vs05_Ntrk_JP_Charged_NFWeight_BT170928_RcVzW_12JetBinv2_embedMB_Baye4.csv 0.237009 +/- 0.000721122 (stat) + 0.0227992 - 0.0139599 (sys)   THIS IS THE ONE USED!!
+	// identical to previous: GPC/TranMc02Vs05_Ntrk_JP_Charged_NFWeight_BT170928_RcVzW_12JetBinv2_embedMB_Baye4.csv	0.237009 +/- 0.000721122 (stat) + 0.0227928 - 0.0139599 (sys)  . The difference is that Add50EtCutSerr includes Maximum tower Et cut 50GeV vs 20GeV
 	//double NtrkDen_star_jet20[N_star] = {0.234425};//TranMc02Vs05_Ntrk_JP_Charged_NFWeight_BT170928_RcVzW_12JetBinv2_embedMB_Baye5.csv
 	//0.22077};		// from SysErr4Unfolding_TranTotNtrkJPCharged_NFWeight_12JetBinv2_McPtRC02MC05_embedMB_Baye5.root
 	double err_star_jet20[N_star] = {0.0008};//{0.0007};

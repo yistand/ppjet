@@ -113,10 +113,10 @@ TGraphAsymmErrors *Graph4UnfoldXErr(TProfile *pf) {
 
 void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight_BT170928_RcVzW_12JetBinv2_McPt02") {		// Ntrk, PtAve, PtSum
 
-	int savefig = 0;
-	int savecsv = 0;	// save output numbers to csv file
+	int savefig = 1;
+	int savecsv = 1;	// save output numbers to csv file
 	int detplot = 0; 	// plot detector-level (no save)
-	int saveroot = 0;
+	int saveroot = 1;
 
 	int opt_drawdefpythia6 = 1;	// if 1, draw default pythia6 Perugia 2012 by Kevin
 
@@ -238,7 +238,7 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 	}
 
 	// PYTHIA 6 default Perugia 2012 without STAR's tune
-	TFile *fp6def = new TFile("Profile_12JetBinv2_FullJet_TransCharged_pythia6default_pp200hard_PionDecayOff_180324.root");
+	TFile *fp6def = new TFile("/Users/liyi/Research/Underlying/Profile_12JetBinv2_FullJet_TransCharged_pythia6default_pp200hard_PionDecayOff_180324.root");
 	TProfile *httpf6def[NRegion];
 	for(int i = 0 ;i <NRegion; i++) {
 		httpf6def[i] = (TProfile*)fp6def->Get(Form("%s%s",Region[i],Variable));
@@ -246,7 +246,7 @@ void PlotAllwSysErr(const char *Variable = "Ntrk", const char *filetag="NFWeight
 
 
 	// PYTHIA 8
-	TFile *fp8 = new TFile("Profile_12JetBinv2_FullJet_TransCharged_pythia8215_pp200hard_PionDecayOff_seed134123_170422.root");//ProfileFullJet_TransCharged_pythia8215_pp200hard_PionDecayOff_seed134123_170422.root");
+	TFile *fp8 = new TFile("/Users/liyi/Research/Underlying/Profile_12JetBinv2_FullJet_TransCharged_pythia8215_pp200hard_PionDecayOff_seed134123_170422.root");//ProfileFullJet_TransCharged_pythia8215_pp200hard_PionDecayOff_seed134123_170422.root");
 	TProfile *httpf8[NRegion];
 	for(int i = 0 ;i <NRegion; i++) {
 		httpf8[i] = (TProfile*)fp8->Get(Form("%s%s",Region[i],Variable));

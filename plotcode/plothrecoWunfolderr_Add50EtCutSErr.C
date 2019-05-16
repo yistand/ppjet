@@ -1,9 +1,19 @@
+//============================================================================================================================================
+//
+//	2019.05.15	Li YI
+//	modifed from plothrecoWunfolderr.C 
+//	Add maximum tower energy cut 50 GeV (default was 20 GeV) into sys. err. of unfolding,
+//	then quadratically added with TPC and BEMC uncertainties
+//
+//============================================================================================================================================
+
+
 #include <iostream>     // std::cout, std::fixed
 #include <iomanip>      // std::setprecision
 #include "/Users/liyi/commonmacro/ClassSysErr.C"
-#include "/Users/liyi/Research/Underlying/compare2BinByBin.C"		// TH2D *GetBbB(TH2D* htt, TH2D* ht, TH2D* hm)
-#include "/Users/liyi/Research/Underlying/CompareBayesTimes.C"			// void SetHistStyle(TProfile *h, int mcolor, int lcolor, int mstyle, int lstyle, float msize, int lwidth) 
-#include "/Users/liyi/Research/Underlying/smooth.C"
+#include "compare2BinByBin.C"		// TH2D *GetBbB(TH2D* htt, TH2D* ht, TH2D* hm)
+#include "CompareBayesTimes.C"			// void SetHistStyle(TProfile *h, int mcolor, int lcolor, int mstyle, int lstyle, float msize, int lwidth) 
+#include "smooth.C"
 
 
 void graphSystBox(int n, Double_t *x, Double_t *y, Double_t *ex, Double_t *ey,
@@ -184,16 +194,18 @@ ClassSysErr *SumTwoSSysErr(TGraphAsymmErrors *gr, double *e1l, double *e1h, doub
 
 //================================================== Main =================================================
 void runall(); // will call all plot figures
-void plothrecoWunfolderr_tag(TString Variable="TranPtAve",TString filetag = "NFWeight_BT170928_RcVzW_12JetBinv2_McPt02", bool flagMC05=false, bool smooth=false);
+void plothrecoWunfolderr_Add50EtCutSErr_tag(TString Variable="TranPtAve",TString filetag = "NFWeight_BT170928_RcVzW_12JetBinv2_McPt02", bool flagMC05=false, bool smooth=false);
 
 //void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight_BT170928_12JetBinv2_McPt02_embedMB_Baye5.root", bool flagMC05=true) {
-void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight_BT170928_RcVzW_12JetBinv2_McPt02_embedMB_Baye5.root", bool flagMC05=false, bool smooth=false) {
+void plothrecoWunfolderr_Add50EtCutSErr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight_BT170928_RcVzW_12JetBinv2_McPt02_embedMB_Baye5.root", bool flagMC05=false, bool smooth=false) {
 //bool flagMC05 = false;		// if we want to extract MC pt>0.5 from profile of MC pt>0.2 for TranPtAve. Use McPt02 for input
 //2017.10.18 at one point in time, I tried to unfold 0.5 using 0.2, it gave large fluctation in TranPtAve. Then there are two options: unfold to 0.2 use 0.2, and later project to 0.5 on final TranPtAve; or unfold 0.5 use 0.5, which is probably the way to go, as for TranTotNtrk, we need to do that. So it is better to be consistent
 //2017.10.24 bool smooth; if true, call TH1D::Smooth for hreco each x bin to smooth the distribution
 
 	int saveroot = 1;
-	int savefig = 0;
+	int savefig = 1;
+
+	const char* dirouttag = "Add50EtCutSErr/";
 
 	bool flagUseBBB = 0;	// if true, use Bin-by-Bin in sys. err; if false, don't use BBB
 
@@ -202,6 +214,11 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	int OtherTh[BayesTimes] = {2,3,5,6,7};
 	if(filename.Contains("LeadAreaNtrk",TString::kIgnoreCase)&&OtherTh[2]==4) OtherTh[2] = 5;		// There is a jump when iteration==4 for LeadAreaNtrk
 
+	const int MaxEtCutTimes = 2;
+	const char *Dir[MaxEtCutTimes] = {"GPC-2/","MaxEtCut50/"};
+
+	const int UnfoldTimes = ((BayesTimes+2)*2+1)*MaxEtCutTimes;
+
 	const int TpcTimes = 4;
 	//const char *TpcName[TpcTimes] = {"_TpcErrPlus005","_TpcErrMinus005","_TpcErrPlusAbs005","_TpcErrMinusAbs005"};
 	const char *TpcName[TpcTimes] = {"_TpcErrPlus004","_TpcErrMinus004","_TpcErrPlusAbs004","_TpcErrMinusAbs004"};
@@ -209,7 +226,7 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	const int BemcTimes = 2;
 	const char *BemcName[BemcTimes] = {"_BemcErrPlus004","_BemcErrMinus004"};
 
-	const int Nfile = (BayesTimes+2)*2+1+TpcTimes+BemcTimes;						// (Bayes iterations + Bin-by-Bin) * (NFweight vs Not weight)	+ YScale  + (TPC 5% tracking plus+minus) + (BEMC 4% tower gain)
+	const int Nfile = ((BayesTimes+2)*2+1)*MaxEtCutTimes+TpcTimes+BemcTimes;						// (  (Bayes iterations + Bin-by-Bin) * (NFweight vs Not weight)	+ YScale )*(Max Et Cut 20 GeV vs 50 GeV)  + (TPC 5% tracking plus+minus) + (BEMC 4% tower gain)
 	TFile *f[Nfile]={NULL};	
 	TH2D *hreco[Nfile]={NULL};
 
@@ -238,8 +255,8 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 		}
 	}
 	//Default one
-	cout<<filename<<endl;
-	f[0] = new TFile(filename);
+	cout<<Dir[0]<<filename<<endl;
+	f[0] = new TFile(Form("%s%s",Dir[0],filename.Data()));
 	if(!f[0]->IsOpen()) {  
 		if(filename.Contains("TranPtAve",TString::kIgnoreCase)&&filename.Contains("McPtRC02MC05",TString::kIgnoreCase)) {
 			cout<<"WARNING!!!: if you want to read McPtRC02MC05 case for TranPtAve, I am going to change to read input files as MC02 and profile it as MC05."<<endl;
@@ -250,16 +267,16 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 				//filename = "Unfolding_TranPtAveJPCharged_NFWeight_12JetBinv2_McPt02_embedMB_Baye5.root";
 				filename = Form("Unfolding_TranPtAveJPCharged_NFWeight_BT170928_12JetBinv2_McPt02_embedMB_Baye%d.root",DefaultTh);
 			}
-			cout<<"WARNING!!!: I am reading "<<filename<<"."<<endl;
-			f[0] = new TFile(filename);
+			cout<<"WARNING!!!: I am reading "<<Dir[0]<<filename<<"."<<endl;
+			f[0] = new TFile(Form("%s%s",Dir[0],filename.Data()));
 			flagMC05 = true;		// so we are doing profile to MC05 later
 			if(!f[0]->IsOpen()) {
-				cout<<"ERROR: failed again.. cannot open file "<<filename<<"!!"<<endl;
+				cout<<"ERROR: failed again.. cannot open file "<<Dir[0]<<filename<<"!!"<<endl;
 				return;
 			}
 		}
 		else {
-			cout<<"Error: Cannot Open File "<<filename<<"!!"<<endl; 
+			cout<<"Error: Cannot Open File "<<Dir[0]<<filename<<"!!"<<endl; 
 			return; 
 		}
 	}
@@ -269,138 +286,144 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	TH2D *htt = (TH2D*)f[0]->Get("htraintrue");
 	TH2D *ht = (TH2D*)f[0]->Get("htrain");
 
-	//Different bayes iteration
-	for(int i = 1; i<BayesTimes+1; i++) {
-		TString ifilename = filename;
-		Ssiz_t toinsert = ifilename.Index(".root");
-		Ssiz_t toremove = ifilename.Index("_Baye");
-		if(toremove!=-1) {		// find _Baye in filename
-			ifilename.Remove(toremove,(toinsert-toremove));		// WARNINING!!  Assuming _Baye%d.root
-			//cout<<" -- "<<ifilename<<endl;
-			toinsert = ifilename.Index(".root");
-		}
-		if(OtherTh[i-1]!=4) {		// originally I assume 4 as the default without _Baye4 in filename
-			ifilename.Insert(toinsert,Form("_Baye%d",OtherTh[i-1]));
-		}
-		cout<<ifilename<<endl;
-		f[i] = new TFile(ifilename);
-		if(!f[i]->IsOpen()) {  cout<<"Error: Cannot Open File "<<ifilename<<"!!"<<endl; }
-		else {
-			hreco[i] = (TH2D*)f[i]->Get("hreco");
-			hreco[i]->SetName(Form("hreco%d",OtherTh[i-1]));
-		}
-	}
-
-	//Bin-by-Bin
-	if(flagUseBBB) {
-		hreco[BayesTimes+1] = (TH2D*)GetBbB(htt,ht,hmeas);
-		hreco[BayesTimes+1]->SetName("hreco_BbB");
-	}
-	else {
-		hreco[BayesTimes+1] = (TH2D*)hreco[0]->Clone("hreco_noBbB");
-	}
-
-
-	//--- No NFweighted one ---
-	// default bayes iteration WITHOUT NFweight
-	TString nfilename = filename;
-	TH2D *hmeasNFF;
-	TH2D *httNFF;
-	TH2D *htNFF;
-	//if((nfilename.Contains("_NFweight_12JetBinv2_McPt02_embedMB")||nfilename.Contains("_NFWeight_12JetBinv2_McPt02_embedMB")))  {
-	//	nfilename.ReplaceAll("_NFweight_12JetBinv2_McPt02_embedMB","_12JetBinv2_McPt02_embedJP0");
-	//	nfilename.ReplaceAll("_NFWeight_12JetBinv2_McPt02_embedMB","_12JetBinv2_McPt02_embedJP0");
-	if((nfilename.Contains("embedMB",TString::kIgnoreCase)))  {
-		nfilename.ReplaceAll("embedMB","embedJP0");
-		nfilename.ReplaceAll("_NFWeight","");
-		cout<<"replace to --> "<<endl<< nfilename<<endl;
-		f[BayesTimes+2] = new TFile(nfilename);
-		if(!f[BayesTimes+2]->IsOpen()) {  cout<<"Error: Cannot Open File "<<nfilename<<"!!"<<endl; }
-		else {
-			hreco[BayesTimes+2] = (TH2D*)f[BayesTimes+2]->Get("hreco");
-			hreco[BayesTimes+2]->SetName(Form("hreco_NoNFw_default"));
-			hmeasNFF = (TH2D*)f[BayesTimes+2]->Get("hmeas");
-			httNFF = (TH2D*)f[BayesTimes+2]->Get("htraintrue");
-			htNFF = (TH2D*)f[BayesTimes+2]->Get("htrain");
-		}
-
-		// Different bayes iteration WITHOUT NFweight
-		for(int i = BayesTimes+3; i<(BayesTimes+2)*2-1; i++) {
-			TString ifilename = nfilename;
-			Ssiz_t toinsert = ifilename.Index(".root");
-			Ssiz_t toremove = ifilename.Index("_Baye");
-			if(toremove!=-1) {		// find _Baye in filename
-				ifilename.Remove(toremove,(toinsert-toremove));		// WARNINING!!  Assuming _Baye%d.root
-				toinsert = ifilename.Index(".root");
+	for(int ie = 0; ie<MaxEtCutTimes; ie++) {
+		//Different bayes iteration
+		for(int i = 0; i<BayesTimes+1; i++) {
+			if(i==0 && ie==0) continue;	// Don't do default one again
+			TString ifilename = filename;
+			if(!(i==0 && ie==1)) {		// except default Bayesian iteraction with 50 GeV Et Cut, the filename needs to be changed accordingly
+				Ssiz_t toinsert = ifilename.Index(".root");
+				Ssiz_t toremove = ifilename.Index("_Baye");
+				if(toremove!=-1) {		// find _Baye in filename
+					ifilename.Remove(toremove,(toinsert-toremove));		// WARNINING!!  Assuming _Baye%d.root
+					//cout<<" -- "<<ifilename<<endl;
+					toinsert = ifilename.Index(".root");
+				}
+				if(OtherTh[i-1]!=4) {		// originally I assume 4 as the default without _Baye4 in filename
+					ifilename.Insert(toinsert,Form("_Baye%d",OtherTh[i-1]));
+				}
 			}
-			if(OtherTh[i-(BayesTimes+3)]!=4) {		// originally I assume 4 as the default without _Baye4 in filename
-				ifilename.Insert(toinsert,Form("_Baye%d",OtherTh[i-(BayesTimes+3)]));
-			}
-			cout<<ifilename<<endl;
-			f[i] = new TFile(ifilename);
-			if(!f[i]->IsOpen()) {  cout<<"Error: Cannot Open File "<<ifilename<<"!!"<<endl; }
+			cout<<Dir[ie]<<ifilename<<endl;
+			f[i+ie*((BayesTimes+2)*2+1)] = new TFile(Form("%s%s",Dir[ie],ifilename.Data()));
+			if(!f[i+ie*((BayesTimes+2)*2+1)]->IsOpen()) {  cout<<"Error: Cannot Open File "<<Dir[ie]<<ifilename<<"!!"<<endl; }
 			else {
-				hreco[i] = (TH2D*)f[i]->Get("hreco");
-				hreco[i]->SetName(Form("hrecoNNF%d",OtherTh[i-(BayesTimes+3)]));
+				hreco[i+ie*((BayesTimes+2)*2+1)] = (TH2D*)f[i+ie*((BayesTimes+2)*2+1)]->Get("hreco");
+				hreco[i+ie*((BayesTimes+2)*2+1)]->SetName(Form("hreco%d_Et%d",OtherTh[i-1],ie));
 			}
 		}
 
-		// Bin-by-Bin WITHOUT NFweight
+		//Bin-by-Bin
 		if(flagUseBBB) {
-			if(f[BayesTimes+2]->IsOpen()) {
-				hreco[(BayesTimes+2)*2-1] = (TH2D*)GetBbB(httNFF,htNFF,hmeasNFF);
-				hreco[(BayesTimes+2)*2-1]->SetName("hrecoNNF_BbB");
-			}
+			hreco[BayesTimes+1+ie*((BayesTimes+2)*2+1)] = (TH2D*)GetBbB(htt,ht,hmeas);
+			hreco[BayesTimes+1+ie*((BayesTimes+2)*2+1)]->SetName(Form("hreco_BbB_Et%d",ie));
 		}
 		else {
-			hreco[(BayesTimes+2)*2-1] = (TH2D*)hreco[BayesTimes+2]->Clone("hrecoNNF_noBbB");
+			hreco[BayesTimes+1+ie*((BayesTimes+2)*2+1)] = (TH2D*)hreco[0+ie*((BayesTimes+2)*2+1)]->Clone(Form("hreco_noBbB_Et%d",ie));
 		}
-	}
+
+
+		//--- No NFweighted one ---
+		// default bayes iteration WITHOUT NFweight
+		TString nfilename = filename;
+		TH2D *hmeasNFF;
+		TH2D *httNFF;
+		TH2D *htNFF;
+		//if((nfilename.Contains("_NFweight_12JetBinv2_McPt02_embedMB")||nfilename.Contains("_NFWeight_12JetBinv2_McPt02_embedMB")))  {
+		//	nfilename.ReplaceAll("_NFweight_12JetBinv2_McPt02_embedMB","_12JetBinv2_McPt02_embedJP0");
+		//	nfilename.ReplaceAll("_NFWeight_12JetBinv2_McPt02_embedMB","_12JetBinv2_McPt02_embedJP0");
+		if((nfilename.Contains("embedMB",TString::kIgnoreCase)))  {
+			nfilename.ReplaceAll("embedMB","embedJP0");
+			nfilename.ReplaceAll("_NFWeight","");
+			//cout<<"replace to --> "<<endl<< Dir[ie]<<nfilename<<endl;
+			cout<<"without NFw: "<<endl<< Dir[ie]<<nfilename<<endl;
+			f[BayesTimes+2+ie*((BayesTimes+2)*2+1)] = new TFile(Form("%s%s",Dir[ie],nfilename.Data()));
+			if(!f[BayesTimes+2+ie*((BayesTimes+2)*2+1)]->IsOpen()) {  cout<<"Error: Cannot Open File "<<Dir[ie]<<nfilename<<"!!"<<endl; }
+			else {
+				hreco[BayesTimes+2+ie*((BayesTimes+2)*2+1)] = (TH2D*)f[BayesTimes+2+ie*((BayesTimes+2)*2+1)]->Get("hreco");
+				hreco[BayesTimes+2+ie*((BayesTimes+2)*2+1)]->SetName(Form("hreco_NoNFw_default_Et%d",ie));
+				hmeasNFF = (TH2D*)f[BayesTimes+2+ie*((BayesTimes+2)*2+1)]->Get("hmeas");
+				httNFF = (TH2D*)f[BayesTimes+2+ie*((BayesTimes+2)*2+1)]->Get("htraintrue");
+				htNFF = (TH2D*)f[BayesTimes+2+ie*((BayesTimes+2)*2+1)]->Get("htrain");
+			}
+
+			// Different bayes iteration WITHOUT NFweight
+			for(int i = BayesTimes+3; i<(BayesTimes+2)*2-1; i++) {
+				TString ifilename = nfilename;
+				Ssiz_t toinsert = ifilename.Index(".root");
+				Ssiz_t toremove = ifilename.Index("_Baye");
+				if(toremove!=-1) {		// find _Baye in filename
+					ifilename.Remove(toremove,(toinsert-toremove));		// WARNINING!!  Assuming _Baye%d.root
+					toinsert = ifilename.Index(".root");
+				}
+				if(OtherTh[i-(BayesTimes+3)]!=4) {		// originally I assume 4 as the default without _Baye4 in filename
+					ifilename.Insert(toinsert,Form("_Baye%d",OtherTh[i-(BayesTimes+3)]));
+				}
+				cout<<Dir[ie]<<ifilename<<endl;
+				f[i+ie*((BayesTimes+2)*2+1)] = new TFile(Form("%s%s",Dir[ie],ifilename.Data()));
+				if(!f[i+ie*((BayesTimes+2)*2+1)]->IsOpen()) {  cout<<"Error: Cannot Open File "<<Dir[ie]<<ifilename<<"!!"<<endl; }
+				else {
+					hreco[i+ie*((BayesTimes+2)*2+1)] = (TH2D*)f[i+ie*((BayesTimes+2)*2+1)]->Get("hreco");
+					hreco[i+ie*((BayesTimes+2)*2+1)]->SetName(Form("hrecoNNF%d_Et%d",OtherTh[i-(BayesTimes+3)],ie));
+				}
+			}
+
+			// Bin-by-Bin WITHOUT NFweight
+			if(flagUseBBB) {
+				if(f[BayesTimes+2+ie*((BayesTimes+2)*2+1)]->IsOpen()) {
+					hreco[(BayesTimes+2)*2-1+ie*((BayesTimes+2)*2+1)] = (TH2D*)GetBbB(httNFF,htNFF,hmeasNFF);
+					hreco[(BayesTimes+2)*2-1+ie*((BayesTimes+2)*2+1)]->SetName(Form("hrecoNNF_BbB_Et%d",ie));
+				}
+			}
+			else {
+				hreco[(BayesTimes+2)*2-1+ie*((BayesTimes+2)*2+1)] = (TH2D*)hreco[BayesTimes+2+ie*((BayesTimes+2)*2+1)]->Clone(Form("hrecoNNF_noBbB_Et%d",ie));
+			}
+		}
 
 
 
-	//--- YScaled one ---
-	TString ysfilename = filename;
-	ysfilename.ReplaceAll("_NFweight","_YScale");
-	ysfilename.ReplaceAll("_NFWeight","_YScale");
-	cout<<"Read Yscaled file: "<<ysfilename<<endl;
-	f[(BayesTimes+2)*2] = new TFile(ysfilename);
-	if(!f[(BayesTimes+2)*2]->IsOpen()) {  cout<<"Error: Cannot Open File "<<ysfilename<<"!!"<<endl; }
-	else {
-		hreco[(BayesTimes+2)*2] = (TH2D*)f[(BayesTimes+2)*2]->Get("hreco");
-		hreco[(BayesTimes+2)*2]->SetName(Form("hreco_Yscale"));
+		//--- YScaled one ---
+		TString ysfilename = filename;
+		ysfilename.ReplaceAll("_NFweight","_YScale");
+		ysfilename.ReplaceAll("_NFWeight","_YScale");
+		cout<<"Read Yscaled file: "<<Dir[ie]<<ysfilename<<endl;
+		f[(BayesTimes+2)*2+ie*((BayesTimes+2)*2+1)] = new TFile(Form("%s%s",Dir[ie],ysfilename.Data()));
+		if(!f[(BayesTimes+2)*2+ie*((BayesTimes+2)*2+1)]->IsOpen()) {  cout<<"Error: Cannot Open File "<<Dir[ie]<<ysfilename<<"!!"<<endl; }
+		else {
+			hreco[(BayesTimes+2)*2+ie*((BayesTimes+2)*2+1)] = (TH2D*)f[(BayesTimes+2)*2+ie*((BayesTimes+2)*2+1)]->Get("hreco");
+			hreco[(BayesTimes+2)*2+ie*((BayesTimes+2)*2+1)]->SetName(Form("hreco_Yscale_Et%d",ie));
+		}
 	}
 
 
 
 	//--- TPC tracking 5%: relative + absolute ---
 	cout<<"tpc ones: "<<endl;
-	for(int i = (BayesTimes+2)*2+1; i<(BayesTimes+2)*2+1+TpcTimes; i++) {
+	for(int i = UnfoldTimes; i<UnfoldTimes+TpcTimes; i++) {
 		TString ifilename = filename;
 		Ssiz_t toinsert = ifilename.Index(".root");
-		ifilename.Insert(toinsert,TpcName[i-((BayesTimes+2)*2+1)]);
-		cout<<ifilename<<endl;
-		f[i] = new TFile(ifilename);
-		if(!f[i]->IsOpen()) {  cout<<"Error: Cannot Open File "<<ifilename<<"!!"<<endl; }
+		ifilename.Insert(toinsert,TpcName[i-UnfoldTimes]);
+		cout<<Dir[0]<<ifilename<<endl;
+		f[i] = new TFile(Form("%s%s",Dir[0],ifilename.Data()));
+		if(!f[i]->IsOpen()) {  cout<<"Error: Cannot Open File "<<Dir[0]<<ifilename<<"!!"<<endl; }
 		else {
 			hreco[i] = (TH2D*)f[i]->Get("hreco");
-			hreco[i]->SetName(Form("hreco%s",TpcName[i-((BayesTimes+2)*2+1)]));
+			hreco[i]->SetName(Form("hreco%s",TpcName[i-UnfoldTimes]));
 		}
 	}
 
 
 	//--- BEMC tracking 5%: relative + absolute ---
 	cout<<"bemc ones: "<<endl;
-	for(int i = (BayesTimes+2)*2+1+TpcTimes; i<(BayesTimes+2)*2+1+TpcTimes+BemcTimes; i++) {
+	for(int i = UnfoldTimes+TpcTimes; i<UnfoldTimes+TpcTimes+BemcTimes; i++) {
 		TString ifilename = filename;
 		Ssiz_t toinsert = ifilename.Index(".root");
-		ifilename.Insert(toinsert,BemcName[i-((BayesTimes+2)*2+1+TpcTimes)]);
-		cout<<ifilename<<endl;
-		f[i] = new TFile(ifilename);
-		if(!f[i]->IsOpen()) {  cout<<"Error: Cannot Open File "<<ifilename<<"!!"<<endl; }
+		ifilename.Insert(toinsert,BemcName[i-(UnfoldTimes+TpcTimes)]);
+		cout<<Dir[0]<<ifilename<<endl;
+		f[i] = new TFile(Form("%s%s",Dir[0],ifilename.Data()));
+		if(!f[i]->IsOpen()) {  cout<<"Error: Cannot Open File "<<Dir[0]<<ifilename<<"!!"<<endl; }
 		else {
 			hreco[i] = (TH2D*)f[i]->Get("hreco");
-			hreco[i]->SetName(Form("hreco%s",BemcName[i-((BayesTimes+2)*2+1+TpcTimes)]));
+			hreco[i]->SetName(Form("hreco%s",BemcName[i-(UnfoldTimes+TpcTimes)]));
 		}
 	}
 
@@ -456,21 +479,23 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 				gr[i]->SetPoint(j, hp[i]->GetBinCenter(j+1), hp[i]->GetBinContent(j+1));
 				gr[i]->SetPointError(j, 0, hp[i]->GetBinError(j+1));
 			}
-			gr[i]->SetLineColor(kViolet-22+i*2);
-			gr[i]->SetMarkerColor(kViolet-22+i*2);
+			int icolor = kViolet - 50 +i*2;
+			cout<<i<<" "<<icolor<<endl;
+			gr[i]->SetLineColor(icolor);
+			gr[i]->SetMarkerColor(icolor);
 			gr[i]->SetMarkerStyle(24);
 			gr[i]->SetMarkerSize(2);
 		}
 	}
-	for(int i = (BayesTimes+2)*2+1; i<(BayesTimes+2)*2+1+TpcTimes; i++) {
+	for(int i = UnfoldTimes; i<UnfoldTimes+TpcTimes; i++) {
 		if(gr[i]) {
 			gr[i]->SetMarkerStyle(23);
 		}
 	}
-	for(int i = (BayesTimes+2)*2+1+TpcTimes; i<(BayesTimes+2)*2+1+TpcTimes+BemcTimes; i++) {
+	for(int i = UnfoldTimes+TpcTimes; i<UnfoldTimes+TpcTimes+BemcTimes; i++) {
 		if(gr[i]) {
 			gr[i]->SetMarkerStyle(25);
-			gr[i]->SetMarkerColor(kGreen+(i-((BayesTimes+2)*2+1+TpcTimes))*2);
+			gr[i]->SetMarkerColor(kGreen+(i-(((BayesTimes+2)*2+1)*MaxEtCutTimes+TpcTimes))*2);
 		}
 	}
 
@@ -480,19 +505,22 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	int NgrNonNull_unfold=0;
 	int NgrNonNull_tpc=0;
 	int NgrNonNull_bemc=0;
-	for(int i = 1 ; i<(BayesTimes+2)*2+1; i++) {
+	//for(int i = 1 ; i<(BayesTimes+2)*2+1; i++) {
+	for(int i = 1 ; i<UnfoldTimes; i++) {
 		if(gr[i]&&gr[i]->GetN()!=0) {
 			grNonNULL_unfold[NgrNonNull_unfold] = gr[i];
 			NgrNonNull_unfold++;
 		}
 	}
-	for(int i =(BayesTimes+2)*2+1 ; i<(BayesTimes+2)*2+1+TpcTimes; i++) {
+	//for(int i =(BayesTimes+2)*2+1 ; i<(BayesTimes+2)*2+1+TpcTimes; i++) {
+	for(int i =UnfoldTimes ; i<UnfoldTimes+TpcTimes; i++) {
 		if(gr[i]&&gr[i]->GetN()!=0) {
 			grNonNULL_tpc[NgrNonNull_tpc] = gr[i];
 			NgrNonNull_tpc++;
 		}
 	}
-	for(int i =(BayesTimes+2)*2+1+TpcTimes ; i<(BayesTimes+2)*2+1+TpcTimes+BemcTimes; i++) {
+	//for(int i =(BayesTimes+2)*2+1+TpcTimes ; i<(BayesTimes+2)*2+1+TpcTimes+BemcTimes; i++) {
+	for(int i =UnfoldTimes+TpcTimes ; i<UnfoldTimes+TpcTimes+BemcTimes; i++) {
 		if(gr[i]&&gr[i]->GetN()!=0) {
 			grNonNULL_bemc[NgrNonNull_bemc] = gr[i];
 			NgrNonNull_bemc++;
@@ -597,7 +625,14 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 	graphSystBand(Nbins,syserr->GetX(),syserr->GetY(),0,0,syserr->GetEYlow(),  syserr->GetEYhigh(),kGray);
 	hp[0]->DrawClone("psame");
 	for(int i = 1; i<Nfile; i++) {
-		if(!(filename.Contains("LeadAreaNtrk",TString::kIgnoreCase)&&OtherTh[i>(BayesTimes+2)?i-(BayesTimes+3):i-1]==DefaultTh)&&gr[i])
+		int i4OtherTh = 0;
+		if(i>UnfoldTimes) {
+			i4OtherTh = (i-UnfoldTimes)>(BayesTimes+2)?(i-UnfoldTimes-(BayesTimes+3)):(i-UnfoldTimes-1);
+		}
+		else {
+ 			i4OtherTh = i>(BayesTimes+2)?i-(BayesTimes+3):i-1;
+		}
+		if(!(filename.Contains("LeadAreaNtrk",TString::kIgnoreCase)&&OtherTh[i4OtherTh]==DefaultTh)&&gr[i])
 			gr[i]->Draw("psame");
 	}
 
@@ -616,30 +651,34 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 		leg = new TLegend(0.72,0.15,0.95,0.75);	
 	}
 	leg->SetFillColor(0);
-	leg->AddEntry(hp[0],Form("Default w/ NFweight iter=%d",DefaultTh),"p");
-	for(int i = 1; i<BayesTimes+1; i++) {
-		if(!(filename.Contains("LeadAreaNtrk",TString::kIgnoreCase)&&OtherTh[i-1]==DefaultTh) && gr[i])
-			leg->AddEntry(gr[i],Form("w/ NFweight iter=%d",OtherTh[i-1]),"p");
+	const char *EtCutName[MaxEtCutTimes] = {"20GeVEtCut","50GeVEtCut"};
+	leg->AddEntry(hp[0],Form("Default w/ NFweight iter=%d %s",DefaultTh,EtCutName[0]),"p");
+	for(int ie = 0; ie<MaxEtCutTimes; ie++) {
+		if(ie!=0) {leg->AddEntry(gr[UnfoldTimes-1],Form("w/ NFweight iter=%d %s",DefaultTh,EtCutName[ie]),"p");}
+		for(int i = 1; i<BayesTimes+1; i++) {
+			if(!(filename.Contains("LeadAreaNtrk",TString::kIgnoreCase)&&OtherTh[i-1]==DefaultTh) && gr[i])
+				leg->AddEntry(gr[i+((BayesTimes+2)*2+1)*ie],Form("w/ NFweight iter=%d %s",OtherTh[i-1],EtCutName[ie]),"p");
+		}
+		if(flagUseBBB) {
+			leg->AddEntry(gr[BayesTimes+1+((BayesTimes+2)*2+1)*ie],Form("w/ NFweight Bin-by-Bin %s", EtCutName[ie]),"p");
+		}
+		leg->AddEntry(gr[BayesTimes+2+((BayesTimes+2)*2+1)*ie],Form("w/o NFweight iter=%d %s",DefaultTh,EtCutName[ie]),"p");
+		for(int i = BayesTimes+3; i<(BayesTimes+2)*2-1; i++) {
+			if(!(filename.Contains("LeadAreaNtrk",TString::kIgnoreCase)&&OtherTh[i-(BayesTimes+3)]==DefaultTh) && gr[i])
+				leg->AddEntry(gr[i+((BayesTimes+2)*2+1)*ie],Form("w/o NFweight iter=%d %s",OtherTh[i-(BayesTimes+3)], EtCutName[ie]),"p");
+		}
+		if(flagUseBBB && gr[(BayesTimes+2)*2-1+((BayesTimes+2)*2+1)*ie])
+			leg->AddEntry(gr[(BayesTimes+2)*2-1+((BayesTimes+2)*2+1)*ie],Form("w/o NFweight Bin-by-Bin, %s",EtCutName[ie]),"p");
+		if(gr[(BayesTimes+2)*2])
+			leg->AddEntry(gr[(BayesTimes+2)*2+((BayesTimes+2)*2+1)*ie],Form("Scaled meas to match MB %s",EtCutName[ie]),"p");
 	}
-	if(flagUseBBB) {
-		leg->AddEntry(gr[BayesTimes+1],"w/ NFweight Bin-by-Bin","p");
-	}
-	leg->AddEntry(gr[BayesTimes+2],Form("w/o NFweight iter=%d",DefaultTh),"p");
-	for(int i = BayesTimes+3; i<(BayesTimes+2)*2-1; i++) {
-		if(!(filename.Contains("LeadAreaNtrk",TString::kIgnoreCase)&&OtherTh[i-(BayesTimes+3)]==DefaultTh) && gr[i])
-			leg->AddEntry(gr[i],Form("w/o NFweight iter=%d",OtherTh[i-(BayesTimes+3)]),"p");
-	}
-	if(flagUseBBB && gr[(BayesTimes+2)*2-1])
-		leg->AddEntry(gr[(BayesTimes+2)*2-1],"w/o NFweight Bin-by-Bin","p");
-	if(gr[(BayesTimes+2)*2])
-		leg->AddEntry(gr[(BayesTimes+2)*2],"Scaled meas to match MB","p");
-	for(int i = (BayesTimes+2)*2+1; i<(BayesTimes+2)*2+1+TpcTimes; i++) {
+	for(int i = UnfoldTimes; i<UnfoldTimes+TpcTimes; i++) {
 		if(gr[i])
-			leg->AddEntry(gr[i],TpcName[i-((BayesTimes+2)*2+1)],"p");
+			leg->AddEntry(gr[i],Form("%s %s",TpcName[i-UnfoldTimes], EtCutName[0]),"p");
 	}
-	for(int i = (BayesTimes+2)*2+1+TpcTimes; i<(BayesTimes+2)*2+1+TpcTimes+BemcTimes; i++) {
+	for(int i = UnfoldTimes+TpcTimes; i<UnfoldTimes+TpcTimes+BemcTimes; i++) {
 		if(gr[i])
-			leg->AddEntry(gr[i],BemcName[i-((BayesTimes+2)*2+1+TpcTimes)],"p");
+			leg->AddEntry(gr[i],Form("%s %s",BemcName[i-(UnfoldTimes+TpcTimes)], EtCutName[0]),"p");
 	}
 	leg->Draw();
 
@@ -664,7 +703,7 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 
 	if(savefig) {
 		//c->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/syserr_%s.pdf",figouttag.Data()));
-		c->SaveAs(Form("fig/syserr_%s.pdf",figouttag.Data()));
+		c->SaveAs(Form("%sfig/syserr_%s.pdf",dirouttag,figouttag.Data()));
 	}
 
 //#endif
@@ -734,7 +773,7 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 
 	if(savefig) {
 		//c2->SaveAs(Form("/Users/li/Documents/paperproposal/UnderlyingEvent/AnaNote/fig_ananote/syserr2_%s.pdf",figouttag.Data()));
-		c2->SaveAs(Form("fig/syserr2_%s.pdf",figouttag.Data()));
+		c2->SaveAs(Form("%sfig/syserr2_%s.pdf",dirouttag,figouttag.Data()));
 	}
 
 	// print out sys. err. seperately for unfold, tpc, bemc
@@ -757,7 +796,7 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 
 
 	if(saveroot) {
-		TString outname = "SysErr4"+filename;
+		TString outname = Form("%sSysErr4",dirouttag)+filename;
 		if(flagMC05) outname.ReplaceAll("McPt02","McPtRC02MC05");
 		if(smooth) outname.ReplaceAll(".root","_smooth.root");
 		TFile *fout = new TFile(outname,"RECREATE");
@@ -790,20 +829,20 @@ void plothrecoWunfolderr(TString filename="Unfolding_TranPtAveJPCharged_NFWeight
 
 
 //------------------------------------------------------------------------------------
-void plothrecoWunfolderr_tag(TString Variable="TranPtAve",TString filetag = "NFWeight_BT170928_RcVzW_12JetBinv2_McPt02", bool flagMC05=false, bool smooth=false) {
+void plothrecoWunfolderr_Add50EtCutSErr_tag(TString Variable="TranPtAve",TString filetag = "NFWeight_BT170928_RcVzW_12JetBinv2_McPt02", bool flagMC05=false, bool smooth=false) {
 	TString filename = "Unfolding_"+Variable+"JPCharged_"+filetag+"_embedMB_Baye5.root";
-	plothrecoWunfolderr(filename, flagMC05, smooth);
+	plothrecoWunfolderr_Add50EtCutSErr(filename, flagMC05, smooth);
 }
 void runall() {
-	plothrecoWunfolderr_tag("TranTotNtrk");
-	plothrecoWunfolderr_tag("TranPtAve");
-	plothrecoWunfolderr_tag("LeadAreaNtrk");
-	plothrecoWunfolderr_tag("LeadPtAve");
-	plothrecoWunfolderr_tag("SubAreaNtrk");
-	plothrecoWunfolderr_tag("SubPtAve");
-	plothrecoWunfolderr_tag("TranTotPtSum");
-	plothrecoWunfolderr_tag("LeadAreaPtSum");
-	plothrecoWunfolderr_tag("SubAreaPtSum");
+	plothrecoWunfolderr_Add50EtCutSErr_tag("TranTotNtrk");
+	plothrecoWunfolderr_Add50EtCutSErr_tag("TranPtAve");
+	plothrecoWunfolderr_Add50EtCutSErr_tag("LeadAreaNtrk");
+	plothrecoWunfolderr_Add50EtCutSErr_tag("LeadPtAve");
+	plothrecoWunfolderr_Add50EtCutSErr_tag("SubAreaNtrk");
+	plothrecoWunfolderr_Add50EtCutSErr_tag("SubPtAve");
+	plothrecoWunfolderr_Add50EtCutSErr_tag("TranTotPtSum");
+	plothrecoWunfolderr_Add50EtCutSErr_tag("LeadAreaPtSum");
+	plothrecoWunfolderr_Add50EtCutSErr_tag("SubAreaPtSum");
 }
 
 
